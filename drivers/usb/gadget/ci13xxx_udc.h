@@ -168,6 +168,9 @@ struct ci13xxx {
 	int                        vbus_active; /* is VBUS active */
 	int                        softconnect; /* is pull-up enable allowed */
 	unsigned long dTD_update_fail_count;
+	bool                      skip_flush; /* skip flushing remaining EP
+											upon flush timeout for the
+											first EP. */
 	struct usb_phy            *transceiver; /* Transceiver struct */
 };
 
