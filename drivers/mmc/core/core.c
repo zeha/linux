@@ -3031,7 +3031,8 @@ int mmc_suspend_host(struct mmc_host *host)
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
-				if (mmc_card_doing_bkops(host->card)) {
+                if (host->card &&
+					mmc_card_doing_bkops(host->card))  {
 					err = mmc_stop_bkops(host->card);
 					if (err)
 						goto stop_bkops_err;
