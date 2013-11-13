@@ -3684,8 +3684,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 		void __iomem *regs)
 {
 	struct ci13xxx *udc;
-	struct ci13xxx_platform_data *pdata =
-		(struct ci13xxx_platform_data *)(dev->platform_data);
+	struct ci13xxx_platform_data *pdata;
 	int retval = 0, i;
 
 	trace("%p, %p, %p", dev, regs, driver->name);
@@ -3697,6 +3696,8 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	udc = kzalloc(sizeof(struct ci13xxx), GFP_KERNEL);
 	if (udc == NULL)
 		return -ENOMEM;
+
+	pdata = (struct ci13xxx_platform_data *)(dev->platform_data);
 
 	udc->lock = &udc_lock;
 	udc->regs = regs;
