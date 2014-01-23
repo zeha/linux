@@ -818,7 +818,7 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 		return;
 	}
 
-	if (atomic_inc_return(&dev->notify_count) != 1) {
+	if (++dev->notify_count != 1) {
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return;
 	}
