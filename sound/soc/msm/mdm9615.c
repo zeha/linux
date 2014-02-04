@@ -2696,6 +2696,9 @@ static int mdm9615_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 static int mdm9615_ar7_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+
 	pr_info("%s\n", __func__ );
 	pr_debug("%s(): substream = %s\n", __func__, substream->name);
 	
@@ -2711,7 +2714,22 @@ static int mdm9615_ar7_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 		msm9615_config_sif_mux(MSM_SIF_FUNC_PCM);
 		msm9615_config_port_select();
 	}
+
+	mdm9615_ar7_enable_codec_ext_clk(codec, 1, true);
+
 	return 0;
+}
+
+static void mdm9615_ar7_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+
+	pr_debug("%s(): substream = %s\n", __func__, substream->name);
+	if (atomic_dec_return(&msm9615_sec_auxpcm_ref) == 0)
+		mdm9615_sec_aux_pcm_free_gpios();
+
+	mdm9615_ar7_enable_codec_ext_clk(codec, 0, true);
 }
 
 #endif
@@ -2745,7 +2763,7 @@ static struct snd_soc_ops mdm9615_auxpcm_be_ops = {
 #if defined(CONFIG_SIERRA)
 static struct snd_soc_ops mdm9615_ar7_sec_auxpcm_be_ops = {
 	.startup = mdm9615_ar7_sec_auxpcm_startup,
-	.shutdown = mdm9615_sec_auxpcm_shutdown,
+	.shutdown = mdm9615_ar7_sec_auxpcm_shutdown,
 };
 #endif
 /* SWISTOP */
