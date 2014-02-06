@@ -319,6 +319,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
         },
     },
 #else /* CONFIG_SIERRA_AR7 */
+/* SWISTART */
+#if 0
 	{
 		/* GPIO 19 can be used for I2C/UART on GSBI5 */
 		.gpio      = 19,	/* GSBI3 QUP SPI_CS_1 */
@@ -326,6 +328,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi3_cs1_config,
 		},
 	},
+#endif
+/* SWISTOP */
 #endif /* CONFIG_SIERRA_AR7 */
 };
 
