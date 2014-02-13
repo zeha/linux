@@ -1050,7 +1050,7 @@ void msm9615_pm8xxx_gpio_mpp_init_vddmin(void)
 
   /* MC7304 DV2 and onward reuses MC7305 HW, which define MPP_02 as Ref Volt of
 USB_DP, while MC7304 DV1 and other products all use MPP_01 for this purpose */
-	if ((hwtype == BSMC7804) && (hwrev != BSHWDV1))
+	if ((hwtype == BSMC7304) && (hwrev != BSHWDV1))
 	{
 		msm_otg_pdata.vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);
 		vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);

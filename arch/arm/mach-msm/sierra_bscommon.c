@@ -52,6 +52,7 @@ static ssize_t bsreadhwconfig(void)
   struct bcboottoappmsg *mp = (struct bcboottoappmsg *)BS_BOOT_APP_MSG_START;
   return mp->hwconfig;
 }
+
 /************
  *
  * Name:     bsreadboottoappflag
@@ -60,7 +61,7 @@ static ssize_t bsreadhwconfig(void)
  *
  * Parms:    none
  *
- * Return:   uint32 bitmask of flags
+ * Return:   uint32 bitmask of flags 
  *
  * Abort:    none
  *
@@ -204,10 +205,10 @@ bool bssupport(
         case BSEM7305:
         case BSMC8805:
         case BSEM8805:
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
           supported = true;
           break;
 
@@ -293,10 +294,10 @@ bool bssupport(
         case BSEM7305:
         case BSMC8805:
         case BSEM8805:
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
           supported = true;
           break;
 
@@ -341,10 +342,10 @@ bool bssupport(
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
         case BSWP7104_LARGER_MEMORY:                  
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW: 
@@ -360,8 +361,8 @@ bool bssupport(
     case BSFEATURE_HSUPA:
       switch (hwtype)
       {
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
           supported = false;
           break;
 
@@ -381,9 +382,9 @@ bool bssupport(
         case BSEM7655:
         case BSMC8805:
         case BSEM8805:
-        case BSMC7800:
+        case BSMC7350:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
           supported = true;
           break;
 
@@ -446,10 +447,10 @@ bool bssupport(
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:        
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW:       
@@ -477,10 +478,10 @@ bool bssupport(
         case BSEM7655:
         case BSMC8805:
         case BSEM8805:
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
         case BSMC7802:
-        case BSMC7804:
+        case BSMC7304:
           supported = true;
           break;
 
@@ -500,7 +501,7 @@ bool bssupport(
         case BSAR7550_LARGER_MEMORY:        
         case BSWP7100:
         case BSWP7100_LARGER_MEMORY:        
-        case BSMC7800:
+        case BSMC7350:
         case BSWP7100_NEW:
           supported = true;
           break;
@@ -514,8 +515,8 @@ bool bssupport(
     case BSFEATURE_GSM:
       switch (hwtype)
       {
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
           supported = false;
           break;
 
@@ -528,8 +529,8 @@ bool bssupport(
     case BSFEATURE_WCDMA:
       switch (hwtype)
       {
-        case BSMC7800:
-        case BSMC7800LO:
+        case BSMC7350:
+        case BSMC7350L:
           supported = false;
           break;
 

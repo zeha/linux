@@ -42,10 +42,10 @@
  *           BSWP7100_INSIM    - WP7100 (with In-SIM)
  *           BSWP7102_INSIM    - WP7102 (with In-SIM)
  *           BSWP7104_INSIM    - WP7104 (with In-SIM)
- *           BSMC7800    - MiniCard 7800 (for Verizon & Sprint)
- *           BSMC7800LO  - MiniCard 7800 LTE Only (for Verizon)
+ *           BSMC7350    - MiniCard 7350 (for Verizon & Sprint)
+ *           BSMC7350L   - MiniCard 7350 LTE Only (for Verizon)
  *           BSMC7802    - MiniCard 7802 (for AT&T)
- *           BSMC7804    - MiniCard 7804 (for EU)
+ *           BSMC7304    - MiniCard 7304 (for EU)
  *           BSWP7100_LARGER_MEMORY    - WP7100 (with Larger Memory Design)
  *           BSWP7102_LARGER_MEMORY    - WP7102 (with Larger Memory Design)
  *           BSWP7104_LARGER_MEMORY    - WP7104 (with Larger Memory Design)
@@ -92,10 +92,10 @@ enum bshwtype
   BSWP7100_INSIM,   /* this is kept to align with BS_QFPROM_PROD_ID */
   BSWP7102_INSIM,   /* this is kept to align with BS_QFPROM_PROD_ID */
   BSWP7104_INSIM,   /* this is kept to align with BS_QFPROM_PROD_ID */
-  BSMC7800,
-  BSMC7800LO,
+  BSMC7350,
+  BSMC7350L,
   BSMC7802,
-  BSMC7804,
+  BSMC7304,
   BSWP7100_LARGER_MEMORY,
   BSWP7102_LARGER_MEMORY,
   BSWP7104_LARGER_MEMORY, 
@@ -205,7 +205,7 @@ enum bshwrev
  *           BSFEATURE_LTE       - if the hardware supports LTE
  *           BSFEATURE_EM        - if device is EM product
  *           BSFEATURE_SVC_PIN_DLOAD - if service pin for DL mode is supported
- *           BSFEATURE_BUZZER    - if the hardware supports Buzzer  
+ *           BSFEATURE_BUZZER    - if the hardware supports Buzzer
  *           BSFEATURE_MAX       - Used for bounds checking
  *
  * Notes:    None
@@ -234,7 +234,7 @@ enum bsfeature
   BSFEATURE_LTE,
   BSFEATURE_EM,
   BSFEATURE_SVC_PIN_DLOAD,
-  BSFEATURE_BUZZER,  
+  BSFEATURE_BUZZER,
   BSFEATURE_MAX
 };
 
