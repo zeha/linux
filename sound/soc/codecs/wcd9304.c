@@ -563,6 +563,10 @@ static const struct snd_kcontrol_new sitar_snd_controls[] = {
 
 	SOC_SINGLE("RX1 HPF Switch", SITAR_A_CDC_RX1_B5_CTL, 2, 1, 0),
 
+	SOC_SINGLE("DEC1 Volume Switch", SITAR_A_CDC_TX1_VOL_CTL_CFG, 0, 1, 0),
+
+	SOC_SINGLE("ADC1 Volume Switch", SITAR_A_TX_1_2_EN, 7, 1, 0),
+
 	SOC_ENUM("RX1 HPF cut off", cf_rxmix1_enum),
 
 	SOC_SINGLE_EXT("IIR1 Enable Band1", IIR1, BAND1, 1, 0,
