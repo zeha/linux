@@ -425,6 +425,24 @@ static void gsmd_write_complete(struct usb_ep *ep, struct usb_request *req)
 				__func__, port, port->port_num,
 				ep->name, req->status);
 
+/* SWISTART */
+/* QCT case 01296895 to fix the issue that AT port hang when output 
+ * bytes is multiple of 512 bytes
+ */
+#ifdef CONFIG_SIERRA
+    if (!req->status) {
+        if ((req->length >= ep->maxpacket) &&
+            ((req->length % ep->maxpacket) == 0)) {
+            req->length = 0;
+            /* Queue zero length packet */
+            usb_ep_queue(port->port_usb->in, req, GFP_ATOMIC);
+            spin_unlock(&port->port_lock);
+            return;
+        }
+    }
+#endif
+/* SWISTOP */
+
 	list_add(&req->list, &port->write_pool);
 	queue_work(gsmd_wq, &port->pull);
 	spin_unlock(&port->port_lock);
