@@ -706,50 +706,6 @@ static int mdm9615_mclk_event(struct snd_soc_dapm_widget *w,
 
 /* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
-static int mdm9615_wp7_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
-					bool dapm)
-{
-	pr_debug("%s: enable = %d\n", __func__, enable);
-	if (enable) {
-		clk_users++;
-		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
-		if (clk_users != 1)
-			return 0;
-		if (IS_ERR(codec_clk)) {
-
-			pr_err("%s: Error setting MCLK\n", __func__);
-			clk_users--;
-			return -EINVAL;
-		}
-		clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
-		clk_prepare_enable(codec_clk);
-	} else {
-		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
-		if (clk_users == 0)
-			return 0;
-		clk_users--;
-		if (!clk_users) {
-			pr_debug("%s: disabling clk_users = %d\n",
-					 __func__, clk_users);
-			clk_disable_unprepare(codec_clk);
-		}
-	}
-	return 0;
-}
-
-static int mdm9615_wp7_mclk_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
-{
-	pr_debug("%s: event = %d\n", __func__, event);
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		return mdm9615_wp7_enable_codec_ext_clk(w->codec, 1, true);
-	case SND_SOC_DAPM_POST_PMD:
-		return mdm9615_wp7_enable_codec_ext_clk(w->codec, 0, true);
-	}
-	return 0;
-}
 static int mdm9615_ar7_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
@@ -825,16 +781,6 @@ static const struct snd_soc_dapm_widget mdm9615_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
 
 };
-
-/* SWISTART */
-#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
-static const struct snd_soc_dapm_widget mdm9615_wp7_dapm_widgets[] = {
-
-	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
-	mdm9615_wp7_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-};
-#endif
-/* SWISTOP */
 
 static const struct snd_soc_dapm_route common_audio_map[] = {
 /* SWISTART */
@@ -2196,7 +2142,11 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 		pr_err("%s: Err in i2s_intf_dir_sel\n", __func__);
 		return -EINVAL;
 	}
-
+/* SWISTART */
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+	mdm9615_ar7_enable_codec_ext_clk(rtd->codec, 1, true);
+#endif
+/* SWISTOP */
 	pr_debug("Exit %s() Enable status Rx =%d Tx = %d\n", __func__,
 		 pintf->intf_status[i2s_intf][MSM_DIR_RX],
 		 pintf->intf_status[i2s_intf][MSM_DIR_TX]);
@@ -2227,7 +2177,11 @@ static void msm9615_i2s_shutdown(struct snd_pcm_substream *substream)
 		pintf->intf_status[i2s_intf][i2s_dir]--;
 		mdm9615_i2s_free_gpios(i2s_intf, i2s_dir);
 	}
-
+/* SWISTART */
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+	mdm9615_ar7_enable_codec_ext_clk(rtd->codec, 0, true);
+#endif
+/* SWISTOP */
 	pr_debug("%s( ): Enable status Rx =%d Tx = %d\n", __func__,
 		 pintf->intf_status[i2s_intf][MSM_DIR_RX],
 		 pintf->intf_status[i2s_intf][MSM_DIR_TX]);
