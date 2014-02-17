@@ -1707,13 +1707,12 @@ static struct clk_lookup msm_clocks_9615[] = {
 			   "msm-dai-q6.5"),
 /* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
-	CLK_LOOKUP("osr_clk",		codec_i2s_mic_osr_clk.c,
-			   "msm-dai-q6.5"),
-#else
-	CLK_LOOKUP("osr_clk",		spare_i2s_mic_osr_clk.c,
+	CLK_LOOKUP("sec_osr_clk",	codec_i2s_mic_osr_clk.c,
 			   "msm-dai-q6.5"),
 #endif
 /* SWISTOP */
+	CLK_LOOKUP("osr_clk",		spare_i2s_mic_osr_clk.c,
+			   "msm-dai-q6.5"),
 	CLK_LOOKUP("bit_clk",		codec_i2s_spkr_bit_clk.c,
 			   "msm-dai-q6.16384"),
 	CLK_LOOKUP("osr_clk",		codec_i2s_spkr_osr_clk.c,
@@ -1722,13 +1721,12 @@ static struct clk_lookup msm_clocks_9615[] = {
 			   "msm-dai-q6.4"),
 /* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
-	CLK_LOOKUP("osr_clk",		codec_i2s_spkr_osr_clk.c,
-			   "msm-dai-q6.4"),
-#else
-	CLK_LOOKUP("osr_clk",		spare_i2s_spkr_osr_clk.c,
+	CLK_LOOKUP("sec_osr_clk",	codec_i2s_spkr_osr_clk.c,
 			   "msm-dai-q6.4"),
 #endif
 /* SWISTOP */
+	CLK_LOOKUP("osr_clk",		spare_i2s_spkr_osr_clk.c,
+			   "msm-dai-q6.4"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.2"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.3"),
 	CLK_LOOKUP("sec_pcm_clk",	sec_pcm_clk.c,	"msm-dai-q6.12"),
