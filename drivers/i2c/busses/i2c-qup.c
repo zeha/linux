@@ -1094,7 +1094,16 @@ timeout_err:
 	dev->pos = 0;
 	dev->err = 0;
 	dev->cnt = 0;
+/* SWISTART */
+/* Change the inactivity timer period from 3 seconds to 10 milliseconds
+ * which allows the TCXO to shutdown faster
+ */
+#ifdef CONFIG_SIERRA
+    	dev->pwr_timer.expires = jiffies + (HZ/100);
+#else /* CONFIG_SIERRA */
 	dev->pwr_timer.expires = jiffies + 3*HZ;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	add_timer(&dev->pwr_timer);
 	mutex_unlock(&dev->mlock);
 	return ret;
