@@ -1706,7 +1706,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("bit_clk",		spare_i2s_mic_bit_clk.c,
 			   "msm-dai-q6.5"),
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	CLK_LOOKUP("osr_clk",		codec_i2s_mic_osr_clk.c,
 			   "msm-dai-q6.5"),
 #else
@@ -1721,7 +1721,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("bit_clk",		spare_i2s_spkr_bit_clk.c,
 			   "msm-dai-q6.4"),
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	CLK_LOOKUP("osr_clk",		codec_i2s_spkr_osr_clk.c,
 			   "msm-dai-q6.4"),
 #else
