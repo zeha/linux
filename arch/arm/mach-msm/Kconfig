@@ -2856,6 +2856,17 @@ config SIERRA_ANT_DETECTION
 	help
 	  Sierra antenna detection
 
+config SIERRA_I2C_INF 
+	depends on ARCH_MSM9615
+	bool "MSM9615 SIERRA"
+	help
+	  Sierra i2c inf 
+
+config SIERRA_SPI_INF 
+	depends on ARCH_MSM9615
+	bool "MSM9615 SIERRA"
+	help
+	  Sierra spi inf 
 #SWISTOP
 
 config MSM_CACHE_DUMP_ON_PANIC
