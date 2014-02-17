@@ -946,6 +946,113 @@ static int wcd9xxx_slim_remove(struct slim_device *pdev)
 	return 0;
 }
 
+/* SWISTART - This is SIERRA temp solution, case 01408543 tracking this issue, desire QC CR */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
+static int wcd9xxx_resume(struct wcd9xxx *wcd9xxx, struct wcd9xxx_pdata *codec_pdata)
+{
+	int ret = 0;
+
+	pr_debug("%s: enter\n", __func__);
+	mutex_lock(&wcd9xxx->pm_lock);
+	if (wcd9xxx->pm_state == WCD9XXX_PM_ASLEEP) {
+		pr_debug("%s: resuming system, state %d, wlock %d\n", __func__,
+			 wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
+		
+		pr_info("%s: wcd9xxx_enable_supplies \n", __func__);
+			 wcd9xxx_enable_supplies(wcd9xxx, codec_pdata);
+		
+	} else {
+		pr_warn("%s: system is already awake, state %d wlock %d\n",
+			__func__, wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+	}
+	mutex_unlock(&wcd9xxx->pm_lock);
+	wake_up_all(&wcd9xxx->pm_wq);
+
+	return ret;
+}
+
+static int wcd9xxx_slim_resume(struct slim_device *sldev)
+{
+	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);	
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+	
+	return wcd9xxx_resume(wcd9xxx, pdata);
+}
+
+static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
+{
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
+	struct wcd9xxx_pdata *pdata = i2cdev->dev.platform_data;
+	if (wcd9xxx)
+		return wcd9xxx_resume(wcd9xxx, pdata);
+	else
+		return 0;
+}
+
+static int wcd9xxx_suspend(struct wcd9xxx *wcd9xxx, pm_message_t pmesg, struct wcd9xxx_pdata *codec_pdata)
+{
+	int ret = 0;
+
+	pr_debug("%s: enter\n", __func__);
+	/* wake_lock() can be called after this suspend chain call started.
+	 * thus suspend can be called while wlock is being held */
+	mutex_lock(&wcd9xxx->pm_lock);
+	if (wcd9xxx->pm_state == WCD9XXX_PM_SLEEPABLE) {
+		pr_debug("%s: suspending system, state %d, wlock %d\n",
+			 __func__, wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+		wcd9xxx->pm_state = WCD9XXX_PM_ASLEEP;
+		pr_info("%s: wcd9xxx_disable_supplies \n", __func__);
+		wcd9xxx_disable_supplies(wcd9xxx, codec_pdata);
+	} else if (wcd9xxx->pm_state == WCD9XXX_PM_AWAKE) {
+		/* unlock to wait for pm_state == WCD9XXX_PM_SLEEPABLE
+		 * then set to WCD9XXX_PM_ASLEEP */
+		pr_debug("%s: waiting to suspend system, state %d, wlock %d\n",
+			 __func__, wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+		mutex_unlock(&wcd9xxx->pm_lock);
+		if (!(wait_event_timeout(wcd9xxx->pm_wq,
+					 wcd9xxx_pm_cmpxchg(wcd9xxx,
+						  WCD9XXX_PM_SLEEPABLE,
+						  WCD9XXX_PM_ASLEEP) ==
+							WCD9XXX_PM_SLEEPABLE,
+					 HZ))) {
+			pr_debug("%s: suspend failed state %d, wlock %d\n",
+				 __func__, wcd9xxx->pm_state,
+				 wcd9xxx->wlock_holders);
+			ret = -EBUSY;
+		} else {
+    		pr_info("%s: wcd9xxx_disable_supplies \n", __func__);
+    		wcd9xxx_disable_supplies(wcd9xxx, codec_pdata);
+			pr_debug("%s: done, state %d, wlock %d\n", __func__,
+				 wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+		}
+		mutex_lock(&wcd9xxx->pm_lock);
+	} else if (wcd9xxx->pm_state == WCD9XXX_PM_ASLEEP) {
+		pr_warn("%s: system is already suspended, state %d, wlock %dn",
+			__func__, wcd9xxx->pm_state, wcd9xxx->wlock_holders);
+	}
+	mutex_unlock(&wcd9xxx->pm_lock);
+
+	return ret;
+}
+
+static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
+{
+	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+	return wcd9xxx_suspend(wcd9xxx, pmesg, pdata);
+}
+
+static int wcd9xxx_i2c_suspend(struct i2c_client *i2cdev, pm_message_t pmesg)
+{
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
+	struct wcd9xxx_pdata *pdata = i2cdev->dev.platform_data;
+	if (wcd9xxx)
+		return wcd9xxx_suspend(wcd9xxx, pmesg, pdata);
+	else
+		return 0;
+}
+#else
 static int wcd9xxx_resume(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -1037,6 +1144,8 @@ static int wcd9xxx_i2c_suspend(struct i2c_client *i2cdev, pm_message_t pmesg)
 	else
 		return 0;
 }
+#endif
+/* SWISTOP */
 
 static const struct slim_device_id sitar_slimtest_id[] = {
 	{"sitar-slim", 0},
