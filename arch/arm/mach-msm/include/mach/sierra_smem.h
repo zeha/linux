@@ -20,7 +20,8 @@
 #include <mach/msm_iomap.h>
 #include <asm/stacktrace.h>
 
-#define SIERRA_SMEM_SIZE               0x5000     /* same as BSRAM_SIZE_SMI */
+#define BS_SECURE_RAM_SIZE             0x6000
+#define SIERRA_SMEM_SIZE               (0x5000 + BS_SECURE_RAM_SIZE)
 #define SIERRA_SMEM_BASE               (MSM_SHARED_RAM_BASE + MSM_SHARED_RAM_SIZE - SIERRA_SMEM_SIZE)
 /* this is actually BS_ER_ABORT_DATA_MODEM_START */
 #define SIERRA_SMEM_ERR_DUMP_START     (SIERRA_SMEM_BASE + SIERRA_SMEM_SIZE - 0x1828)
