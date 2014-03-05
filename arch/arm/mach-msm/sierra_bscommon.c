@@ -201,6 +201,7 @@ bool bssupport(
         case BSMC7355:
         case BSEM7355:
         case BSEM7655:
+        case BSMC7354:
         case BSMC7305:
         case BSEM7305:
         case BSMC8805:
@@ -218,6 +219,23 @@ bool bssupport(
       }
       break;
 
+    case BSFEATURE_MINICARD_M2M:
+      switch (hwtype)
+      {
+        case BSMC7802:
+        case BSMC7354:
+        case BSMC7350:
+        case BSMC7350L:
+        case BSMC7330:
+        case BSMC7304:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
     case BSFEATURE_USB:
       switch (hwtype)
       {
@@ -290,6 +308,7 @@ bool bssupport(
         case BSMC7355:
         case BSEM7355:
         case BSEM7655:
+        case BSMC7354:
         case BSMC7305:
         case BSEM7305:
         case BSMC8805:
@@ -341,7 +360,8 @@ bool bssupport(
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:                  
+        case BSWP7104_LARGER_MEMORY:
+        case BSMC7354:
         case BSMC7350:
         case BSMC7350L:
         case BSMC7802:
@@ -377,6 +397,7 @@ bool bssupport(
       {
         case BSMC7355:
         case BSEM7355:
+        case BSMC7354:
         case BSMC7305:
         case BSEM7305:
         case BSEM7655:
@@ -431,6 +452,7 @@ bool bssupport(
         case BSMC7355:
         case BSEM7355:
         case BSEM7655:
+        case BSMC7354:
         case BSMC7305:
         case BSEM7305:
         case BSMC8805:
@@ -473,6 +495,7 @@ bool bssupport(
       {
         case BSMC7355:
         case BSEM7355:
+        case BSMC7354:
         case BSMC7305:
         case BSEM7305:
         case BSEM7655:
@@ -497,6 +520,7 @@ bool bssupport(
         case BSMC7355:
         case BSEM7355:
         case BSEM7655:
+        case BSMC7354:
         case BSAR7550:
         case BSAR7550_LARGER_MEMORY:        
         case BSWP7100:

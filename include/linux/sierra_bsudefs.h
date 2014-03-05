@@ -59,7 +59,8 @@
  *           BSAR7554_LARGER_MEMORY    - Automotive 7554 (with Larger Memory Design) 
  *           BSWP7100_NEW    - WP7100 with large memory and share same PCB with BSAR7550_LARGER_MEMORY
  *           BSWP7102_NEW    - WP7100 with large memory and share same PCB with BSAR7552_LARGER_MEMORY 
- *           BSWP7104_NEW    - WP7100 with large memory and share same PCB with BSAR7554_LARGER_MEMORY              
+ *           BSWP7104_NEW    - WP7100 with large memory and share same PCB with BSAR7554_LARGER_MEMORY
+ *           BSMC7354    - MiniCard 7354              
  *           BSHWUNKNOWN - Unknown HW
  *           BSHWINVALID - Invalid HW
  *
@@ -110,6 +111,7 @@ enum bshwtype
   BSWP7100_NEW,
   BSWP7102_NEW,
   BSWP7104_NEW,  
+  BSMC7354,                 /* MiniCard 7354 */
   BSHWUNKNOWN,
   BSHWINVALID = 0xFF
 };
@@ -185,6 +187,7 @@ enum bshwrev
  * Purpose:  Enumerated list of different features supported by different hardware variants
  *
  * Members:  BSFEATURE_MINICARD  - if the hardware is a MiniCard
+ *           BSFEATURE_MINICARD_M2M - if the HW support MC M2M features
  *           BSFEATURE_USB       - if the hardware is a USB dongle
  *           BSFEATURE_MHS       - if the hardware is a Mobile Hotspot product
  *           BSFEATURE_AR        - if the hardware is an AR product
@@ -214,6 +217,7 @@ enum bshwrev
 enum bsfeature
 {
   BSFEATURE_MINICARD,
+  BSFEATURE_MINICARD_M2M,
   BSFEATURE_USB,
   BSFEATURE_MHS,
   BSFEATURE_AR,
