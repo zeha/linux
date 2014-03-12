@@ -1682,7 +1682,7 @@ static int mdm9615_ar7_sec_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	msm_gpiomux_install(msm9615_audio_sec_i2s_codec_configs,
 				ARRAY_SIZE(msm9615_audio_sec_i2s_codec_configs));
 
-	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+	codec_clk = clk_get(cpu_dai->dev, "sec_osr_clk");
 
 	return 0;
 }
@@ -2861,6 +2861,46 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "CS-VOICE HOST RX CAPTURE",
+		.stream_name = "CS-VOICE HOST RX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST RX PLAYBACK",
+		.stream_name = "CS-VOICE HOST RX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST TX CAPTURE",
+		.stream_name = "CS-VOICE HOST TX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST TX PLAYBACK",
+		.stream_name = "CS-VOICE HOST TX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
 
 	/* Backend BT DAI Links */
 	{
@@ -3215,6 +3255,46 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "CS-VOICE HOST RX CAPTURE",
+		.stream_name = "CS-VOICE HOST RX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST RX PLAYBACK",
+		.stream_name = "CS-VOICE HOST RX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST TX CAPTURE",
+		.stream_name = "CS-VOICE HOST TX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST TX PLAYBACK",
+		.stream_name = "CS-VOICE HOST TX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
 	
 	/* Backend AFE DAI Links */
 	{
@@ -3457,6 +3537,46 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.platform_name  = "msm-pcm-dtmf",
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST RX CAPTURE",
+		.stream_name = "CS-VOICE HOST RX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST RX PLAYBACK",
+		.stream_name = "CS-VOICE HOST RX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST TX CAPTURE",
+		.stream_name = "CS-VOICE HOST TX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST TX PLAYBACK",
+		.stream_name = "CS-VOICE HOST TX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
 		.ignore_suspend = 1,
 	},
 	
