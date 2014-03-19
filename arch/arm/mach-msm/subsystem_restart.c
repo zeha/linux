@@ -464,7 +464,11 @@ int subsystem_restart(const char *subsys_name)
 		pr_warn("Unregistered subsystem %s!\n", subsys_name);
 		return -EINVAL;
 	}
-
+	
+/* SWISTART */
+/*added this just for debug,the really patch need more debug*/
+        panic_timeout = 5;
+/*SWISTOP*/ 
 	switch (restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
