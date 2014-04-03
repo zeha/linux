@@ -570,6 +570,26 @@ bool bssupport(
       }
       break;
 
+    case BSFEATURE_GPSSEL:
+      switch (hwtype)
+      {
+        case BSEM7305:
+        case BSMC7305:
+        case BSEM7330:
+        case BSMC7330:
+        case BSEM7355:
+        case BSMC7355:
+        case BSEM7655:
+        case BSMC7371:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
     case BSFEATURE_SVC_PIN_DLOAD:
       switch (hwtype)
       {
@@ -610,6 +630,37 @@ bool bssupport(
           supported = true;
           break;
           
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_SIMHOTSWAP:
+      switch (hwtype)
+      {
+        case BSEM7355:
+        case BSEM7305:
+        case BSEM8805:
+        case BSEM7330:
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:
+          supported = true;
+          break;
+
         default:
           supported = false;
           break;

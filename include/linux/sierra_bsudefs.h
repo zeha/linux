@@ -209,8 +209,10 @@ enum bshwrev
  *           BSFEATURE_WCDMA     - if the hardware supports WCDMA
  *           BSFEATURE_LTE       - if the hardware supports LTE
  *           BSFEATURE_EM        - if device is EM product
+ *           BSFEATURE_GPSSEL    - if GPS antenna selection is supported
  *           BSFEATURE_SVC_PIN_DLOAD - if service pin for DL mode is supported
  *           BSFEATURE_BUZZER    - if the hardware supports Buzzer
+ *           BSFEATURE_SIMHOTSWAP - if the hardware supports SIM detection via GPIO
  *           BSFEATURE_MAX       - Used for bounds checking
  *
  * Notes:    None
@@ -239,8 +241,10 @@ enum bsfeature
   BSFEATURE_WCDMA,
   BSFEATURE_LTE,
   BSFEATURE_EM,
+  BSFEATURE_GPSSEL,
   BSFEATURE_SVC_PIN_DLOAD,
   BSFEATURE_BUZZER,
+  BSFEATURE_SIMHOTSWAP,
   BSFEATURE_MAX
 };
 
