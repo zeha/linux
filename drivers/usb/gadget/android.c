@@ -2383,11 +2383,10 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f_holder, &conf->enabled_functions,
-						enabled_list) {
-				if (f_holder->f->enable)
-					f_holder->f->enable(f_holder->f);
-			}
+			if (usb_add_config(cdev, &conf->usb_config,
+							android_bind_config))
+				return size;
+
 		android_enable(dev);
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
