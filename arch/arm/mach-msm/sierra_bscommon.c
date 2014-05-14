@@ -499,6 +499,7 @@ bool bssupport(
         case BSMC7354:
         case BSAR7550:
         case BSAR7550_LARGER_MEMORY:        
+        case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7100_LARGER_MEMORY:        
         case BSMC7350:
@@ -649,6 +650,7 @@ bool bssupport(
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
