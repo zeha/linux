@@ -504,6 +504,9 @@ static CLK_GSBI_UART(gsbi5_uart,   5, CLK_HALT_CFPB_STATEB_REG, 22);
 static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 	F_GSBI_QUP(       0, gnd,  1, 0,  0),
 	F_GSBI_QUP(  960000, cxo,  4, 1,  5),
+#ifdef CONFIG_SIERRA_SPI_INF
+	F_GSBI_QUP( 4000000, pll8, 4, 1, 24),
+#endif
 	F_GSBI_QUP( 4800000, cxo,  4, 0,  1),
 	F_GSBI_QUP( 9600000, cxo,  2, 0,  1),
 	F_GSBI_QUP(15058800, pll8, 1, 2, 51),

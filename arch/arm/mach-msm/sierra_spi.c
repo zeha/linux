@@ -71,7 +71,7 @@ struct swi_spidev_data  *swi_spidev;
 struct msm_spi    *dd;
 
 /*this table is same with the freq table in clock-9615.c*/
-static unsigned int gsbi_qup_clk_table[] = {0,960000,4800000,9600000,
+static unsigned int gsbi_qup_clk_table[] = {0,960000,4000000,4800000,9600000,
                                             15058800,24000000,25600000,
                                             48000000,51200000};
 
