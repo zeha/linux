@@ -551,6 +551,7 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 		return;
 	}
 	clk_disable(mehci->core_clk);
+	clk_disable(mehci->alt_core_clk);
 
 	ret = clk_reset(mehci->core_clk, CLK_RESET_DEASSERT);
 	if (ret)
@@ -559,6 +560,7 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 	usleep_range(10000, 12000);
 
 	clk_enable(mehci->core_clk);
+	clk_enable(mehci->alt_core_clk);
 }
 
 #define HSIC_STROBE_GPIO_PAD_CTL	(MSM_TLMM_BASE+0x20C0)
@@ -719,6 +721,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	clk_disable_unprepare(mehci->phy_clk);
 	clk_disable_unprepare(mehci->cal_clk);
 	clk_disable_unprepare(mehci->ahb_clk);
+	clk_disable_unprepare(mehci->alt_core_clk);
 
 	none_vol = vdd_val[mehci->vdd_type][VDD_NONE];
 	max_vol = vdd_val[mehci->vdd_type][VDD_MAX];
@@ -807,6 +810,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	clk_prepare_enable(mehci->phy_clk);
 	clk_prepare_enable(mehci->cal_clk);
 	clk_prepare_enable(mehci->ahb_clk);
+	clk_prepare_enable(mehci->alt_core_clk);
 
 	temp = readl_relaxed(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
@@ -1302,6 +1306,7 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	clk_prepare_enable(mehci->phy_clk);
 	clk_prepare_enable(mehci->cal_clk);
 	clk_prepare_enable(mehci->ahb_clk);
+	clk_prepare_enable(mehci->alt_core_clk);
 
 	return 0;
 
@@ -1311,6 +1316,7 @@ put_clocks:
 		clk_disable_unprepare(mehci->phy_clk);
 		clk_disable_unprepare(mehci->cal_clk);
 		clk_disable_unprepare(mehci->ahb_clk);
+		clk_disable_unprepare(mehci->alt_core_clk);
 	}
 	clk_put(mehci->ahb_clk);
 put_cal_clk:
