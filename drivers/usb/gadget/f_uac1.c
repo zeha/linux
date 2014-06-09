@@ -633,7 +633,11 @@ static void f_audio_complete(struct usb_ep *ep, struct usb_request *req)
 		}
 		break;
 	default:
+		/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */
+		#ifndef CONFIG_SIERRA_USB_COMP
 		pr_err("Failed completion: status %d", status);
+		#endif
+		/* SWISTOP */
 		break;
 	}
 }
@@ -912,13 +916,20 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	unsigned long flags;
 	int i = 0, err = 0;
 
-	pr_debug("intf %d, alt %d\n", intf, alt);
-
+	/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */
+	#ifndef CONFIG_SIERRA_USB_COMP
+	pr_info("intf %d, alt %d\n", intf, alt);
+	#endif
+	/* SWISTOP */
 	if (intf == ac_header_desc.baInterfaceNr[0]) {
 		if (alt == 1) {
 			err = usb_ep_enable(in_ep);
 			if (err) {
+				/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */	
+				#ifndef CONFIG_SIERRA_USB_COMP
 				pr_err("Failed to enable capture ep");
+				#endif
+				/* SWISTOP */
 				return err;
 			}
 			in_ep->driver_data = audio;
@@ -965,7 +976,11 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (alt == 1) {
 			err = usb_ep_enable(out_ep);
 			if (err) {
+				/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */
+				#ifndef CONFIG_SIERRA_USB_COMP 
 				pr_err("Failed to enable playback ep");
+				#endif
+				/* SWISTOP */
 				return err;
 			}
 			out_ep->driver_data = audio;
@@ -1005,7 +1020,11 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			struct f_audio_buf *playback_copy_buf =
 				audio->playback_copy_buf;
 			if (playback_copy_buf) {
+ 				/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */
+				#ifndef CONFIG_SIERRA_USB_COMP
 				pr_err("Schedule playback_work");
+ 				#endif
+ 				/* SWISTOP */
 				list_add_tail(&playback_copy_buf->list,
 						&audio->play_queue);
 				schedule_work(&audio->playback_work);
