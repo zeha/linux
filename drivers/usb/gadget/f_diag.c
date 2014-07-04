@@ -246,7 +246,7 @@ static void diag_write_complete(struct usb_ep *ep,
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 
 	if (ctxt->ch && ctxt->ch->notify)
-		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_READ_DONE, d_req);
+		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_WRITE_DONE, d_req);
 
 }
 
