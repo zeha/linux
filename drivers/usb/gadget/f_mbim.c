@@ -493,6 +493,11 @@ struct ndp_parser_opts {
 static struct ndp_parser_opts ndp16_opts = INIT_NDP16_OPTS;
 static struct ndp_parser_opts ndp32_opts = INIT_NDP32_OPTS;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+static int swi_mtu = 0;
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
 static inline int mbim_lock(atomic_t *excl)
 {
 	if (atomic_inc_return(excl) == 1) {
@@ -1553,6 +1558,16 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	mbim->not_port.notify_req->context = mbim;
 	mbim->not_port.notify_req->complete = mbim_notify_complete;
 #endif /* !SIERRA or !FEATURE_MORPHING */
+/* SWISTOP */
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+    /* update MaxSegmentSize */
+    if(swi_mtu > 0)
+    {
+      mbb_desc.wMaxSegmentSize = cpu_to_le16(swi_mtu);  
+    }
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	/* copy descriptors, and track endpoint copies */

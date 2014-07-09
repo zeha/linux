@@ -2245,6 +2245,25 @@ static ssize_t usr_pid_store(struct device *pdev,
     }
 	return size;
 }
+
+static ssize_t swi_mtu_show(struct device *pdev,
+                            struct device_attribute *attr, char *buf)
+{
+  return snprintf(buf, PAGE_SIZE, "%d\n",swi_mtu);
+}
+
+static ssize_t swi_mtu_store(struct device *pdev,
+                             struct device_attribute *attr, const char *buff, size_t size)
+{
+  int mtu = 0;
+
+  sscanf(buff, "%d", &mtu);
+
+  pr_info("android_usb: MTU = %d\n",mtu);
+  swi_mtu = mtu;
+  return size;
+}
+
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -2553,6 +2572,8 @@ static DEVICE_ATTR(sd_en, S_IRUGO | S_IWUSR,
         sd_en_show, sd_en_store);
 static DEVICE_ATTR(usr_pid, S_IRUGO | S_IWUSR,
         usr_pid_show, usr_pid_store);
+static DEVICE_ATTR(swi_mtu, S_IRUGO | S_IWUSR,
+        swi_mtu_show, swi_mtu_store);
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -2575,6 +2596,7 @@ static struct device_attribute *android_usb_attributes[] = {
     &dev_attr_swoc_en,
     &dev_attr_sd_en,
     &dev_attr_usr_pid,
+    &dev_attr_swi_mtu,
 #endif
 /* SWISTOP */
 	&dev_attr_functions,
