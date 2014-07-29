@@ -776,7 +776,13 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 	return err;
 }
 
-static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
+/*******************************************************************************
+ * If ops->len and from_in do not start/end on ops->writesize boundaries, the 
+ * read will be stretched to read more data than necessary, and return to caller 
+ * only requested data. The reason is that NAND flash is most efficient when 
+ * reading/writing in opt->writesize data chunks.
+ ******************************************************************************/
+static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 			     struct mtd_oob_ops *ops)
 {
 	struct msm_nand_chip *chip = mtd->priv;
@@ -806,7 +812,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	uint32_t oob_len;
 	uint32_t sectordatasize;
 	uint32_t sectoroobsize;
-	int err, pageerr, rawerr;
+	int err = 0, pageerr, rawerr;
 	dma_addr_t data_dma_addr = 0;
 	dma_addr_t oob_dma_addr = 0;
 	dma_addr_t data_dma_addr_curr = 0;
@@ -818,14 +824,48 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	uint32_t ecc_errors;
 	uint32_t total_ecc_errors = 0;
 	unsigned cwperpage;
+
+	uint8_t	*ops_datbuf = ops->datbuf;
+	size_t ops_len = ops->len;
+	loff_t from = from_in;
+	uint32_t data_offset = 0;
+	uint8_t copy_buf = 0;
+
 #if VERBOSE
 	pr_info("================================================="
 			"================\n");
 	pr_info("%s:\nfrom 0x%llx mode %d\ndatbuf 0x%p datlen 0x%x"
 			"\noobbuf 0x%p ooblen 0x%x\n",
-			__func__, from, ops->mode, ops->datbuf, ops->len,
+			__func__, from, ops->mode, ops_datbuf, ops_len,
 			ops->oobbuf, ops->ooblen);
 #endif
+
+	/* Start read address must begin at writesize boundary. */
+	if (from & (mtd->writesize - 1)) {
+
+		/* Find nearest lower address which starts on writesize boundary
+		   from_in must be casted because compiler does not support ldiv.
+		   However, this should not matter, because our NAND flash is not even
+		   close to 4GB. */
+		from = ((uint32_t)from_in/mtd->writesize) * mtd->writesize;
+		data_offset = from_in - from;
+
+		/* Lenth must be recalcualated, because it must end on on writesize
+		   boundary. */
+		ops_len = ((data_offset + ops->len)/mtd->writesize) * mtd->writesize;
+		if((data_offset + ops->len) % mtd->writesize)
+		{
+			ops_len += mtd->writesize;
+		}
+
+		/* Create shadow buffer to be used in "extended" read operation. */
+		copy_buf = 1;
+		ops_datbuf = kzalloc(ops_len, GFP_KERNEL);
+		if(!ops_datbuf) {
+		    pr_err("%s: Out of memory.\n", __func__);
+			return -ENOMEM;
+		}
+	}
 
 	if (mtd->writesize == 2048)
 		page = from >> 11;
@@ -836,23 +876,33 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	oob_len = ops->ooblen;
 	cwperpage = (mtd->writesize >> 9);
 
-	if (from & (mtd->writesize - 1)) {
-		pr_err("%s: unsupported from, 0x%llx\n",
-		       __func__, from);
-		return -EINVAL;
-	}
 	if (ops->mode != MTD_OPS_RAW) {
-		if (ops->datbuf != NULL && (ops->len % mtd->writesize) != 0) {
-			/* when ops->datbuf is NULL, ops->len can be ooblen */
-			pr_err("%s: unsupported ops->len, %d\n",
-			       __func__, ops->len);
-			return -EINVAL;
+		if (ops_datbuf != NULL && (ops_len % mtd->writesize) != 0) {
+
+			pr_debug("%s: unsupported ops->len=%d, ops->mode=%d, using extended read length and buffer.\n",
+					 __func__, ops_len, ops->mode);
+
+			/* ops->len must be multiple of mtd->writesize, if data must be
+			   read. Allocate new buffer to read minimum data size required
+			   for optimal flash performance. Memory must be from DMA pool.
+			   Indicate that data copy must occur before this method exit. It is
+			   not good idea to return from 'if' statements, but this is how the
+			   rest of the code is structured, so be it. */
+			if(!copy_buf) {
+				ops_len = (ops->len/mtd->writesize) * mtd->writesize + mtd->writesize;
+				copy_buf = 1;
+				ops_datbuf = kzalloc(ops_len, GFP_KERNEL);
+				if(!ops_datbuf) {
+					pr_err("%s: Out of memory.\n", __func__);
+					return -ENOMEM;
+				}
+			}
 		}
 	} else {
-		if (ops->datbuf != NULL &&
-			(ops->len % (mtd->writesize + mtd->oobsize)) != 0) {
+		if (ops_datbuf != NULL &&
+			(ops_len % (mtd->writesize + mtd->oobsize)) != 0) {
 			pr_err("%s: unsupported ops->len,"
-				" %d for MTD_OPS_RAW\n", __func__, ops->len);
+				" %d for MTD_OPS_RAW\n", __func__, ops_len);
 			return -EINVAL;
 		}
 	}
@@ -860,37 +910,38 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	if (ops->mode != MTD_OPS_RAW && ops->ooblen != 0 && ops->ooboffs != 0) {
 		pr_err("%s: unsupported ops->ooboffs, %d\n",
 		       __func__, ops->ooboffs);
-		return -EINVAL;
+		err = -EINVAL;
+		goto msm_nand_read_oob_exit;
 	}
 
-	if (ops->oobbuf && !ops->datbuf && ops->mode == MTD_OPS_AUTO_OOB)
+	if (ops->oobbuf && !ops_datbuf && ops->mode == MTD_OPS_AUTO_OOB)
 		start_sector = cwperpage - 1;
 
-	if (ops->oobbuf && !ops->datbuf) {
+	if (ops->oobbuf && !ops_datbuf) {
 		page_count = ops->ooblen / ((ops->mode == MTD_OPS_AUTO_OOB) ?
 			mtd->oobavail : mtd->oobsize);
 		if ((page_count == 0) && (ops->ooblen))
 			page_count = 1;
 	} else if (ops->mode != MTD_OPS_RAW)
-		page_count = ops->len / mtd->writesize;
+		page_count = ops_len / mtd->writesize;
 	else
-		page_count = ops->len / (mtd->writesize + mtd->oobsize);
+		page_count = ops_len / (mtd->writesize + mtd->oobsize);
 
-	if (ops->datbuf) {
+	if (ops_datbuf) {
 		data_dma_addr_curr = data_dma_addr =
-			msm_nand_dma_map(chip->dev, ops->datbuf, ops->len,
-				       DMA_FROM_DEVICE);
+			msm_nand_dma_map(chip->dev, ops_datbuf, ops_len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("msm_nand_read_oob: failed to get dma addr "
-			       "for %p\n", ops->datbuf);
-			return -EIO;
+			       "for %p\n", ops_datbuf);
+			err = -EIO;
+			goto msm_nand_read_oob_exit;
 		}
 	}
+
 	if (ops->oobbuf) {
 		memset(ops->oobbuf, 0xff, ops->ooblen);
 		oob_dma_addr_curr = oob_dma_addr =
-			msm_nand_dma_map(chip->dev, ops->oobbuf,
-				       ops->ooblen, DMA_BIDIRECTIONAL);
+			msm_nand_dma_map(chip->dev, ops->oobbuf, ops->ooblen, DMA_BIDIRECTIONAL);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("msm_nand_read_oob: failed to get dma addr "
 			       "for %p\n", ops->oobbuf);
@@ -900,8 +951,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	}
 
 	wait_event(chip->wait_queue,
-		   (dma_buffer = msm_nand_get_dma_buffer(
-			    chip, sizeof(*dma_buffer))));
+		   (dma_buffer = msm_nand_get_dma_buffer(chip, sizeof(*dma_buffer))));
 
 	oob_col = start_sector * chip->cw_size;
 	if (chip->CFG1 & CFG1_WIDE_FLASH)
@@ -1000,7 +1050,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			/* read data block
 			 * (only valid if status says success)
 			 */
-			if (ops->datbuf) {
+			if (ops_datbuf) {
 				if (ops->mode != MTD_OPS_RAW)
 					sectordatasize = (n < (cwperpage - 1))
 					? 516 : (512 - ((cwperpage - 1) << 2));
@@ -1068,8 +1118,8 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			}
 		}
 		if (rawerr) {
-			if (ops->datbuf && ops->mode != MTD_OPS_RAW) {
-				uint8_t *datbuf = ops->datbuf +
+			if (ops_datbuf && ops->mode != MTD_OPS_RAW) {
+				uint8_t *datbuf = ops_datbuf +
 					pages_read * mtd->writesize;
 
 				dma_sync_single_for_cpu(chip->dev,
@@ -1094,6 +1144,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 					mtd->writesize, DMA_BIDIRECTIONAL);
 
 			}
+
 			if (ops->oobbuf) {
 				dma_sync_single_for_cpu(chip->dev,
 				oob_dma_addr_curr - (ops->ooblen - oob_len),
@@ -1111,6 +1162,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				ops->ooblen - oob_len, DMA_BIDIRECTIONAL);
 			}
 		}
+
 		if (pageerr) {
 			for (n = start_sector; n < cwperpage; n++) {
 				if (dma_buffer->data.result[n].buffer_status &
@@ -1118,10 +1170,12 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 					/* not thread safe */
 					mtd->ecc_stats.failed++;
 					pageerr = -EBADMSG;
+
 					break;
 				}
 			}
 		}
+
 		if (!rawerr) { /* check for corretable errors */
 			for (n = start_sector; n < cwperpage; n++) {
 				ecc_errors =
@@ -1136,13 +1190,14 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				}
 			}
 		}
+
 		if (pageerr && (pageerr != -EUCLEAN || err == 0))
 			err = pageerr;
 
 #if VERBOSE
 		if (rawerr && !pageerr) {
 			pr_err("msm_nand_read_oob %llx %x %x empty page\n",
-			       (loff_t)page * mtd->writesize, ops->len,
+			       (loff_t)page * mtd->writesize, ops_len,
 			       ops->ooblen);
 		} else {
 			for (n = start_sector; n < cwperpage; n++)
@@ -1152,8 +1207,10 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				n, dma_buffer->data.result[n].buffer_status);
 		}
 #endif
+
 		if (err && err != -EUCLEAN && err != -EBADMSG)
 			break;
+
 		pages_read++;
 		page++;
 	}
@@ -1163,22 +1220,31 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 		dma_unmap_page(chip->dev, oob_dma_addr,
 				 ops->ooblen, DMA_FROM_DEVICE);
 	}
+
+
 err_dma_map_oobbuf_failed:
-	if (ops->datbuf) {
-		dma_unmap_page(chip->dev, data_dma_addr,
-				 ops->len, DMA_BIDIRECTIONAL);
+
+	if (ops_datbuf) {
+		dma_unmap_page(chip->dev, data_dma_addr, ops_len, DMA_BIDIRECTIONAL);
 	}
 
-	if (ops->mode != MTD_OPS_RAW)
+	if (ops->mode != MTD_OPS_RAW) {
 		ops->retlen = mtd->writesize * pages_read;
-	else
-		ops->retlen = (mtd->writesize +  mtd->oobsize) *
-							pages_read;
+		if(copy_buf) {
+			/* Max. data read length can not exceed requested length. */
+			if(ops->retlen > ops->len) {
+				ops->retlen = ops->len;
+			}
+		}
+	} else {
+		ops->retlen = (mtd->writesize +  mtd->oobsize) * pages_read;
+	}
 	ops->oobretlen = ops->ooblen - oob_len;
-	if (err)
+	if (err) {
 		pr_err("msm_nand_read_oob %llx %x %x failed %d, corrected %d\n",
-		       from, ops->datbuf ? ops->len : 0, ops->ooblen, err,
-		       total_ecc_errors);
+			   from, ops_datbuf ? ops_len : 0, ops->ooblen, err,
+			   total_ecc_errors);
+	}
 #if VERBOSE
 	pr_info("\n%s: ret %d, retlen %d oobretlen %d\n",
 			__func__, err, ops->retlen, ops->oobretlen);
@@ -1186,6 +1252,26 @@ err_dma_map_oobbuf_failed:
 	pr_info("==================================================="
 			"==============\n");
 #endif
+
+msm_nand_read_oob_exit:
+	/*
+	   If there is a copy buffer:
+	   - Copy previously requested data len into the buffer sent by the caller.
+	   - Release copy buffer.
+	*/
+	if(copy_buf) {
+
+		/* There is no point doing data copy if there was an error. */
+		if(!err) {
+			memcpy(ops->datbuf, ops_datbuf + data_offset, ops->retlen);
+		}
+		kfree(ops_datbuf);
+	}
+
+	if(err) {
+		pr_debug("%s: err = %d\n", __func__, err);
+	}
+
 	return err;
 }
 
