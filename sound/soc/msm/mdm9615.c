@@ -1712,8 +1712,8 @@ static int mdm9615_mc7_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
    struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-#if 0 /* DM, FIXME: Compilation error. */
-   err = snd_soc_add_controls(codec, mdm9615_ar7_i2s_controls,
+#if 1
+   err = snd_soc_add_platform_controls(codec, mdm9615_ar7_i2s_controls,
        ARRAY_SIZE(mdm9615_ar7_i2s_controls));
 #else
    err = 0;
