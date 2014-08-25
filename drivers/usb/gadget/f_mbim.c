@@ -1768,17 +1768,6 @@ mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 		return -EBUSY;
 	}
 
-	/* block until mbim online */
-	while (!(atomic_read(&dev->online) || atomic_read(&dev->error))) {
-		pr_err("USB cable not connected. Wait.\n");
-		ret = wait_event_interruptible(dev->read_wq,
-			(atomic_read(&dev->online) ||
-			atomic_read(&dev->error)));
-		if (ret < 0) {
-			mbim_unlock(&dev->read_excl);
-			return 0;
-		}
-	}
 
 	if (atomic_read(&dev->error)) {
 		mbim_unlock(&dev->read_excl);
