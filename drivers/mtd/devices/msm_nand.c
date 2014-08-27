@@ -64,6 +64,16 @@ uint32_t enable_bch_ecc;
 
 #define VERBOSE 0
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+#define FLASH_8BITS_ECC 8
+#define FLASH_4BITS_ECC 4
+#define FLASH_8BITS_ECC_THRESHOLD 6
+#define FLASH_4BITS_ECC_THRESHOLD 2
+#define FLASH_2BITS_ECC_THRESHOLD 1
+#endif /* CONFIG_SIERRA */
+/*SWISTOP*/
+
 struct msm_nand_chip {
 	struct device *dev;
 	wait_queue_head_t wait_queue;
@@ -1185,8 +1195,31 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 					total_ecc_errors += ecc_errors;
 					/* not thread safe */
 					mtd->ecc_stats.corrected += ecc_errors;
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 					if (ecc_errors > 1)
 						pageerr = -EUCLEAN;
+#else /* CONFIG_SIERRA */
+					/*If we use 8 bit ecc, we set the bit flip threshold to 6*/
+					if (supported_flash.ecc_correctability >= FLASH_8BITS_ECC)
+					{
+						if (ecc_errors > FLASH_8BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+					/*If we use 4 bit ecc, we set the bit flip threshold to 2*/
+					else if(supported_flash.ecc_correctability >= FLASH_4BITS_ECC)
+					{
+						if (ecc_errors > FLASH_4BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+					/*If we use 1 bit ecc, we set the bit flip threshold to 1*/
+					else
+					{
+						if (ecc_errors > FLASH_2BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+#endif /* CONFIG_SIERRA */
+/*SWISTOP*/
 				}
 			}
 		}
@@ -1997,8 +2030,31 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 					total_ecc_errors += ecc_errors;
 					/* not thread safe */
 					mtd->ecc_stats.corrected += ecc_errors;
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 					if (ecc_errors > 1)
 						pageerr = -EUCLEAN;
+#else /* CONFIG_SIERRA */
+					/*If we use 8 bit ecc, we set the bit flip threshold to 6*/
+					if (supported_flash.ecc_correctability >= FLASH_8BITS_ECC)
+					{
+						if (ecc_errors > FLASH_8BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+					/*If we use 4 bit ecc, we set the bit flip threshold to 2*/
+					else if(supported_flash.ecc_correctability >= FLASH_4BITS_ECC)
+					{
+						if (ecc_errors > FLASH_4BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+					/*If we use 1 bit ecc, we set the bit flip threshold to 1*/
+					else
+					{
+						if (ecc_errors > FLASH_2BITS_ECC_THRESHOLD)
+							pageerr = -EUCLEAN;
+					}
+#endif /* CONFIG_SIERRA */
+/*SWISTOP*/
 				}
 			}
 		}
