@@ -1341,8 +1341,8 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	struct msm_hsic_hcd *mehci = data;
 	int ret;
 
-	mehci->wakeup_int_cnt++;
 	if (irq == mehci->async_irq) {
+        mehci->wakeup_int_cnt++;
 		dbg_log_event(NULL, "Remote Wakeup (ASYNC) IRQ", mehci->async_int_cnt);
 	} else {
 		dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
