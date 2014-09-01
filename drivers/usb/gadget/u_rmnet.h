@@ -62,7 +62,6 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(enum ctrl_client client_num, unsigned int count,
 					u8 *first_port_idx);
-int gbam_destroy(unsigned int no_bam2bam_port);
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 void gsmd_ctrl_smd_port_reg(void);

@@ -1140,15 +1140,6 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	return 0;
 }
 
-int gbam_destroy(unsigned int no_bam2bam_port)
-{
-		pr_debug("gbam_destroy: Freeing ports\n");
-		gbam2bam_port_free(no_bam2bam_port);
-		if (gbam_wq)
-			destroy_workqueue(gbam_wq);
-		gbam_wq = NULL;
-		return 0;
-}
 
 int gbam_setup(unsigned int no_bam_port, unsigned int no_bam2bam_port)
 {
@@ -1164,11 +1155,6 @@ int gbam_setup(unsigned int no_bam_port, unsigned int no_bam2bam_port)
 				__func__, no_bam_port, no_bam2bam_port);
 		return -EINVAL;
 	}
-
-		if (gbam_wq) {
-				pr_debug("gbam_wq is already setup");
-				return 0;
-		}
 
 	gbam_wq = alloc_workqueue("k_gbam", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!gbam_wq) {
