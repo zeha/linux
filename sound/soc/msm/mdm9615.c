@@ -1712,12 +1712,8 @@ static int mdm9615_mc7_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
    struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-#if 1
    err = snd_soc_add_platform_controls(codec, mdm9615_ar7_i2s_controls,
        ARRAY_SIZE(mdm9615_ar7_i2s_controls));
-#else
-   err = 0;
-#endif
    if (err < 0) {
        pr_err("returning loc 1 err = %d\n", err);
        return err;
