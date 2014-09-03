@@ -63,6 +63,7 @@
  *           BSWP7104_NEW    - WP7100 with large memory and share same PCB with BSAR7554_LARGER_MEMORY
  *           BSMC7354    - MiniCard 7354              
  *           BSHWUNKNOWN - Unknown HW
+ *           BSAR7556,   - Automotive 7556
  *           BSHWINVALID - Invalid HW
  *
  * Notes:    None
@@ -112,8 +113,9 @@ enum bshwtype
   BSWP7100_NEW,
   BSWP7102_NEW,
   BSWP7104_NEW,  
-  BSMC7354,                 /* MiniCard 7354 */
+  BSMC7354,
   BSAR7558_LARGER_MEMORY,
+  BSAR7556,
   BSHWUNKNOWN,
   BSHWINVALID = 0xFF
 };
@@ -208,6 +210,7 @@ enum bshwrev
  *           BSFEATURE_GSM       - if the hardware supports GSM/EDGE
  *           BSFEATURE_WCDMA     - if the hardware supports WCDMA
  *           BSFEATURE_LTE       - if the hardware supports LTE
+ *           BSFEATURE_TDSCDMA   - if the hardware supports TDSCDMA
  *           BSFEATURE_EM        - if device is EM product
  *           BSFEATURE_GPSSEL    - if GPS antenna selection is supported
  *           BSFEATURE_SVC_PIN_DLOAD - if service pin for DL mode is supported
@@ -240,6 +243,7 @@ enum bsfeature
   BSFEATURE_GSM,
   BSFEATURE_WCDMA,
   BSFEATURE_LTE,
+  BSFEATURE_TDSCDMA,
   BSFEATURE_EM,
   BSFEATURE_GPSSEL,
   BSFEATURE_SVC_PIN_DLOAD,

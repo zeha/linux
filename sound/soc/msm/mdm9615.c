@@ -4204,13 +4204,14 @@ static int __init mdm9615_audio_init(void)
 			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar7);
 			break;
 
-		case BSWP7100_NEW:
-		case BSWP7102_NEW:
-		case BSWP7104_NEW:
-			pr_info("%s - WP7 configuration", __func__);
-			snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
-			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
-			break;
+	case BSWP7100_NEW:
+	case BSWP7102_NEW:
+	case BSWP7104_NEW:
+	case BSAR7556    :
+		pr_info("%s - WP7 and AR7556 configuration", __func__);
+		snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
+		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
+	break;
   		  
 		case BSMC7304:
 		case BSMC7802:

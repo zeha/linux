@@ -243,6 +243,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7552:
         case BSAR7554: 
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:     
@@ -325,6 +326,7 @@ bool bssupport(
         case BSAR7550:      
         case BSAR7552:
         case BSAR7554:   
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:      
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:      
@@ -399,6 +401,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:      
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:   
@@ -441,6 +444,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:    
@@ -555,6 +559,19 @@ bool bssupport(
       }
       break;
 
+    case BSFEATURE_TDSCDMA:
+       switch (hwtype)
+       {
+         case BSAR7556:
+           supported = true;
+           break;
+    
+         default:
+           supported = false;
+           break;
+       }
+       break;
+
     case BSFEATURE_EM:
       switch (hwtype)
       {
@@ -597,6 +614,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:      
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:    
@@ -647,6 +665,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
+        case BSAR7556:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:
