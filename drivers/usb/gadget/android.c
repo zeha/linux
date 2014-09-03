@@ -18,9 +18,27 @@
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
-#define FEATURE_MORPHING
-//#define CONFIG_USB_DEBUG
-//#define DEBUG 1
+/**********************************************************************
+* FEATURE_MORPHING -- disable
+*
+* < This macro is for identity morphing, it use for USB work mode
+*   switching, microsoft OS feature descriptors will be supported>
+*
+* CONFIG_USB_DEBUG -- disable
+* < This macro used to enable verbose USB debug message be printed >
+* 
+* DEBUG            -- disable
+* < This macro used to enbale verbose kernel debug message be printed>
+*
+* If you need to use these compilation flags, please define them here.
+* For example, if you would like to see verbose debugging, set the
+* following bellow:
+* #define DEBUG 1
+*
+* for CONFIG_USB_DEBUG and CONFIG_USB_DEBUG, enable as bellow:
+* #define FEATURE_MORPHING
+* #define CONFIG_USB_DEBUG
+**********************************************************************/
 #endif
 /* SWISTOP */
 
