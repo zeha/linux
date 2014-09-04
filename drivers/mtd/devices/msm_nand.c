@@ -6864,6 +6864,19 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		else
 			mtd_writesize = mtd->writesize >> 1;
 
+        /* The following is required for certain subsystems to function properly. For
+           example, if writebufsize isn't set to something that makes sense (e.g. not 0),
+           ubiattach will throw the following error:
+
+              UBI error: io_init: bad write buffer size 0 for 4096 min. I/O unit
+
+           writebufsize parameter is really introduced for NOR flashes (e.g. you could
+           write one byte at the time). Writes to NAND flashes must be of pagesize size,
+           so mtd driver writebufsize must be set to pagesize.
+         */
+		pr_info("Setting mtd->writebufsize to 0x%x\n", supported_flash.pagesize);
+        mtd->writebufsize =  supported_flash.pagesize;
+
 		/* Check whether controller and NAND device support 8bit ECC*/
 		hw_id = flash_rd_reg(chip, MSM_NAND_HW_INFO);
 		if (msm_nand_has_bch_ecc_engine(hw_id)
