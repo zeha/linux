@@ -1861,6 +1861,10 @@ static int msm_hsic_pm_suspend(struct device *dev)
 
 	dbg_log_event(NULL, "PM Suspend", 0);
 
+	/* initiate suspend */
+	msm_hsic_suspend(mehci);
+
+	/* check if suspended */
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_info(dev, "abort suspend\n");
 		dbg_log_event(NULL, "PM Suspend abort", 0);
