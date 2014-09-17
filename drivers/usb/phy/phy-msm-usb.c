@@ -1283,7 +1283,6 @@ skip_phy_resume:
 		enable_irq(motg->async_int);
 		motg->async_int = 0;
 	}
-	enable_irq(motg->irq);
 
 	/* If ASYNC IRQ is present then keep it enabled only during LPM */
 	if (motg->async_irq)
