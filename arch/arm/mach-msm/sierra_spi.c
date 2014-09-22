@@ -637,7 +637,7 @@ static int __init swi_spidev_init(void)
           .mode    = SPI_MODE_3,
           .bus_num  = 0,
           .chip_select  = 0,
-          .max_speed_hz  = 4800000,
+          .max_speed_hz  = 15058800,
   };
 
   status = spi_register_driver(&swi_spidev_spi_driver);
