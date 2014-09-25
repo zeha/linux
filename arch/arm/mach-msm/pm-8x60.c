@@ -737,7 +737,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 			state->power_usage = rs_limits->power[dev->cpu];
 
 			/* Keep lowest allowed power usage */
-			if( (power_usage != -1) && (state->power_usage < power_usage) )
+			if(state->power_usage < power_usage)
 			{
 				power_usage = state->power_usage;
 				ret = mode;
