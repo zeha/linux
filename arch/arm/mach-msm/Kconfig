@@ -1603,6 +1603,14 @@ config MSM_DALRPC_TEST
 	help
 	  Exercises DAL RPC calls to QDSP6.
 
+config CPU_FREQ_MSM
+	bool
+	depends on CPU_FREQ && ARCH_MSM
+	default y
+	help
+	  This enables the CPUFreq driver for Qualcomm CPUs.
+	  If in doubt, say Y.
+
 if CPU_FREQ_MSM
 
 config MSM_CPU_FREQ_SET_MIN_MAX
