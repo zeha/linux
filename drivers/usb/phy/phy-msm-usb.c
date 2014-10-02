@@ -1119,7 +1119,6 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (motg->async_irq)
 		enable_irq(motg->async_irq);
 	enable_irq(motg->irq);
-	wake_unlock(&motg->wlock);
 
 	dev_info(phy->dev, "USB in low power mode\n");
 
@@ -1169,8 +1168,6 @@ static int msm_otg_resume(struct msm_otg *motg)
 		cancel_delayed_work(&pm_suspend_work);
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
-
-	wake_lock(&motg->wlock);
 
 	/* Vote for TCXO when waking up the phy */
 	if (motg->lpm_flags & XO_SHUTDOWN) {
@@ -4310,7 +4307,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	ret = msm_otg_mhl_register_callback(motg, msm_otg_mhl_notify_online);
 	if (ret)
 		dev_dbg(&pdev->dev, "MHL can not be supported\n");
-	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
+	wakeup_source_init(&motg->ws, "msm_otg_cable");
 	msm_otg_init_timer(motg);
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
@@ -4423,7 +4420,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (motg->pdata->enable_lpm_on_dev_suspend)
 		motg->caps |= ALLOW_LPM_ON_DEV_SUSPEND;
 
-	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
@@ -4475,7 +4471,7 @@ free_async_irq:
 free_irq:
 	free_irq(motg->irq, motg);
 destroy_wlock:
-	wake_lock_destroy(&motg->wlock);
+	wakeup_source_trash(&motg->ws);
 	clk_disable_unprepare(motg->core_clk);
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
 free_ldo_init:
@@ -4540,7 +4536,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
-	wake_lock_destroy(&motg->wlock);
+	wakeup_source_trash(&motg->ws);
 
 	msm_hsusb_mhl_switch_enable(motg, 0);
 	if (motg->pdata->pmic_id_irq)
