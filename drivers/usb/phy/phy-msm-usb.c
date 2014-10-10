@@ -915,36 +915,12 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
-/* SWISTART */
-/* Based on case 01299427 */
-#ifdef CONFIG_SIERRA
-	if ((readl_relaxed(USB_PORTSC) & PORT_RESUME))
-		return -EBUSY;
-
-	if (phy->state == OTG_STATE_B_PERIPHERAL && !test_bit(A_BUS_SUSPEND, &motg->inputs))
-		return -EBUSY;
-#endif
-/* SWISTOP */
-
 	disable_irq(motg->irq);
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
 		!test_bit(ID, &motg->inputs);
 	device_bus_suspend = phy->otg->gadget && test_bit(ID, &motg->inputs) &&
-		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 	dcp = motg->chg_type == USB_DCP_CHARGER;
-
-	/*
-	 * Abort suspend when,
-	 * 1. charging detection in progress due to cable plug-in
-	 * 2. host mode activation in progress due to Micro-A cable insertion
-	 */
-
-	if ((test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
-		!dcp) || test_bit(A_BUS_REQ, &motg->inputs)) {
-		enable_irq(motg->irq);
-		return -EBUSY;
-	}
 
 	/*
 	 * Chipidea 45-nm PHY suspend sequence:
