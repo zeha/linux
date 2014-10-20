@@ -279,21 +279,25 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 	spin_lock_irqsave(&dmov_conf[adm].lock, irq_flags);
 	if (dmov_conf[adm].clk_ctl == CLK_DIS) {
 		status = msm_dmov_clk_toggle(adm, 1);
-		if (status != 0)
+		if (status != 0) {
 			goto error;
-	} else if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS)
+		}
+	} else if (dmov_conf[adm].clk_ctl == CLK_TO_BE_DIS) {
 		del_timer(&dmov_conf[adm].timer);
+	}
 	dmov_conf[adm].clk_ctl = CLK_EN;
 
 	status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch), adm));
 	if (status & DMOV_STATUS_CMD_PTR_RDY) {
 		PRINT_IO("msm_dmov_enqueue_cmd(%d), start command, status %x\n",
 			id, status);
-		if (cmd->exec_func)
+		if (cmd->exec_func) {
 			cmd->exec_func(cmd);
+		}
 		list_add_tail(&cmd->list, &dmov_conf[adm].active_commands[ch]);
-		if (!dmov_conf[adm].channel_active)
+		if (!dmov_conf[adm].channel_active) {
 			enable_irq(dmov_conf[adm].irq);
+		}
 		dmov_conf[adm].channel_active |= 1U << ch;
 		PRINT_IO("Writing %x exactly to register", cmd->cmdptr);
 		writel_relaxed(cmd->cmdptr, DMOV_REG(DMOV_CMD_PTR(ch), adm));
@@ -302,11 +306,12 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 			dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
 			mod_timer(&dmov_conf[adm].timer, jiffies + (HZ/10));
 		}
-		if (list_empty(&dmov_conf[adm].active_commands[ch]))
-			PRINT_ERROR("msm_dmov_enqueue_cmd_ext(%d), stalled, "
-				"status %x\n", id, status);
-		PRINT_IO("msm_dmov_enqueue_cmd(%d), enqueue command, status "
-		    "%x\n", id, status);
+
+		if (list_empty(&dmov_conf[adm].active_commands[ch])) {
+			PRINT_ERROR("msm_dmov_enqueue_cmd_ext(%d), stalled, status %x\n", id, status);
+		}
+
+		PRINT_IO("msm_dmov_enqueue_cmd(%d), enqueue command, status %x\n", id, status);
 		list_add_tail(&cmd->list, &dmov_conf[adm].ready_commands[ch]);
 	}
 error:
@@ -476,27 +481,21 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 				}
 				/* this does not seem to work, once we get an error */
 				/* the datamover will no longer accept commands */
-				writel_relaxed(0, DMOV_REG(DMOV_FLUSH0(ch),
-					       adm));
+				writel_relaxed(0, DMOV_REG(DMOV_FLUSH0(ch), adm));
 			}
 			rmb();
-			ch_status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch),
-						  adm));
+			ch_status = readl_relaxed(DMOV_REG(DMOV_STATUS(ch), adm));
 			PRINT_FLOW("msm_datamover_irq_handler id %d, status %x\n", id, ch_status);
 			if ((ch_status & DMOV_STATUS_CMD_PTR_RDY) &&
 			    !list_empty(&dmov_conf[adm].ready_commands[ch])) {
-				cmd = list_entry(dmov_conf[adm].
-					ready_commands[ch].next, typeof(*cmd),
-					list);
+				cmd = list_entry(dmov_conf[adm].ready_commands[ch].next, typeof(*cmd), list);
 				list_del(&cmd->list);
 				if (cmd->exec_func)
 					cmd->exec_func(cmd);
-				list_add_tail(&cmd->list,
-					&dmov_conf[adm].active_commands[ch]);
+				list_add_tail(&cmd->list, &dmov_conf[adm].active_commands[ch]);
 				PRINT_FLOW("msm_datamover_irq_handler id %d,"
 						 "start command\n", id);
-				writel_relaxed(cmd->cmdptr,
-					       DMOV_REG(DMOV_CMD_PTR(ch), adm));
+				writel_relaxed(cmd->cmdptr, DMOV_REG(DMOV_CMD_PTR(ch), adm));
 			}
 		} while (ch_status & DMOV_STATUS_RSLT_VALID);
 		if (list_empty(&dmov_conf[adm].active_commands[ch]) &&

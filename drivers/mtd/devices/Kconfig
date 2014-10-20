@@ -60,6 +60,28 @@ config MTD_MSM_NAND
 	help
 	  Support for some NAND chips connected to the MSM NAND controller.
 
+config MTD_MSM_NAND_VSPOPS
+   tristate "MSM NAND VSPops"
+   depends on MTD_MSM_NAND
+   default y
+   help
+     Virtual subpage functionality.
+
+config MTD_MSM_NAND_VERBOSE
+   bool "MSM NAND verbosity"
+   depends on MTD_MSM_NAND
+   help
+     Allow this for dmesg'n more verbose and usable debug output
+     If unsure N
+
+config MTD_MSM_NAND_DEVELOPER_DEBUG
+   bool "MSM NAND super verbosity"
+   depends on MTD_MSM_NAND
+   help
+     This option will dump lots of information, and it is intended for developer
+     use only.
+     If unsure N
+
 config MTD_DATAFLASH
 	tristate "Support for AT45xxx DataFlash"
 	depends on SPI_MASTER
