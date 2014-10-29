@@ -326,7 +326,7 @@ unsigned flash_rd_reg(struct msm_nand_chip *chip, unsigned addr)
 	dma_buffer->data = 0xeeeeeeee;
 
 	mb();
-	/* DM, FIXME: msm_dmov_exec_cmd may return error. */	
+	/* DM, FIXME: msm_dmov_exec_cmd may return error. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -359,7 +359,7 @@ void flash_wr_reg(struct msm_nand_chip *chip, unsigned addr, unsigned val)
 	dma_buffer->data = val;
 
 	mb();
-	/* DM, FIXME: msm_dmov_exec_cmd may return an error. */	
+	/* DM, FIXME: msm_dmov_exec_cmd may return an error. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -428,7 +428,7 @@ uint32_t flash_read_id(struct msm_nand_chip *chip)
 	dma_buffer->cmdptr = (msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIXME: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIXME: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -694,7 +694,7 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 				>> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIXME: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIXME: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -1117,7 +1117,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 			| CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -1956,7 +1956,7 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 			| CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -2176,7 +2176,7 @@ static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len
 
    ret = msm_nand_read_oob(mtd, from, &ops);
    memcpy(buf, buf_cache, mtd->writesize);
-   
+
    for (c = 1; c < (len/mtd->writesize) ; c++) {
        ret = msm_nand_read_oob(mtd, from + (c * mtd->writesize), &ops);
        memcpy(buf + (c * mtd->writesize), buf_cache, mtd->writesize);
@@ -2374,16 +2374,15 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	}
 
 	if (ops->datbuf) {
-		
+
 		int ret = 0;
 
-		/* DM, FIXME: If ops->datbuf address is above 0x4fffffff, data mover
-		   will die when this address is used as data source. It is obvious
-		   that data mover have problem with this region as physical addresses
-		   there are not properly mapped for it. The only solution I currently
-		   have is to do kmalloc from DMA region, and copy data from the
-		   original buffer to newly allocated buffer. We are lucky, because
-		   required buffer size is 4K or less. */
+		/* DM, FIXME: If converted ops->datbuf address is above 0x4fefffff, data mover
+		   will die when this address is used as data source. The reason is that
+		   these physical addresses are outside of RAM physical space. The real question is
+		   why is dma_map_single returning address which is outside of RAM range? For now,
+		   I have no other choice but to use kmalloc from DMA-able pool and correctly fix
+		   this problem later. */
 		datbuf = kmalloc(ops->len, GFP_KERNEL | GFP_DMA);
 		if(datbuf != NULL) {
 			memcpy(datbuf, ops->datbuf, ops->len);
@@ -2593,15 +2592,15 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 						DMOV_CMD_PTR_LIST | DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 
 		mb();
-		/* Will return EIO on error, 0 otherwise. */		
+		/* Will return EIO on error, 0 otherwise. */
 		err = msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
-								DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));		
+								DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
 
 		/* if any of the writes failed (0x10), or there was a
 		 * protection violation (0x100), or the program success
-		 * bit (0x80) is unset, we lose 
-		 * There is no need to examine statuses if there was an error already. 
+		 * bit (0x80) is unset, we lose
+		 * There is no need to examine statuses if there was an error already.
 		 */
 		if(err == 0) {
 			for (n = 0; n < cwperpage; n++) {
@@ -2642,7 +2641,7 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 		dma_unmap_single(chip->dev, oob_dma_addr, ops->ooblen, DMA_TO_DEVICE);
 	}
 err_dma_map_oobbuf_failed:
-	if (ops->datbuf) {		
+	if (ops->datbuf) {
 		dma_unmap_single(chip->dev, data_dma_addr, ops->len, DMA_TO_DEVICE);
 		kfree(datbuf);
 	}
@@ -2710,7 +2709,7 @@ static int msm_nand_write_multipage(struct mtd_info *mtd, loff_t to, size_t len,
     ops.datbuf = buf_cache;
     ops.retlen = 0;
     ops.ooblen = 0;
-    ops.oobbuf = NULL;   
+    ops.oobbuf = NULL;
 
     memcpy(buf_cache,buf,(mtd->writesize));
     ret = msm_nand_write_oob(mtd, to, &ops);
@@ -3278,7 +3277,7 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 		((msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP);
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -3514,7 +3513,7 @@ msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 		(msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -3753,7 +3752,7 @@ msm_nand_erase_dualnandc(struct mtd_info *mtd, struct erase_info *instr)
 		(msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -3905,7 +3904,7 @@ msm_nand_block_isbad(struct mtd_info *mtd, loff_t ofs)
 				dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -4163,7 +4162,7 @@ msm_nand_block_isbad_dualnandc(struct mtd_info *mtd, loff_t ofs)
 				dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -4379,7 +4378,7 @@ uint32_t flash_onenand_probe(struct msm_nand_chip *chip)
 			>> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -5008,7 +5007,7 @@ int msm_onenand_read_oob(struct mtd_info *mtd,
 				>> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -5754,7 +5753,7 @@ static int msm_onenand_write_oob(struct mtd_info *mtd, loff_t to,
 				>> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
