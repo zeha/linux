@@ -235,22 +235,24 @@ static struct nand_ecclayout msm_onenand_oob_64 = {
 };
 
 /* Local methods */
+static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
+		    enum dma_data_direction dir);
 static int msm_nand_read_subpage(struct mtd_info *mtd, loff_t from, size_t len,
-           size_t *retlen, u_char *buf);
+	    size_t *retlen, u_char *buf);
 static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len,
-           size_t *retlen, u_char *buf);
+	    size_t *retlen, u_char *buf);
 static int msm_nand_read_partial(struct mtd_info *mtd, loff_t from, size_t len,
-           size_t *retlen, u_char *buf);
+	    size_t *retlen, u_char *buf);
 static int msm_nand_read_page(struct mtd_info *mtd, loff_t from, size_t len,
-           size_t *retlen, u_char *buf);
+	    size_t *retlen, u_char *buf);
 static int msm_nand_write_subpage(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf);
+	    size_t *retlen, const u_char *buf);
 static int msm_nand_write_multipage(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf);
+	    size_t *retlen, const u_char *buf);
 static int msm_nand_write_partial(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf);
+	    size_t *retlen, const u_char *buf);
 static int msm_nand_write_page(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf);
+	    size_t *retlen, const u_char *buf);
 /* ----- */
 
 
@@ -365,6 +367,38 @@ void flash_wr_reg(struct msm_nand_chip *chip, unsigned addr, unsigned val)
 	mb();
 
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
+}
+
+static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
+		enum dma_data_direction dir)
+{
+	struct page *page;
+	dma_addr_t ret = 0;
+	unsigned long offset = (unsigned long)addr & ~PAGE_MASK;
+
+	/*
+	   virt_to_page works with logical addresses only (kmalloc and friends.)
+	   If the address is not virt_to_page friendly, it will have to be
+	   converted using vmalloc_to_page (the address is probably obtained
+	   using vmalloc).
+	*/
+	if (virt_addr_valid(addr)) {
+		page = virt_to_page(addr);
+	}
+	else {
+	    if ( WARN_ON(size + offset > PAGE_SIZE) ) {
+		ret = ~0;
+	    }
+	    else {
+		page = vmalloc_to_page(addr);
+	    }
+	}
+
+	if(ret == 0) {
+	    ret = dma_map_page(dev, page, offset, size, dir);
+	}
+
+	return ret;
 }
 
 uint32_t flash_read_id(struct msm_nand_chip *chip)
@@ -792,9 +826,9 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 }
 
 /*******************************************************************************
- * If ops->len and from_in do not start/end on ops->writesize boundaries, the 
- * read will be stretched to read more data than necessary, and return to caller 
- * only requested data. The reason is that NAND flash is most efficient when 
+ * If ops->len and from_in do not start/end on ops->writesize boundaries, the
+ * read will be stretched to read more data than necessary, and return to caller
+ * only requested data. The reason is that NAND flash is most efficient when
  * reading/writing in opt->writesize data chunks.
  ******************************************************************************/
 static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
@@ -944,10 +978,9 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 
 	if (ops_datbuf) {
 		data_dma_addr_curr = data_dma_addr =
-			dma_map_single(chip->dev, ops_datbuf, ops_len, DMA_FROM_DEVICE);
+			msm_nand_dma_map(chip->dev, ops_datbuf, ops_len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
-			pr_err("msm_nand_read_oob: failed to get dma addr "
-			       "for %p\n", ops_datbuf);
+			pr_err("msm_nand_read_oob: failed to get dma addr for %p\n", ops_datbuf);
 			err = -EIO;
 			goto msm_nand_read_oob_exit;
 		}
@@ -956,7 +989,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 	if (ops->oobbuf) {
 		memset(ops->oobbuf, 0xff, ops->ooblen);
 		oob_dma_addr_curr = oob_dma_addr =
-			dma_map_single(chip->dev, ops->oobbuf, ops->ooblen, DMA_BIDIRECTIONAL);
+			msm_nand_dma_map(chip->dev, ops->oobbuf, ops->ooblen, DMA_BIDIRECTIONAL);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("msm_nand_read_oob: failed to get dma addr "
 			       "for %p\n", ops->oobbuf);
@@ -1255,7 +1288,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf) {
-		dma_unmap_single(chip->dev, oob_dma_addr,
+		dma_unmap_page(chip->dev, oob_dma_addr,
 				 ops->ooblen, DMA_FROM_DEVICE);
 	}
 
@@ -1263,7 +1296,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 err_dma_map_oobbuf_failed:
 
 	if (ops_datbuf) {
-		dma_unmap_single(chip->dev, data_dma_addr, ops_len, DMA_BIDIRECTIONAL);
+		dma_unmap_page(chip->dev, data_dma_addr, ops_len, DMA_BIDIRECTIONAL);
 	}
 
 	if (ops->mode != MTD_OPS_RAW) {
@@ -1431,7 +1464,7 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 
 	if (ops->datbuf) {
 		data_dma_addr_curr = data_dma_addr =
-			dma_map_single(chip->dev, ops->datbuf, ops->len,
+			msm_nand_dma_map(chip->dev, ops->datbuf, ops->len,
 				       DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("msm_nand_read_oob_dualnandc: "
@@ -1443,7 +1476,7 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 	if (ops->oobbuf) {
 		memset(ops->oobbuf, 0xff, ops->ooblen);
 		oob_dma_addr_curr = oob_dma_addr =
-			dma_map_single(chip->dev, ops->oobbuf,
+			msm_nand_dma_map(chip->dev, ops->oobbuf,
 				       ops->ooblen, DMA_BIDIRECTIONAL);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("msm_nand_read_oob_dualnandc: "
@@ -2101,12 +2134,12 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf) {
-		dma_unmap_single(chip->dev, oob_dma_addr,
+		dma_unmap_page(chip->dev, oob_dma_addr,
 				 ops->ooblen, DMA_FROM_DEVICE);
 	}
 err_dma_map_oobbuf_failed:
 	if (ops->datbuf) {
-		dma_unmap_single(chip->dev, data_dma_addr,
+		dma_unmap_page(chip->dev, data_dma_addr,
 				 ops->len, DMA_BIDIRECTIONAL);
 	}
 
@@ -2319,7 +2352,7 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	unsigned page_count;
 	unsigned pages_written = 0;
 	unsigned cwperpage;
-	uint8_t *datbuf = NULL;
+
 #if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
 	pr_info("================================================="
 			"================\n");
@@ -2374,39 +2407,17 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	}
 
 	if (ops->datbuf) {
-
-		int ret = 0;
-
-		/* DM, FIXME: If converted ops->datbuf address is above 0x4fefffff, data mover
-		   will die when this address is used as data source. The reason is that
-		   these physical addresses are outside of RAM physical space. The real question is
-		   why is dma_map_single returning address which is outside of RAM range? For now,
-		   I have no other choice but to use kmalloc from DMA-able pool and correctly fix
-		   this problem later. */
-		datbuf = kmalloc(ops->len, GFP_KERNEL | GFP_DMA);
-		if(datbuf != NULL) {
-			memcpy(datbuf, ops->datbuf, ops->len);
-			data_dma_addr_curr = data_dma_addr =
-				dma_map_single(chip->dev, datbuf, ops->len, DMA_TO_DEVICE);
-			if (dma_mapping_error(chip->dev, data_dma_addr)) {
-				pr_err("msm_nand_write_oob: failed to get dma addr for %p\n", datbuf);
-				kfree(datbuf);
-				ret = -EIO;
-			}
-		}
-		else {
-			pr_err("%s: Memory allocation error.\n", __func__);
-			ret = -ENOMEM;
-		}
-
-		if(ret != 0) {
-			return ret;
+		data_dma_addr_curr = data_dma_addr =
+			msm_nand_dma_map(chip->dev, ops->datbuf, ops->len, DMA_TO_DEVICE);
+		if (dma_mapping_error(chip->dev, data_dma_addr)) {
+			pr_err("msm_nand_write_oob: failed to get dma addr for %p\n", ops->datbuf);
+			return -EIO;
 		}
 	}
 
 	if (ops->oobbuf) {
 		oob_dma_addr_curr = oob_dma_addr =
-			dma_map_single(chip->dev, ops->oobbuf, ops->ooblen, DMA_TO_DEVICE);
+			msm_nand_dma_map(chip->dev, ops->oobbuf, ops->ooblen, DMA_TO_DEVICE);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("msm_nand_write_oob: failed to get dma addr "
 			       "for %p\n", ops->oobbuf);
@@ -2638,12 +2649,11 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf) {
-		dma_unmap_single(chip->dev, oob_dma_addr, ops->ooblen, DMA_TO_DEVICE);
+		dma_unmap_page(chip->dev, oob_dma_addr, ops->ooblen, DMA_TO_DEVICE);
 	}
 err_dma_map_oobbuf_failed:
 	if (ops->datbuf) {
-		dma_unmap_single(chip->dev, data_dma_addr, ops->len, DMA_TO_DEVICE);
-		kfree(datbuf);
+		dma_unmap_page(chip->dev, data_dma_addr, ops->len, DMA_TO_DEVICE);
 	}
 
 	if (err)
@@ -2840,7 +2850,7 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 
 	if (ops->datbuf) {
 		data_dma_addr_curr = data_dma_addr =
-			dma_map_single(chip->dev, ops->datbuf,
+			msm_nand_dma_map(chip->dev, ops->datbuf,
 				       ops->len, DMA_TO_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("msm_nand_write_oob_dualnandc:"
@@ -2851,7 +2861,7 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 	}
 	if (ops->oobbuf) {
 		oob_dma_addr_curr = oob_dma_addr =
-			dma_map_single(chip->dev, ops->oobbuf,
+			msm_nand_dma_map(chip->dev, ops->oobbuf,
 				       ops->ooblen, DMA_TO_DEVICE);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("msm_nand_write_oob_dualnandc:"
@@ -3330,11 +3340,11 @@ msm_nand_write_oob_dualnandc(struct mtd_info *mtd, loff_t to,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf)
-		dma_unmap_single(chip->dev, oob_dma_addr,
+		dma_unmap_page(chip->dev, oob_dma_addr,
 				 ops->ooblen, DMA_TO_DEVICE);
 err_dma_map_oobbuf_failed:
 	if (ops->datbuf)
-		dma_unmap_single(chip->dev, data_dma_addr, ops->len,
+		dma_unmap_page(chip->dev, data_dma_addr, ops->len,
 				DMA_TO_DEVICE);
 	if (err)
 		pr_err("msm_nand_write_oob_dualnandc %llx %x %x failed %d\n",
@@ -4592,7 +4602,7 @@ int msm_onenand_read_oob(struct mtd_info *mtd,
 
 	if (ops->datbuf) {
 		memset(ops->datbuf, 0x55, ops->len);
-		data_dma_addr_curr = data_dma_addr = dma_map_single(chip->dev,
+		data_dma_addr_curr = data_dma_addr = msm_nand_dma_map(chip->dev,
 				ops->datbuf, ops->len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("%s: failed to get dma addr for %p\n",
@@ -4602,7 +4612,7 @@ int msm_onenand_read_oob(struct mtd_info *mtd,
 	}
 	if (ops->oobbuf) {
 		memset(ops->oobbuf, 0x55, ops->ooblen);
-		oob_dma_addr_curr = oob_dma_addr = dma_map_single(chip->dev,
+		oob_dma_addr_curr = oob_dma_addr = msm_nand_dma_map(chip->dev,
 				ops->oobbuf, ops->ooblen, DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("%s: failed to get dma addr for %p\n",
@@ -5069,12 +5079,12 @@ int msm_onenand_read_oob(struct mtd_info *mtd,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf) {
-		dma_unmap_single(chip->dev, oob_dma_addr, ops->ooblen,
+		dma_unmap_page(chip->dev, oob_dma_addr, ops->ooblen,
 				DMA_FROM_DEVICE);
 	}
 err_dma_map_oobbuf_failed:
 	if (ops->datbuf) {
-		dma_unmap_single(chip->dev, data_dma_addr, ops->len,
+		dma_unmap_page(chip->dev, data_dma_addr, ops->len,
 				DMA_FROM_DEVICE);
 	}
 
@@ -5303,7 +5313,7 @@ static int msm_onenand_write_oob(struct mtd_info *mtd, loff_t to,
 	}
 
 	if (ops->datbuf) {
-		data_dma_addr_curr = data_dma_addr = dma_map_single(chip->dev,
+		data_dma_addr_curr = data_dma_addr = msm_nand_dma_map(chip->dev,
 				ops->datbuf, ops->len, DMA_TO_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
 			pr_err("%s: failed to get dma addr for %p\n",
@@ -5312,7 +5322,7 @@ static int msm_onenand_write_oob(struct mtd_info *mtd, loff_t to,
 		}
 	}
 	if (ops->oobbuf) {
-		oob_dma_addr_curr = oob_dma_addr = dma_map_single(chip->dev,
+		oob_dma_addr_curr = oob_dma_addr = msm_nand_dma_map(chip->dev,
 				ops->oobbuf, ops->ooblen, DMA_TO_DEVICE);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
 			pr_err("%s: failed to get dma addr for %p\n",
@@ -5322,7 +5332,7 @@ static int msm_onenand_write_oob(struct mtd_info *mtd, loff_t to,
 		}
 	}
 
-	init_dma_addr = dma_map_single(chip->dev, init_spare_bytes, 64,
+	init_dma_addr = msm_nand_dma_map(chip->dev, init_spare_bytes, 64,
 			DMA_TO_DEVICE);
 	if (dma_mapping_error(chip->dev, init_dma_addr)) {
 		pr_err("%s: failed to get dma addr for %p\n",
@@ -5813,16 +5823,16 @@ static int msm_onenand_write_oob(struct mtd_info *mtd, loff_t to,
 
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
-	dma_unmap_single(chip->dev, init_dma_addr, 64, DMA_TO_DEVICE);
+	dma_unmap_page(chip->dev, init_dma_addr, 64, DMA_TO_DEVICE);
 
 err_dma_map_initbuf_failed:
 	if (ops->oobbuf) {
-		dma_unmap_single(chip->dev, oob_dma_addr, ops->ooblen,
+		dma_unmap_page(chip->dev, oob_dma_addr, ops->ooblen,
 							DMA_TO_DEVICE);
 	}
 err_dma_map_oobbuf_failed:
 	if (ops->datbuf) {
-		dma_unmap_single(chip->dev, data_dma_addr, ops->len,
+		dma_unmap_page(chip->dev, data_dma_addr, ops->len,
 							DMA_TO_DEVICE);
 	}
 
@@ -6176,7 +6186,7 @@ static int msm_onenand_erase(struct mtd_info *mtd, struct erase_info *instr)
 			>> 3) | CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
@@ -6640,7 +6650,7 @@ static int msm_onenand_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 				>> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -7004,7 +7014,7 @@ static int msm_onenand_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 				>> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */		
+		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 		mb();
@@ -7404,7 +7414,7 @@ static int msm_nand_nc10_xfr_settings(struct mtd_info *mtd)
 				| CMD_PTR_LP;
 
 	mb();
-	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */	
+	/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
 	msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
 					  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
 	mb();
