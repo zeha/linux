@@ -1666,13 +1666,13 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 /* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static const struct snd_kcontrol_new mdm9615_ar7_i2s_controls[] = {
-	SOC_ENUM_EXT("PRI_RX Channels", mdm9615_enum[0],
+	SOC_ENUM_EXT("PRI_RX Channels", mdm9615_enum[1],
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
-	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[1],
+	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[2],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
-	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[2],
+	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[1],
 			msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
-	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[3],
+	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[2],
 			msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
 };
 
