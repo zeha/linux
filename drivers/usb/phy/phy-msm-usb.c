@@ -27,6 +27,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
+#include <linux/poll.h>
 
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
@@ -78,6 +79,64 @@ static bool otg_vddmin_inited = 0;
 extern void msm9615_pm8xxx_gpio_mpp_init_vddmin(void);
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
+
+static int msm_otg_open(struct inode *inode, struct file *file)
+{
+	struct msm_otg *motg;
+	motg = container_of(file->private_data, struct msm_otg, mdev);
+	if (atomic_cmpxchg(&motg->epdata.is_open, 0, 1))
+		return -EBUSY;
+	else
+		return 0;
+}
+
+static int msm_otg_release(struct inode *inode, struct file *file)
+{
+	struct msm_otg *motg;
+	motg = container_of(file->private_data, struct msm_otg, mdev);
+	atomic_set(&motg->epdata.is_open, 0);
+	return 0;
+}
+
+static unsigned int msm_otg_poll(struct file *file,
+				 struct poll_table_struct *wait)
+{
+	struct msm_otg *motg;
+	motg = container_of(file->private_data, struct msm_otg, mdev);
+	poll_wait(file, &motg->epdata.wq, wait);
+	if (atomic_cmpxchg(&motg->epdata.link_req_change, 1, 0)) {
+		return POLLIN | POLLRDNORM;
+	} else
+		return 0;
+}
+
+static int msm_otg_read(struct file *file, char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	struct msm_otg *motg;
+	motg = container_of(file->private_data, struct msm_otg, mdev);
+	if (count != sizeof(motg->epdata.link_req))
+		return -EINVAL;
+	return put_user(motg->epdata.link_req, (unsigned int __user *)buf) ?:
+		sizeof(motg->epdata.link_req);
+}
+
+static void msm_otg_notify_link_change(struct msm_otg *motg, int req)
+{
+	if (motg->epdata.link_req != req) {
+		motg->epdata.link_req = req;
+		atomic_set(&motg->epdata.link_req_change, 1);
+		wake_up_interruptible(&motg->epdata.wq);
+	}
+}
+
+static const struct file_operations msm_otg_fops = {
+	.owner		= THIS_MODULE,
+	.open		= msm_otg_open,
+	.release	= msm_otg_release,
+	.poll		= msm_otg_poll,
+	.read		= msm_otg_read,
+};
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -868,6 +927,7 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 			break;
 		}
 	}
+	msm_otg_notify_link_change(motg, !suspend);
 	return 0;
 }
 
@@ -4311,6 +4371,22 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
 
+	/* Setup epoll data to do EPOLLWAKEUP */
+	atomic_set(&motg->epdata.is_open, 0);		/* no fd open */
+	motg->epdata.link_req = 0;			/* link down */
+	atomic_set(&motg->epdata.link_req_change, 0);	/* no change */
+	init_waitqueue_head(&motg->epdata.wq);
+
+	/* Create misc device to epoll_wait() on */
+	motg->mdev.minor = MISC_DYNAMIC_MINOR;
+	motg->mdev.name = "usb_link";
+	motg->mdev.fops = &msm_otg_fops;
+
+	if (misc_register(&motg->mdev) < 0)
+		dev_err(&pdev->dev, "cannot register misc device\n");
+	else
+		dev_info(motg->mdev.this_device,
+			"registered misc device minor %d\n", motg->mdev.minor);
 /* SWISTART */
 #ifdef CONFIG_SIERRA_VDDMIN
 	/* Init sysfs */

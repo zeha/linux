@@ -398,6 +398,15 @@ struct msm_otg {
 #define XO_SHUTDOWN			BIT(2)
 #define CLOCKS_DOWN			BIT(3)
 #define PHY_REGULATORS_LPM	BIT(4)
+	/* epoll_wait() infrastructure */
+	struct epoll_data {
+		atomic_t is_open;
+		int link_req;
+		atomic_t link_req_change;
+		wait_queue_head_t wq;
+	} epdata;
+	/* device for epoll_wait() */
+	struct miscdevice mdev;
 	int reset_counter;
 	unsigned long b_last_se0_sess;
 	unsigned long tmouts;
