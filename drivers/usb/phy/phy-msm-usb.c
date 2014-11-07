@@ -76,10 +76,6 @@ static unsigned char otg_pc;
 
 static bool otg_vddmin_inited = 0;
 extern void msm9615_pm8xxx_gpio_mpp_init_vddmin(void);
-
-static void pm_suspend_w(struct work_struct *w);
-static DECLARE_DELAYED_WORK(pm_suspend_work, pm_suspend_w);
-
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -161,7 +157,7 @@ static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 
 static inline void msm_queue_sm_work(struct msm_otg *motg)
 {
-	pm_stay_awake(motg->phy.dev);
+	__pm_stay_awake(&motg->ws);
 	queue_work(system_nrt_wq, &motg->sm_work);
 }
 
@@ -833,6 +829,7 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 				break;
 			set_bit(A_BUS_SUSPEND, &motg->inputs);
 			atomic_set(&motg->suspend_work_pending, 1);
+			__pm_stay_awake(&motg->ws);
 			queue_delayed_work(system_nrt_wq, &motg->suspend_work,
 				USB_SUSPEND_DELAY_TIME);
 			break;
@@ -873,21 +870,6 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	}
 	return 0;
 }
-
-/* SWISTART */
-/* Based on case 1091889 */
-#ifdef CONFIG_SIERRA_VDDMIN
-static void pm_suspend_w(struct work_struct *w)
-{
-	struct msm_otg *motg = the_msm_otg;
-	if (atomic_read(&motg->pm_suspended))
-		return;
-	/* release wakeup source to allow suspend */
-	pr_debug("%s: can sleep now...\n", __func__);
-	__pm_relax(&motg->ws);
-}
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
 #define PHY_RESUME_TIMEOUT_USEC		(100 * 1000)
@@ -1100,27 +1082,6 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	dev_info(phy->dev, "USB in low power mode\n");
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_VDDMIN
-	#ifdef CONFIG_SIERRA_GPIO_WAKEN
-	if (otg_pc >= BSPC_SUSMEM_SUPPORT && !host_bus_suspend && device_bus_suspend && wake_n_waked == false)
-	#else
-	if (otg_pc >= BSPC_SUSMEM_SUPPORT && !host_bus_suspend && device_bus_suspend)
-	#endif
-	{
-		dev_info(phy->dev, "PM_SUSPEND_MEM start\n");
-		/* only perfrom pm_suspend_w if
-		 * calling from msm_otg_runtime_suspend but not from pm_suspend */
-		if (!atomic_read(&motg->pm_suspended))
-		{
-			dev_info(phy->dev, "PM_SUSPEND_MEM enter\n");
-			/* Based on case 1091889 */
-			queue_delayed_work(system_nrt_wq, &pm_suspend_work, 1);
-		}
-	}
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
-
 	return 0;
 }
 
@@ -1139,13 +1100,6 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
-
-/* SWISTART */
-#ifdef CONFIG_SIERRA_VDDMIN
-	if (delayed_work_pending(&pm_suspend_work))
-		cancel_delayed_work(&pm_suspend_work);
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 	/* Vote for TCXO when waking up the phy */
 	if (motg->lpm_flags & XO_SHUTDOWN) {
@@ -1415,17 +1369,7 @@ static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 	 * states when CDP/ACA is connected.
 	 */
 	if (motg->chg_type == USB_SDP_CHARGER)
-	{
 		msm_otg_notify_charger(motg, mA);
-		if (IDEV_CHG_MIN <= mA) {
-			/* connected to charger, grab wakeup source */
-			pr_debug("%s: charging, stay awake...\n", __func__);
-			__pm_stay_awake(&motg->ws);
-		} else {
-			/* Give system 500 ms to process charger event */
-			__pm_wakeup_event(&motg->ws, 500);
-		}
-	}
 
 	return 0;
 }
@@ -1814,7 +1758,7 @@ static void msm_otg_mhl_notify_online(int on)
 	if (queue && phy->state != OTG_STATE_UNDEFINED)
 	{
 		/* not sure why this has to be on the system wq, but... */
-		pm_stay_awake(motg->phy.dev);
+		__pm_stay_awake(&motg->ws);
 		schedule_work(&motg->sm_work);
 	}
 }
@@ -3146,9 +3090,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 #endif /* CONFIG_SIERRA_USB_OTG  */
 /* SWISTOP */
 
-	if (!work)
+	if (!work && !atomic_read(&motg->suspend_work_pending))
 		/* No more work, release PHY's wakeup source */
-		pm_relax(motg->phy.dev);
+		__pm_relax(&motg->ws);
 }
 
 static void msm_otg_suspend_work(struct work_struct *w)
@@ -3851,12 +3795,6 @@ static ssize_t otg_pc_store(struct device *dev,
 				msm_mpm_set_pin_type(motg->pdata->mpm_otgsessvld_int, IRQ_TYPE_EDGE_RISING);
 		}
 
-		if (pc_mode < BSPC_SUSMEM_SUPPORT)
-		{
-			if (delayed_work_pending(&pm_suspend_work))
-				cancel_delayed_work(&pm_suspend_work);
-		}
-
 		if (pc_mode == BSPC_NOT_SUPPORT)
 		{
 			motg->caps &= ~ALLOW_LPM_ON_DEV_SUSPEND;
@@ -4295,7 +4233,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	ret = msm_otg_mhl_register_callback(motg, msm_otg_mhl_notify_online);
 	if (ret)
 		dev_dbg(&pdev->dev, "MHL can not be supported\n");
-	wakeup_source_init(&motg->ws, "msm_otg_cable");
+	wakeup_source_init(&motg->ws, "msm_otg_sm");
 	msm_otg_init_timer(motg);
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
@@ -4518,7 +4456,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);
 	cancel_delayed_work_sync(&motg->suspend_work);
 	cancel_work_sync(&motg->sm_work);
-	pm_relax(motg->phy.dev);
+	__pm_relax(&motg->ws);
 
 	pm_runtime_resume(&pdev->dev);
 
@@ -4619,14 +4557,6 @@ static int msm_otg_pm_suspend(struct device *dev)
 	struct msm_otg *motg = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "OTG PM suspend\n");
-
-/* SWISTART */
-#ifdef CONFIG_SIERRA_VDDMIN
-	/* ensure any pending pm_suspend is cancelled */
-	if (delayed_work_pending(&pm_suspend_work))
-		cancel_delayed_work(&pm_suspend_work);
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 	atomic_set(&motg->pm_suspended, 1);
 	ret = msm_otg_suspend(motg);
