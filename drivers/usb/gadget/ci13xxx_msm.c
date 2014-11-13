@@ -21,13 +21,6 @@
 
 #define MSM_USB_BASE	(udc->regs)
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_GPIO_WAKEN
-/* Used to indicate whether USB is connected for wake_N pin*/
-bool flag_usb_connect = 0;
-#endif
-/* SWISTOP */
-
 struct ci13xxx_udc_context {
 	int irq;
 	void __iomem *regs;
@@ -89,20 +82,10 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 	case CI13XXX_CONTROLLER_SUSPEND_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_SUSPEND_EVENT received\n");
 		ci13xxx_msm_suspend();
-/* SWISTART */
-#ifdef CONFIG_SIERRA_GPIO_WAKEN
-		flag_usb_connect = 0;
-#endif
-/* SWISTOP */
 		break;
 	case CI13XXX_CONTROLLER_RESUME_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_RESUME_EVENT received\n");
 		ci13xxx_msm_resume();
-/* SWISTART */
-#ifdef CONFIG_SIERRA_GPIO_WAKEN
-		flag_usb_connect = 1;
-#endif
-/* SWISTOP */
 		break;
 
 	default:
