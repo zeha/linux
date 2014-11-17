@@ -1117,6 +1117,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.enable_lpm_on_dev_suspend	= true,
 	.core_clk_always_on_workaround = true,
 	.delay_lpm_on_disconnect = true,
+	.rw_during_lpm_workaround = true,
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 	.vdd_min_enable     = PM8018_VDDMIN_IO,
