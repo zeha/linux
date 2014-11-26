@@ -20,7 +20,6 @@
 #include <mach/gpio.h>
 
 #define NUM_WAKE_GPIOS 1
-#define WAKEN_GNUMBER 77
 #define DRIVER_NAME	"wake-n_gpio"
 struct wake_n_pdata {
 	int gpio;

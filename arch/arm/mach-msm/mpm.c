@@ -269,11 +269,29 @@ static int msm_mpm_set_irq_type_exclusive(
 			msm_mpm_detect_ctl[index] |= mask;
 		else
 			msm_mpm_detect_ctl[index] &= ~mask;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+		if(irq == NR_MSM_IRQS + WAKEN_GNUMBER )
+		{
+			if (flow_type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW))
+				msm_mpm_polarity[index] &= ~mask;
+			else
+				msm_mpm_polarity[index] |= mask;
+		}
+		else
+		{
+			if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
+				msm_mpm_polarity[index] |= mask;
+			else
+				msm_mpm_polarity[index] &= ~mask;
+		}
+#else
 		if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
 			msm_mpm_polarity[index] |= mask;
 		else
 			msm_mpm_polarity[index] &= ~mask;
+#endif
+/* SWISTOP */
 	}
 
 	return 0;
@@ -374,12 +392,29 @@ int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 		msm_mpm_detect_ctl[index] |= mask;
 	else
 		msm_mpm_detect_ctl[index] &= ~mask;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+	if (pin == WAKEN_GNUMBER)
+	{
+		if ( flow_type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW)) 
+			msm_mpm_polarity[index] &= ~mask;
+		else
+			msm_mpm_polarity[index] |= mask;
+	}
+	else
+	{
+		if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
+			msm_mpm_polarity[index] |= mask;
+		else
+			msm_mpm_polarity[index] &= ~mask;
+	}
+#else
 	if (flow_type & (IRQ_TYPE_EDGE_RISING | IRQ_TYPE_LEVEL_HIGH))
 		msm_mpm_polarity[index] |= mask;
 	else
 		msm_mpm_polarity[index] &= ~mask;
-
+#endif
+/* SWISTOP */
 	spin_unlock_irqrestore(&msm_mpm_lock, flags);
 	return 0;
 }

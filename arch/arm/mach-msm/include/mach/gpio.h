@@ -24,6 +24,12 @@
 
 #define FIRST_BOARD_GPIO	NR_GPIO_IRQS
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+#define WAKEN_GNUMBER   77
+#endif
+/* SWISTOP */
+
 extern struct irq_chip msm_gpio_irq_extn;
 
 static inline int gpio_get_value(unsigned gpio)
