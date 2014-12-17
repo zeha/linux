@@ -284,10 +284,14 @@ void calibrate_delay(void)
 			"value calculated using timer frequency.. ");
 	} else if ((lpj = calibrate_delay_is_known())) {
 		;
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	} else if ((lpj = calibrate_delay_direct()) != 0) {
 		if (!printed)
 			pr_info("Calibrating delay using timer "
 				"specific routine.. ");
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	} else {
 		if (!printed)
 			pr_info("Calibrating delay loop... ");
