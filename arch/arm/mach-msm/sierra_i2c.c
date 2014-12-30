@@ -52,6 +52,12 @@ static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
   char data_buf[I2C_BUF_SIZE];
   int ret,data_size;
 
+  if(list_empty(&sierra_i2c_device_list))
+  {
+    pr_err("%s: device list is empty. Hint: Set one up using SWI_IOCTL_I2C_ADDR_CONFIG ioctl.\n", __func__);
+    return -ENODEV;
+  }
+
   client = (struct i2c_client *)fp->private_data;
   if(!client)
   {
@@ -88,6 +94,12 @@ static ssize_t sierra_i2c_write(struct file *fp, const char __user *buf,
   char data_buf[I2C_BUF_SIZE];
   int ret;
   
+  if(list_empty(&sierra_i2c_device_list))
+  {
+    pr_err("%s: device list is empty. Hint: Set one up using SWI_IOCTL_I2C_ADDR_CONFIG ioctl.\n", __func__);
+    return -ENODEV;
+  }
+
   client = (struct i2c_client *)fp->private_data;
   if(!client)
   {
@@ -120,11 +132,6 @@ static int sierra_i2c_open(struct inode *inode, struct file *file)
 {
   int ret = 0;
 
-  if(list_empty(&sierra_i2c_device_list))
-  {
-    pr_err("%s: device list is empty. Hint: Set one up using SWI_IOCTL_I2C_ADDR_CONFIG ioctl.\n", __func__);
-    ret = -ENODEV;
-  }
   return ret;
 }
 
