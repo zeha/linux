@@ -866,12 +866,12 @@ static int eth_stop(struct net_device *net)
 
 /* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
 static char *dev_addr;
-module_param(dev_addr, charp, S_IRUGO);
+module_param(dev_addr, charp, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");
 
 /* this address is invisible to ifconfig */
 static char *host_addr;
-module_param(host_addr, charp, S_IRUGO);
+module_param(host_addr, charp, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(host_addr, "Host Ethernet Address");
 
 static int get_ether_addr(const char *str, u8 *dev_addr)
