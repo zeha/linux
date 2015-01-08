@@ -53,17 +53,19 @@
  *           BSMC7330    - MiniCard 7330
  *           BSAC343U    - AirCard 343U (HERMES WORLD MODE)
  *           BSMC7371    - MiniCard 7371
- *           BSAC778S    - Aircard 778S 
- *           BSAR7550_LARGER_MEMORY    - Automotive 7550 (with Larger Memory Design) 
- *           BSAR7552_LARGER_MEMORY    - Automotive 7552 (with Larger Memory Design) 
- *           BSAR7554_LARGER_MEMORY    - Automotive 7554 (with Larger Memory Design) 
+ *           BSAC778S    - Aircard 778S
+ *           BSAR7550_LARGER_MEMORY    - Automotive 7550 (with Larger Memory Design)
+ *           BSAR7552_LARGER_MEMORY    - Automotive 7552 (with Larger Memory Design)
+ *           BSAR7554_LARGER_MEMORY    - Automotive 7554 (with Larger Memory Design)
  *           BSAR7558_LARGER_MEMORY    - Automotive 7558 (with Larger Memory Design)
  *           BSWP7100_NEW    - WP7100 with large memory and share same PCB with BSAR7550_LARGER_MEMORY
  *           BSWP7102_NEW    - WP7100 with large memory and share same PCB with BSAR7552_LARGER_MEMORY 
  *           BSWP7104_NEW    - WP7100 with large memory and share same PCB with BSAR7554_LARGER_MEMORY
- *           BSMC7354    - MiniCard 7354              
+ *           BSMC7354    - MiniCard 7354
  *           BSHWUNKNOWN - Unknown HW
  *           BSAR7556,   - Automotive 7556
+ *           BSAR8652
+ *           BSAR7556_LARGER_MEMORY    - Automotive 7556 (with Larger Memory Design)
  *           BSHWINVALID - Invalid HW
  *
  * Notes:    None
@@ -101,7 +103,7 @@ enum bshwtype
   BSMC7304,
   BSWP7100_LARGER_MEMORY,
   BSWP7102_LARGER_MEMORY,
-  BSWP7104_LARGER_MEMORY, 
+  BSWP7104_LARGER_MEMORY,
   BSEM7330,
   BSMC7330,
   BSAC343U,
@@ -112,10 +114,17 @@ enum bshwtype
   BSAR7554_LARGER_MEMORY,
   BSWP7100_NEW,
   BSWP7102_NEW,
-  BSWP7104_NEW,  
+  BSWP7104_NEW,
   BSMC7354,
   BSAR7558_LARGER_MEMORY,
   BSAR7556,
+  BSWP75XX,                 /* WP75xx - WP75 family, RF board unknown */
+  BSWP85XX,                 /* WP85xx - WP85 family, RF board unknown */
+  BSWP8548,                 /* WP8548 */
+  BSWP8548G,                /* WP8548G */
+  BSAR8652,
+  BSAR7556_LARGER_MEMORY,
+  BSAR7554RD,
   BSHWUNKNOWN,
   BSHWINVALID = 0xFF
 };
@@ -139,7 +148,7 @@ enum bsproctype
   BSPROC_UNKNOWN = 0,
   BSPROC_APPS,
   BSPROC_MODEM,
-  
+
   BSPROC_MAX
 };
 
@@ -162,13 +171,13 @@ enum bsproctype
  *
  *          In the early development phase, the HWREV of DV1 for some device may not be 4
  *            define device specific enum here if needed, e.g. BSHWAC770SDV1
- *          
+ *
  *          For DV2.1, the HW rev in FSN should be "02" and the GPIO40/45 should both be low
  *            then BSHWDV2 = 2 << 2, i.e. 8
  *
  *          For DV3.1, the HW rev in FSN should be "03" and the GPIO40/45 should both be low
  *            then BSHWDV3 = 3 << 2, i.e. 12
- * 
+ *
  ************/
 enum bshwrev
 {
@@ -179,7 +188,7 @@ enum bshwrev
   BSHWPP  = 40,
 
   BSHWAC770SDV1 = 44,  /* AC770S DV1 */
-  
+
   BSHWREVMAX = 59,
   BSHWREVUNKNOWN = 0xFF
 };

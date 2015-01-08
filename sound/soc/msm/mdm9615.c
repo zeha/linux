@@ -4418,11 +4418,12 @@ static int __init mdm9615_audio_init(void)
 	case BSWP7102_NEW:
 	case BSWP7104_NEW:
 	case BSAR7556    :
-		pr_info("%s - WP7 and AR7556 configuration", __func__);
+	case BSAR7556_LARGER_MEMORY:
+		pr_info("%s - WP7 and AR7556,AR7556M configuration", __func__);
 		snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
 		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
 	break;
-  		  
+
 		case BSMC7304:
 		case BSMC7802:
 		case BSMC7350:

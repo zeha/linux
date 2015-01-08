@@ -61,7 +61,7 @@ static ssize_t bsreadhwconfig(void)
  *
  * Parms:    none
  *
- * Return:   uint32 bitmask of flags 
+ * Return:   uint32 bitmask of flags
  *
  * Abort:    none
  *
@@ -242,18 +242,21 @@ bool bssupport(
       {
         case BSAR7550:
         case BSAR7552:
-        case BSAR7554: 
+        case BSAR7554:
         case BSAR7556:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
-        case BSAR7554_LARGER_MEMORY:     
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
-        case BSWP7104_NEW:             
+        case BSWP7104_NEW:
+        case BSAR7554RD:
+        case BSAR8652:
           supported = true;
           break;
-          
+
         default:
           supported = false;
           break;
@@ -268,7 +271,7 @@ bool bssupport(
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:          
+        case BSWP7104_LARGER_MEMORY:
           supported = true;
           break;
 
@@ -310,7 +313,7 @@ bool bssupport(
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:                        
+        case BSWP7104_LARGER_MEMORY:
           supported = true;
           break;
 
@@ -323,14 +326,15 @@ bool bssupport(
     case BSFEATURE_VOICE:
       switch (hwtype)
       {
-        case BSAR7550:      
+        case BSAR7550:
         case BSAR7552:
-        case BSAR7554:   
+        case BSAR7554:
         case BSAR7556:
-        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
-        case BSAR7554_LARGER_MEMORY:      
-        case BSAR7558_LARGER_MEMORY:          
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
@@ -344,7 +348,9 @@ bool bssupport(
         case BSMC7304:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
-        case BSWP7104_NEW: 
+        case BSWP7104_NEW:
+        case BSAR7554RD:
+        case BSAR8652:
           supported = true;
           break;
           
@@ -402,10 +408,11 @@ bool bssupport(
         case BSAR7552:
         case BSAR7554:
         case BSAR7556:
-        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
-        case BSAR7554_LARGER_MEMORY:   
-        case BSAR7558_LARGER_MEMORY:      
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
@@ -414,7 +421,9 @@ bool bssupport(
         case BSWP7104_LARGER_MEMORY:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
-        case BSWP7104_NEW: 
+        case BSWP7104_NEW:
+        case BSAR7554RD:
+        case BSAR8652:
           supported = true;
           break;
 
@@ -440,25 +449,28 @@ bool bssupport(
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY: 		
+        case BSWP7104_LARGER_MEMORY:
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
         case BSAR7556:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
-        case BSAR7554_LARGER_MEMORY:    
-        case BSAR7558_LARGER_MEMORY:    
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
+        case BSAR8652:
         case BSMC7350:
         case BSMC7350L:
         case BSMC7802:
         case BSMC7304:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
-        case BSWP7104_NEW:       
+        case BSWP7104_NEW:
+        case BSAR7554RD:
           supported = true;
           break;
-            
+
         default:
           supported = false;
           break;
@@ -502,10 +514,10 @@ bool bssupport(
         case BSEM7655:
         case BSMC7354:
         case BSAR7550:
-        case BSAR7550_LARGER_MEMORY:        
+        case BSAR7550_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
-        case BSWP7100_LARGER_MEMORY:        
+        case BSWP7100_LARGER_MEMORY:
         case BSMC7350:
         case BSWP7100_NEW:
           supported = true;
@@ -550,6 +562,7 @@ bool bssupport(
       {
         case BSMC8805:
         case BSEM8805:
+        case BSAR8652:
           supported = false;
           break;
 
@@ -563,9 +576,10 @@ bool bssupport(
        switch (hwtype)
        {
          case BSAR7556:
+         case BSAR7556_LARGER_MEMORY:
            supported = true;
            break;
-    
+
          default:
            supported = false;
            break;
@@ -615,19 +629,22 @@ bool bssupport(
         case BSAR7552:
         case BSAR7554:
         case BSAR7556:
-        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
-        case BSAR7554_LARGER_MEMORY:    
-        case BSAR7558_LARGER_MEMORY:     
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:  
+        case BSWP7104_LARGER_MEMORY:
         case BSWP7100_NEW:
         case BSWP7102_NEW:
-        case BSWP7104_NEW:                 
+        case BSWP7104_NEW:
+        case BSAR7554RD:
+        case BSAR8652:
           supported = true;
           break;
 
@@ -639,16 +656,16 @@ bool bssupport(
 
     case BSFEATURE_BUZZER:
       switch (hwtype)
-      {         
+      {
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:                  
+        case BSWP7104_LARGER_MEMORY:
           supported = true;
           break;
-          
+
         default:
           supported = false;
           break;
@@ -669,6 +686,7 @@ bool bssupport(
         case BSAR7550_LARGER_MEMORY:
         case BSAR7552_LARGER_MEMORY:
         case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
         case BSWP7100:
         case BSWP7102:
@@ -679,6 +697,7 @@ bool bssupport(
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW:
+        case BSAR7554RD:
           supported = true;
           break;
 
@@ -706,8 +725,8 @@ EXPORT_SYMBOL(bssupport);
  *
  * Parms:    none
  *
- * Return:   true: the start and end mask is valid 
- *           false: the start or end mask is invalid.
+ * Return:   true: the start and end mask is valid
+ *           false: the start or end mask is invalid
  *
  * Abort:    none
  *
@@ -716,8 +735,8 @@ EXPORT_SYMBOL(bssupport);
  ************/
 bool bscheckcoworkmsgmsk(void)
 {
-  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START; 
-  
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+
   if ((mp->bcstartmarker == BC_VALID_COWORK_MSG_MARKER) &&
       (mp->bcendmarker == BC_VALID_COWORK_MSG_MARKER))
   {
@@ -770,7 +789,7 @@ EXPORT_SYMBOL(bsgetgpioflag);
  * Parms:    uart Number
  *
  * Return:   true - uart is controlled by modem processor
- *           false - uart is not controlled by modem processor 
+ *           false - uart is not controlled by modem processor
  *
  * Abort:    none
  *
@@ -780,9 +799,9 @@ EXPORT_SYMBOL(bsgetgpioflag);
 bool bsuart4modem(uint uart_num )
 {
   int8_t uart_fun;
-  
+
   uart_fun =  bsgetuartfun(uart_num);
-  
+
   if((uart_fun != -1) && (uart_fun != BSUARTFUNC_INVALID) &&
      (uart_fun != BSUARTFUNC_DM) && (uart_fun != BSUARTFUNC_CONSOLE) &&
      (uart_fun != BSUARTFUNC_APP))
@@ -813,8 +832,8 @@ bool bsuart4modem(uint uart_num )
 int8_t bsgetuartfun(uint uart_num )
 {
   volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
-   
-  if (uart_num > 1) 
+
+  if (uart_num > 1)
   {
     return -1;
   }
