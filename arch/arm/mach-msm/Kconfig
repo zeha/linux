@@ -2513,7 +2513,7 @@ config SIERRA
 	bool "Activates/Deactivates Sierra Wireless changes"
 	help
 	  All Sierra Wireless changes are controlled by this define
-	default n  
+	default n
 
 config SIERRA_AR7
 	bool "MDM9615 SIERRA AR7 FEATURES"
@@ -2525,181 +2525,222 @@ config SIERRA_WP7
 	bool "MDM9615 SIERRA WP7 FEATURES"
 	help
 	   this config used for features only valid in WP7 products
-	default n   
-   
+	default n
+
 config SIERRA_MC7
 	bool "MDM9615 SIERRA MC7 FEATURES"
 	help
  	   this config used for features only valid in MC7 products
 	default n
 
-config SIERRA_SMEM
-	depends on ARCH_MSM9615 && SIERRA
-	bool "MSM9615 SIERRA"
+config SIERRA_PLATFORM_FEATURES
+	bool "Sierra Wireless Platform Features"
+	default y
 	help
-	  Support for the Sierra Wireless MSM9615 based devices.
+	  Sierra Wireless platform related features. If unsure, say Y here.
+
+config SIERRA_SMEM
+	depends on ARCH_MSM9615 && SIERRA && SIERRA_PLATFORM_FEATURES
+	bool "Sierra Wireless Shared Memory"
+	default y
+	help
+	  Support for Sierra Wireless system shared memory.
 
 config SIERRA_BATTERY_SENSOR
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Sierra Wireless MSM9615 Generic ADC Channel"
+	default y
 	help
-	  Add one ADC channel for battery sensor and other generic usage
+	  Add one ADC channel for battery sensor and other generic usage.
+	  If unsure, say Y here.
 
 config SIERRA_LED_PIN
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "MSM9615 Dedicated LED Pin"
+	default y
 	help
-	  Sierra dedicated pin to driver LED
+	  Sierra dedicated pin to drive LED. If unsure, say Y here.
 
 config SIERRA_GPIO
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Allow reconfiguration of GPIO pins"
+	default y
 	help
-	  Sierra GPIO allocation  
+	  This option will allow reconfiguration of GPIO pins.
+	  If unsure, say Y here.
 
 config SIERRA_PWRKEY
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Setup power key"
+	default y
 	help
-	  Sierra power key improvements
+	  Setup power key. If unsure, say Y here.
 
 config SIERRA_XO_THERM
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Setup thermistor for XO oscillator"
+	default y
 	help
-	  Sierra thermistor for XO oscillator
+	  Setup thermistor for XO oscillator. If unsure, say Y here.
 
 config SIERRA_PA_THERM
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Setup thermistor for PA component"
+	default y
 	help
-	  Sierra thermistor for PA component
+	  Setup thermistor for PA component. If unsure, say Y here.
 
 config SIERRA_EXTERNAL_CODEC
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use external codec"
+	default y
 	help
-	  Sierra external codec
+	  Use Sierra external codec. If unsure, say Y here.
 
 config SIERRA_INTERNAL_CODEC
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use internal codec"
+	default y
 	help
-	  Sierra internal/on-board codec
+	  Use Sierra internal/on-board codec. If unsure, say Y here.
 
 config SIERRA_DR
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use dead reckoning"
+    default y
 	help
-	  Sierra dead reckoning
+	  Use Sierra dead reckoning. If unsure, say Y here.
 
 config SIERRA_USB_OTG
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use USB On-The-Go"
+	default y
 	help
-	  Sierra USB OTG
+	  Use Sierra USB On-The-Go. If unsure, say Y here.
 
 config SIERRA_UART
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use UART1 and UART2"
+	default y
 	help
-	  Sierra UART1 and UART2 support
+	  Add UART1 and UART2 support. If unsure, say Y here.
 
 config SIERRA_RTC
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use Real Time Clock"
+	default y
 	help
-	  Sierra RTC support
+	  Add Real Time Clock support. If unsure, say Y here.
 
 config SIERRA_USB_COMP
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use USB composition"
+	default y
 	help
-	  Sierra USB composition (USB audio/AT/modem/ADB/DM/NMEA/RAW/OSA/RMNET/ECM/RNDIS)
+	  Sierra USB composition (USB audio/AT/modem/ADB/DM/NMEA/RAW/OSA/RMNET/ECM/RNDIS).
+	  If unsure, say Y here.
 
 config SIERRA_I2C_GSBI2
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "I2C interface uses GSBI2 pins"
+	default n
 	help
-	  I2C interface uses GPIO pins of GSBI2
+	  I2C interface uses GSBI2 GPIO pins. If unsure, say N here.
 
 config SIERRA_I2C_GSBI5
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && !SIERRA_I2C_GSBI2 && SIERRA_PLATFORM_FEATURES
+	bool "I2C interface uses GSBI5 pins"
+	default y
 	help
-	  I2C interface uses GPIO pins of GSBI5
+	  I2C interface uses GSBI5 GPIO pins. If unsure, say Y here.
 
 config SIERRA_VDDMIN
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Low Power Mode state VDDMIN support"
+	default y
 	help
-	  Sierra LPM state 'VDDMIN' support
+	  Add Low Power Mode state 'VDDMIN' support. If unsure, say Y here.
 
 config SIERRA_WIFI
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "WLAN uses SDIO1"
+	default y
 	help
-	  Sierra WLAN through SDIO1 support
+	  Setup Sierra WLAN support using SDIO1. If unsure, say Y here.
 
 config SIERRA_WIFI_SDCC2
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use SDCC2 for SDIO WLAN"
+	default n
 	help
-	  Sierra doesn't use SDCC2 for SDIO WLAN interface
+	  Use SDCC2 for SDIO WLAN interface. If unsure, say N here.
 
 config SIERRA_WIFI_MS_SDCC1
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && !SIERRA_WIFI_SDCC2 && SIERRA_PLATFORM_FEATURES
+	bool "Use SDCC1 for WIFI chipset and SD card"
+	default y
 	help
-	  Sierra uses SDCC1 for WIFI chipset and SD card 
+	  Uuse SDCC1 for WIFI chipset and SD card. If unsure, say Y here.
 
 config SIERRA_HSUSB_RESUME
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use external interrupt pin for HSUSB resume"
+	default y
 	help
-	  Sierra interrupt pin for HSUSB resume
+	  Sierra interrupt pin for HSUSB resume. If unsure, say Y nere.
 
 config SIERRA_DLOAD
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Download mode support"
+	default y
 	help
-	  Sierra download mode support
+	  Sierra download mode support. If unsure, say Y here.
 
 config SIERRA_NAND_PARTITION
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use custom NAND flash partitioning"
+	default y
 	help
-	  Sierra NAND flash partitioning
+	  NAND flash partitioning specific to Sierra Wireless.
+	  If unsure, say Y here.
 
 config SIERRA_HSIC
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use HSIC interface"
+	default y
 	help
-	  Sierra HSIC interface
+	  Use Sierra HSIC interface. If unsure, say Y here.
 
 config SIERRA_ANT_DETECTION
-	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use antenna detection"
+	default y
 	help
-	  Sierra antenna detection
+	  Use Sierra antenna detection. If unsure, say Y here.
 
 config SIERRA_GPIO_WAKEN
+	depends on USB_CI13XXX_MSM && SIERRA_PLATFORM_FEATURES
 	tristate "Sierra WAKE_N pin support"
-	depends on USB_CI13XXX_MSM
-
-config SIERRA_I2C_INF 
-	depends on ARCH_MSM9615
-	tristate "MSM9615 SIERRA"
-    default m
+	default y
 	help
-	  Sierra i2c driver for application interface.
+	  Support for GPIO WAKE functionality. This pin is monitored
+	  by Modem Power Manager (MPM). If unsure, say Y here.
 
-config SIERRA_SPI_INF 
-	depends on ARCH_MSM9615
-	tristate "MSM9615 SIERRA"
-	default m
+config SIERRA_I2C_INF
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	tristate "Use Application Interface I2C driver"
+	default y
 	help
-	  Sierra spi driver for application interface.
+	  Include Sierra I2C driver needed for application interface.
+	  If unsure, say Y here.
+
+config SIERRA_SPI_INF
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	tristate "Use Application Interface SPI driver"
+	default y
+	help
+	  Include Sierra SPI driver needed for application interface.
+	  If unsure, say Y here.
 #SWISTOP
 
 config MSM_CACHE_DUMP_ON_PANIC
