@@ -236,25 +236,18 @@ static struct nand_ecclayout msm_onenand_oob_64 = {
 
 /* Local methods */
 static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
-		    enum dma_data_direction dir);
+		enum dma_data_direction dir);
 static int msm_nand_read_subpage(struct mtd_info *mtd, loff_t from, size_t len,
-	    size_t *retlen, u_char *buf);
+		size_t *retlen, u_char *buf);
 static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len,
-	    size_t *retlen, u_char *buf);
+		size_t *retlen, u_char *buf);
 static int msm_nand_read_partial(struct mtd_info *mtd, loff_t from, size_t len,
-	    size_t *retlen, u_char *buf);
+		size_t *retlen, u_char *buf);
 static int msm_nand_read_page(struct mtd_info *mtd, loff_t from, size_t len,
-	    size_t *retlen, u_char *buf);
-static int msm_nand_write_subpage(struct mtd_info *mtd, loff_t to, size_t len,
-	    size_t *retlen, const u_char *buf);
-static int msm_nand_write_multipage(struct mtd_info *mtd, loff_t to, size_t len,
-	    size_t *retlen, const u_char *buf);
-static int msm_nand_write_partial(struct mtd_info *mtd, loff_t to, size_t len,
-	    size_t *retlen, const u_char *buf);
-static int msm_nand_write_page(struct mtd_info *mtd, loff_t to, size_t len,
-	    size_t *retlen, const u_char *buf);
+		size_t *retlen, u_char *buf);
+static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
+		size_t *retlen, const u_char *buf);
 /* ----- */
-
 
 static void *msm_nand_get_dma_buffer(struct msm_nand_chip *chip, size_t size)
 {
@@ -386,16 +379,16 @@ static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
 		page = virt_to_page(addr);
 	}
 	else {
-	    if ( WARN_ON(size + offset > PAGE_SIZE) ) {
-		ret = ~0;
-	    }
-	    else {
-		page = vmalloc_to_page(addr);
-	    }
+		if ( WARN_ON(size + offset > PAGE_SIZE) ) {
+			ret = ~0;
+		}
+		else {
+			page = vmalloc_to_page(addr);
+		}
 	}
 
 	if(ret == 0) {
-	    ret = dma_map_page(dev, page, offset, size, dir);
+		ret = dma_map_page(dev, page, offset, size, dir);
 	}
 
 	return ret;
@@ -856,12 +849,14 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		} data;
 	} *dma_buffer;
 	dmov_s *cmd;
-	unsigned n;
+	unsigned n = 0;
 	unsigned page = 0;
-	uint32_t oob_len;
-	uint32_t sectordatasize;
-	uint32_t sectoroobsize;
-	int err = 0, pageerr, rawerr;
+	uint32_t oob_len = 0;
+	uint32_t sectordatasize = 0;
+	uint32_t sectoroobsize = 0;
+	int err = 0;
+	int pageerr = 0;
+	int rawerr = 0;
 	dma_addr_t data_dma_addr = 0;
 	dma_addr_t oob_dma_addr = 0;
 	dma_addr_t data_dma_addr_curr = 0;
@@ -870,9 +865,9 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 	unsigned page_count;
 	unsigned pages_read = 0;
 	unsigned start_sector = 0;
-	uint32_t ecc_errors;
+	uint32_t ecc_errors = 0;
 	uint32_t total_ecc_errors = 0;
-	unsigned cwperpage;
+	unsigned cwperpage = 0;
 
 	uint8_t	*ops_datbuf = ops->datbuf;
 	size_t ops_len = ops->len;
@@ -902,8 +897,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		/* Length must be recalcualated, because it must end on on writesize
 		   boundary. */
 		ops_len = ((data_offset + ops->len)/mtd->writesize) * mtd->writesize;
-		if((data_offset + ops->len) % mtd->writesize)
-		{
+		if((data_offset + ops->len) % mtd->writesize) {
 			ops_len += mtd->writesize;
 		}
 
@@ -980,7 +974,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		data_dma_addr_curr = data_dma_addr =
 			msm_nand_dma_map(chip->dev, ops_datbuf, ops_len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(chip->dev, data_dma_addr)) {
-			pr_err("msm_nand_read_oob: failed to get dma addr for %p\n", ops_datbuf);
+			pr_err("%s: failed to get dma addr for %p\n", __func__, ops_datbuf);
 			err = -EIO;
 			goto msm_nand_read_oob_exit;
 		}
@@ -991,8 +985,8 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		oob_dma_addr_curr = oob_dma_addr =
 			msm_nand_dma_map(chip->dev, ops->oobbuf, ops->ooblen, DMA_BIDIRECTIONAL);
 		if (dma_mapping_error(chip->dev, oob_dma_addr)) {
-			pr_err("msm_nand_read_oob: failed to get dma addr "
-			       "for %p\n", ops->oobbuf);
+			pr_err("%s: failed to get dma addr "
+			       "for %p\n", __func__, ops->oobbuf);
 			err = -EIO;
 			goto err_dma_map_oobbuf_failed;
 		}
@@ -1013,17 +1007,14 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		if (ops->mode != MTD_OPS_RAW) {
 			dma_buffer->data.cmd = MSM_NAND_CMD_PAGE_READ_ECC;
 			dma_buffer->data.cfg0 =
-			(chip->CFG0 & ~(7U << 6))
-				| (((cwperpage-1) - start_sector) << 6);
+			(chip->CFG0 & ~(7U << 6)) | (((cwperpage-1) - start_sector) << 6);
 			dma_buffer->data.cfg1 = chip->CFG1;
 			if (enable_bch_ecc)
 				dma_buffer->data.eccbchcfg = chip->ecc_bch_cfg;
 		} else {
 			dma_buffer->data.cmd = MSM_NAND_CMD_PAGE_READ;
-			dma_buffer->data.cfg0 = (chip->CFG0_RAW
-					& ~(7U << 6)) | ((cwperpage-1) << 6);
-			dma_buffer->data.cfg1 = chip->CFG1_RAW |
-					(chip->CFG1 & CFG1_WIDE_FLASH);
+			dma_buffer->data.cfg0 = (chip->CFG0_RAW & ~(7U << 6)) | ((cwperpage-1) << 6);
+			dma_buffer->data.cfg1 = chip->CFG1_RAW | (chip->CFG1 & CFG1_WIDE_FLASH);
 		}
 
 		dma_buffer->data.addr0 = (page << 16) | oob_col;
@@ -1031,10 +1022,8 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		/* chipsel_0 + enable DM interface */
 		dma_buffer->data.chipsel = 0 | 4;
 
-
 		/* GO bit for the EXEC register */
 		dma_buffer->data.exec = 1;
-
 
 		BUILD_BUG_ON(8 != ARRAY_SIZE(dma_buffer->data.result));
 
@@ -1058,8 +1047,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 
 			if (n == start_sector) {
 				cmd->cmd = 0;
-				cmd->src = msm_virt_to_dma(chip,
-							&dma_buffer->data.cfg0);
+				cmd->src = msm_virt_to_dma(chip, &dma_buffer->data.cfg0);
 				cmd->dst = MSM_NAND_DEV0_CFG0;
 				if (enable_bch_ecc)
 					cmd->len = 12;
@@ -1069,8 +1057,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 
 				dma_buffer->data.ecccfg = chip->ecc_buf_cfg;
 				cmd->cmd = 0;
-				cmd->src = msm_virt_to_dma(chip,
-						&dma_buffer->data.ecccfg);
+				cmd->src = msm_virt_to_dma(chip, &dma_buffer->data.ecccfg);
 				cmd->dst = MSM_NAND_EBI2_ECC_BUF_CFG;
 				cmd->len = 4;
 				cmd++;
@@ -1089,8 +1076,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 			 */
 			cmd->cmd = SRC_CRCI_NAND_DATA;
 			cmd->src = MSM_NAND_FLASH_STATUS;
-			cmd->dst = msm_virt_to_dma(chip,
-						   &dma_buffer->data.result[n]);
+			cmd->dst = msm_virt_to_dma(chip, &dma_buffer->data.result[n]);
 			/* MSM_NAND_FLASH_STATUS + MSM_NAND_BUFFER_STATUS */
 			cmd->len = 8;
 			cmd++;
@@ -1099,11 +1085,12 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 			 * (only valid if status says success)
 			 */
 			if (ops_datbuf) {
-				if (ops->mode != MTD_OPS_RAW)
-					sectordatasize = (n < (cwperpage - 1))
-					? 516 : (512 - ((cwperpage - 1) << 2));
-				else
+				if (ops->mode != MTD_OPS_RAW) {
+					sectordatasize =
+						(n < (cwperpage - 1)) ? 516 : (512 - ((cwperpage - 1) << 2));
+				} else {
 					sectordatasize = chip->cw_size;
+				}
 
 				cmd->cmd = 0;
 				cmd->src = MSM_NAND_FLASH_BUFFER;
@@ -1113,16 +1100,13 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 				cmd++;
 			}
 
-			if (ops->oobbuf && (n == (cwperpage - 1)
-			     || ops->mode != MTD_OPS_AUTO_OOB)) {
+			if (ops->oobbuf && ((n == (cwperpage - 1)) || (ops->mode != MTD_OPS_AUTO_OOB))) {
 				cmd->cmd = 0;
 				if (n == (cwperpage - 1)) {
-					cmd->src = MSM_NAND_FLASH_BUFFER +
-						(512 - ((cwperpage - 1) << 2));
+					cmd->src = MSM_NAND_FLASH_BUFFER + (512 - ((cwperpage - 1) << 2));
 					sectoroobsize = (cwperpage << 2);
 					if (ops->mode != MTD_OPS_AUTO_OOB)
-						sectoroobsize +=
-							chip->ecc_parity_bytes;
+						sectoroobsize += chip->ecc_parity_bytes;
 				} else {
 					cmd->src = MSM_NAND_FLASH_BUFFER + 516;
 					sectoroobsize = chip->ecc_parity_bytes;
@@ -1145,90 +1129,101 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		dma_buffer->cmd[0].cmd |= CMD_OCB;
 		cmd[-1].cmd |= CMD_OCU | CMD_LC;
 
-		dma_buffer->cmdptr =
-			(msm_virt_to_dma(chip, dma_buffer->cmd) >> 3)
-			| CMD_PTR_LP;
+		dma_buffer->cmdptr = (msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP;
 
 		mb();
-		/* DM, FIMXE: msm_dmov_exec_cmd may fail. */
-		msm_dmov_exec_cmd(chip->dma_channel, DMOV_CMD_PTR_LIST |
-						  DMOV_CMD_ADDR(msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
+		{
+		    /* msm_dmov_exec_cmd may return one of the standard errors
+		       (most likely EIO), or 0 if everything is OK. */
+		    unsigned int addr = 0;
+		    addr = msm_virt_to_dma(chip, &dma_buffer->cmdptr);
+		    err = msm_dmov_exec_cmd(chip->dma_channel,
+					    DMOV_CMD_PTR_LIST | DMOV_CMD_ADDR(addr));
+		    if(err) { goto msm_nand_read_oob_exit; }
+		}
 		mb();
 
 		/* if any of the writes failed (0x10), or there
 		 * was a protection violation (0x100), we lose
 		 */
-		pageerr = rawerr = 0;
+		pageerr = 0;
+		rawerr = 0;
 		for (n = start_sector; n < cwperpage; n++) {
-			if (dma_buffer->data.result[n].flash_status & 0x110) {
-				rawerr = -EIO;
-				break;
-			}
+#if 0 /* DM, FIXME: This piece of code is highly suspect, because we are getting 0x10 on correct reads as well. */
+		    if (dma_buffer->data.result[n].flash_status & 0x10) {
+			pr_err("%s: Write failed, n = %d, status = 0x%x\n", __func__, n, dma_buffer->data.result[n].flash_status);
+			rawerr = -EIO;
+			break;
+		    }
+#endif
+		    if (dma_buffer->data.result[n].flash_status & 0x100) {
+			pr_err("%s: Protection violation, n = %d, status = 0x%x\n",
+					__func__, n, dma_buffer->data.result[n].flash_status);
+			rawerr = -EIO;
+			break;
+		    }
 		}
+
 		if (rawerr) {
 			if (ops_datbuf && ops->mode != MTD_OPS_RAW) {
-				uint8_t *datbuf = ops_datbuf +
-					pages_read * mtd->writesize;
+				uint8_t *datbuf = ops_datbuf + pages_read * mtd->writesize;
 
-				dma_sync_single_for_cpu(chip->dev,
-					data_dma_addr_curr-mtd->writesize,
-					mtd->writesize, DMA_BIDIRECTIONAL);
+				dma_sync_single_for_cpu(chip->dev, data_dma_addr_curr-mtd->writesize,
+										mtd->writesize, DMA_BIDIRECTIONAL);
 
 				for (n = 0; n < mtd->writesize; n++) {
-					/* empty blocks read 0x54 at
-					 * these offsets
-					 */
-					if ((n % 516 == 3 || n % 516 == 175)
-							&& datbuf[n] == 0x54)
+					/* empty blocks read 0x54 at these offsets */
+					/* DM, FIXME: This is highly questionable check, and it does not make sense. */
+					if ((n % 516 == 3 || n % 516 == 175) && datbuf[n] == 0x54) {
 						datbuf[n] = 0xff;
+					}
+
+					/* DM, FIXME: This does not make any sense as well. */
 					if (datbuf[n] != 0xff) {
 						pageerr = rawerr;
+						pr_err("%s: Incorrect empty block data read=0x%02x, n=%d.\n",
+						__func__, datbuf[n], n);
 						break;
 					}
 				}
 
-				dma_sync_single_for_device(chip->dev,
-					data_dma_addr_curr-mtd->writesize,
-					mtd->writesize, DMA_BIDIRECTIONAL);
+				dma_sync_single_for_device(chip->dev, data_dma_addr_curr-mtd->writesize,
+										   mtd->writesize, DMA_BIDIRECTIONAL);
 
 			}
 
 			if (ops->oobbuf) {
-				dma_sync_single_for_cpu(chip->dev,
-				oob_dma_addr_curr - (ops->ooblen - oob_len),
-				ops->ooblen - oob_len, DMA_BIDIRECTIONAL);
+				dma_sync_single_for_cpu(chip->dev, oob_dma_addr_curr - (ops->ooblen - oob_len),
+										ops->ooblen - oob_len, DMA_BIDIRECTIONAL);
 
 				for (n = 0; n < ops->ooblen; n++) {
 					if (ops->oobbuf[n] != 0xff) {
+						pr_err("%s: Incorrect data0x%02x.\n", __func__, ops->oobbuf[n]);
 						pageerr = rawerr;
 						break;
 					}
 				}
 
-				dma_sync_single_for_device(chip->dev,
-				oob_dma_addr_curr - (ops->ooblen - oob_len),
-				ops->ooblen - oob_len, DMA_BIDIRECTIONAL);
+				dma_sync_single_for_device(chip->dev, oob_dma_addr_curr - (ops->ooblen - oob_len),
+										   ops->ooblen - oob_len, DMA_BIDIRECTIONAL);
 			}
 		}
 
 		if (pageerr) {
 			for (n = start_sector; n < cwperpage; n++) {
-				if (dma_buffer->data.result[n].buffer_status &
-					chip->uncorrectable_bit_mask) {
+				if (dma_buffer->data.result[n].buffer_status & chip->uncorrectable_bit_mask) {
 					/* not thread safe */
 					mtd->ecc_stats.failed++;
 					pageerr = -EBADMSG;
-
+					pr_err("%s: Page error = %d (EBADMSG)\n", __func__, pageerr);
 					break;
 				}
 			}
 		}
 
-		if (!rawerr) { /* check for corretable errors */
+		if (!rawerr) { /* check for correctable errors */
 			for (n = start_sector; n < cwperpage; n++) {
-				ecc_errors =
-				(dma_buffer->data.result[n].buffer_status
-				 & chip->num_err_mask);
+				ecc_errors = (dma_buffer->data.result[n].buffer_status & chip->num_err_mask);
 				if (ecc_errors) {
 					total_ecc_errors += ecc_errors;
 					/* not thread safe */
@@ -1238,7 +1233,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 					if (ecc_errors > 1)
 						pageerr = -EUCLEAN;
 #else /* CONFIG_SIERRA */
-					/*If we use 8 bit ecc, we set the bit flip threshold to 6*/
+					/*If we use 8 bit ecc, we set the bit flip threshold to 6 */
 					if (supported_flash.ecc_correctability >= FLASH_8BITS_ECC)
 					{
 						if (ecc_errors > FLASH_8BITS_ECC_THRESHOLD)
@@ -1262,18 +1257,17 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 			}
 		}
 
-		if (pageerr && (pageerr != -EUCLEAN || err == 0))
+		if (pageerr && ((pageerr != -EUCLEAN) || (err == 0))) {
 			err = pageerr;
+		}
 
 #if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
 		if (rawerr && !pageerr) {
-			pr_err("msm_nand_read_oob %llx %x %x empty page\n",
-			       (loff_t)page * mtd->writesize, ops_len,
-			       ops->ooblen);
+			pr_err("%s: %llx %x %x empty page\n", __func__,
+					(loff_t)page * mtd->writesize, ops_len, ops->ooblen);
 		} else {
 			for (n = start_sector; n < cwperpage; n++)
-				pr_info("flash_status[%d] = %x,\
-				buffr_status[%d] = %x\n",
+				pr_info("flash_status[%d] = %x, buffr_status[%d] = %x\n",
 				n, dma_buffer->data.result[n].flash_status,
 				n, dma_buffer->data.result[n].buffer_status);
 		}
@@ -1288,8 +1282,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 
 	if (ops->oobbuf) {
-		dma_unmap_page(chip->dev, oob_dma_addr,
-				 ops->ooblen, DMA_FROM_DEVICE);
+		dma_unmap_page(chip->dev, oob_dma_addr, ops->ooblen, DMA_FROM_DEVICE);
 	}
 
 
@@ -1312,7 +1305,7 @@ err_dma_map_oobbuf_failed:
 	}
 	ops->oobretlen = ops->ooblen - oob_len;
 	if (err) {
-		pr_err("msm_nand_read_oob %llx %x %x failed %d, corrected %d\n",
+		pr_err("%s: %llx %x %x failed %d, corrected %d\n", __func__,
 			   from, ops_datbuf ? ops_len : 0, ops->ooblen, err,
 			   total_ecc_errors);
 	}
@@ -2670,74 +2663,158 @@ err_dma_map_oobbuf_failed:
 	return err;
 }
 
-static int msm_nand_write_subpage(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf)
+
+/* Write can start and end anywhere. */
+static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
+						  size_t *retlen, const u_char *buf)
 {
-   int ret;
-   struct mtd_oob_ops ops;
-   u_char buf_cache[mtd->writesize];
+	int ret = 0;
+	struct mtd_oob_ops ops;
+	u_char buf_cache[mtd->writesize];
+	int cntr = 0;
+
+	/* Determines if write starts on page boundary. */
+	unsigned long r_start = (unsigned long)(((unsigned long)to) % ((unsigned long)mtd->writesize));
+
+	/* Determines the start page. */
+	unsigned long start_page = (unsigned long)(((unsigned long)to) / ((unsigned long)mtd->writesize));
+
+	/* Determines if write ends on page boundary. */
+	unsigned long r_end = (unsigned long)(((unsigned long)to + (unsigned long)len) % ((unsigned long)mtd->writesize));
+
+	/* Determines the end page. */
+	unsigned long end_page = (unsigned long)(((unsigned long)to + (unsigned long)len - 1) / ((unsigned long)mtd->writesize));
+
+	/* Input data pointer. */
+	u_char *buf_ptr = buf;
+
+	/* Local lenght. */
+	size_t llen = 0;
+
 
 #if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-   pr_info("%s: %llx %i\n", __func__, to, len);
+	pr_info("%s: to=0x%llx len=%i\n", __func__, to, len);
+	pr_info("%s: r_start=0x%x, r_end=0x%x, start_page=0x%x, end_page=0x%x\n",
+			__func__, r_start, r_end, start_page, end_page);
 #endif
 
-   ops.mode = MTD_OPS_PLACE_OOB;
-   ops.len = mtd->writesize;
-   ops.datbuf = buf_cache;
-   ops.retlen = 0;
-   ops.ooblen = 0;
-   ops.oobbuf = NULL;
-   ret = msm_nand_read_oob(mtd, to, &ops);
+	/* There will be always something to write on the first page. */
+	if( (r_start + len) > mtd->writesize ) {
+		llen = mtd->writesize - r_start;
+	} else {
+		llen = len;
+	}
 
-   memcpy(buf_cache, buf, len);
+	/* Read all data from flash page. */
+	ops.mode = MTD_OPS_PLACE_OOB;
+	ops.len = mtd->writesize;
+	ops.datbuf = buf_cache;
+	ops.retlen = 0;
+	ops.ooblen = 0;
+	ops.oobbuf = NULL;
 
-   ops.len = mtd->writesize;
-   ops.datbuf = buf_cache;
-   ops.retlen = 0;
-   ops.ooblen = 0;
-   ops.oobbuf = NULL;
-   ret = msm_nand_write_oob(mtd, to, &ops);
-
-   *retlen = len;
-   return ret;
-}
-
-static int msm_nand_write_multipage(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf)
-{
-    int ret;
-    struct mtd_oob_ops ops;
-    u_char buf_cache[mtd->writesize];
-	int c = 1;
+	/* If full block needs to be written, there is no reason to read. In this
+	  case r_start must be 0. */
+	if(llen != mtd->writesize) {
+		ret = msm_nand_read_oob(mtd, (start_page * mtd->writesize), &ops);
+	} else {
+		BUG_ON(r_start!=0);
+	}
 
 #if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-    pr_info("%s: %llx %i\n", __func__, to, len);
+
+	if(llen != mtd->writesize) {
+		unsigned int i;
+		for(i = 0; i < mtd->writesize; i++) {
+			if(buf_cache[i] != 0xff) {
+				pr_info("%s: Upon read, data at offset 0x%x is 0x%x\n", __func__, i, buf_cache[i]);
+			}
+		}
+	}
+
 #endif
 
-    ops.mode = MTD_OPS_PLACE_OOB;
-    ops.len = mtd->writesize;
-    ops.datbuf = buf_cache;
-    ops.retlen = 0;
-    ops.ooblen = 0;
-    ops.oobbuf = NULL;
+	if(ret == 0) {
 
-    memcpy(buf_cache,buf,(mtd->writesize));
-    ret = msm_nand_write_oob(mtd, to, &ops);
+		/* Write new data to same flash page */
+		memcpy((buf_cache + r_start), buf_ptr, llen);
+		ops.mode = MTD_OPS_PLACE_OOB;
+		ops.len = mtd->writesize;
+		ops.datbuf = buf_cache;
+		ops.retlen = 0;
+		ops.ooblen = 0;
+		ops.oobbuf = NULL;
 
-    for (c = 1; c < (len/mtd->writesize); c++) {
-        memcpy(buf_cache,buf + (c * mtd->writesize), mtd->writesize);
-        ret = msm_nand_write_oob(mtd, to + (c * mtd->writesize), &ops);
-    }
+#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
+		{
+			unsigned int i;
+			for(i = 0; i < mtd->writesize; i++) {
+				if(buf_cache[i] != 0xff) {
+					pr_info("%s: Before write, data at offset 0x%x is 0x%x\n",
+							__func__, i, buf_cache[i]);
+				}
+			}
+		}
+#endif
 
-    *retlen = len;
-    return ret;
-}
+		ret = msm_nand_write_oob(mtd, (start_page * mtd->writesize), &ops);
+		if(ret == 0) {
+			buf_ptr += llen;
+		}
+	}
 
-static int msm_nand_write_partial(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf)
-{
-    pr_err("%s: Not implemented!\n", __func__);
-    return 0;
+	/* Write whole flash pages only (if any). */
+	ops.mode = MTD_OPS_PLACE_OOB;
+	ops.len = mtd->writesize;
+	ops.datbuf = buf_cache;
+	ops.retlen = 0;
+	ops.ooblen = 0;
+	ops.oobbuf = NULL;
+
+	for (cntr = (start_page + 1); (cntr < (end_page + ((r_end == 0) ? 1 : 0))) && (ret == 0); cntr++) {
+		memcpy(buf_cache, buf_ptr, mtd->writesize);
+		ret = msm_nand_write_oob(mtd, (cntr * mtd->writesize), &ops);
+		if(ret == 0) {
+			buf_ptr += mtd->writesize;
+		}
+	}
+
+	/* Write the rest of data as subpage (if any). */
+	if((ret == 0) && (start_page != end_page) && (r_end != 0)) {
+
+		/* Read all data from flash page. */
+		ops.mode = MTD_OPS_PLACE_OOB;
+		ops.len = mtd->writesize;
+		ops.datbuf = buf_cache;
+		ops.retlen = 0;
+		ops.ooblen = 0;
+		ops.oobbuf = NULL;
+		ret = msm_nand_read_oob(mtd, (end_page * mtd->writesize), &ops);
+
+		if(ret == 0) {
+
+			/* Write new data to same flash page (read-modify-write). */
+			memcpy(buf_cache, buf_ptr, r_end);
+			ops.mode = MTD_OPS_PLACE_OOB;
+			ops.len = mtd->writesize;
+			ops.datbuf = buf_cache;
+			ops.retlen = 0;
+			ops.ooblen = 0;
+			ops.oobbuf = NULL;
+			ret = msm_nand_write_oob(mtd, (end_page * mtd->writesize), &ops);
+			if(ret == 0) {
+				buf_ptr += r_end;
+			}
+		}
+	}
+
+	*retlen = (size_t)(buf_ptr - buf);
+
+#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
+	pr_info("%s: Written %d bytes to flash.\n", __func__, *retlen);
+#endif
+
+	return ret;
 }
 
 static int
@@ -3360,68 +3437,6 @@ err_dma_map_oobbuf_failed:
 	return err;
 }
 
-static int msm_nand_write_page(struct mtd_info *mtd, loff_t to, size_t len,
-           size_t *retlen, const u_char *buf)
-{
-    int ret;
-    struct mtd_oob_ops ops;
-
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-    pr_info("%s: %llx %i\n", __func__, to, len);
-#endif
-
-    ops.mode = MTD_OPS_PLACE_OOB;
-    ops.len = len;
-    ops.retlen = 0;
-    ops.ooblen = 0;
-    ops.datbuf = (uint8_t *)buf;
-    ops.oobbuf = NULL;
-    ret = msm_nand_write_oob(mtd, to, &ops);
-    *retlen = ops.retlen;
-    return ret;
-}
-
-static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
-			  size_t *retlen, const u_char *buf)
-{
-
-#if defined(CONFIG_MTD_MSM_NAND_VSPOPS)
-
-    unsigned long r_offset = (unsigned long)(((unsigned long)to) % ((unsigned long)mtd->writesize));
-
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-    pr_info("%s: offset = %li, len = %i\n", __func__, r_offset, len);
-#endif
-   /* Check if requested data is a subpage. */
-    if( (len < mtd->writesize) && ((mtd->writesize % len) == 0) && (r_offset == 0)) {
-		print_devel_dbg("Calling msm_nand_write_subpage\n");
-        return msm_nand_write_subpage(mtd, to, len, retlen, buf);
-   }
-   /* Check if requested data is multiple pages. */
-   else if((len > mtd->writesize) && ((len % mtd->writesize) == 0) && (r_offset == 0)) {
-	   print_devel_dbg("Calling msm_nand_write_multipage\n");
-        return msm_nand_write_multipage(mtd, to, len, retlen, buf);
-   }
-   /* Is it exactly a page? */
-   else if((len == mtd->writesize) && (r_offset == 0)) {
-	   print_devel_dbg("Calling msm_nand_write_page\n");
-       return msm_nand_write_page(mtd, to, len, retlen, buf);
-   }
-   else {
-
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-       pr_info("%s: %llx %i\n", __func__, from, len);
-#endif
-	   print_devel_dbg("Calling msm_nand_write_partial\n");
-       return msm_nand_write_partial(mtd, to, len, retlen, buf);
-   }
-
-#else /* CONFIG_MTD_MSM_NAND_VSPOPS */
-
-   return msm_nand_write_page(mtd, to, len, retlen, buf);
-
-#endif /* CONFIG_MTD_MSM_NAND_VSPOPS */
-}
 
 static int
 msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
@@ -7236,7 +7251,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
            so mtd driver writebufsize must be set to pagesize.
          */
 		pr_info("Setting mtd->writebufsize to 0x%x\n", supported_flash.pagesize);
-        mtd->writebufsize =  supported_flash.pagesize;
+		mtd->writebufsize =  supported_flash.pagesize;
 
 		/* Check whether controller and NAND device support 8bit ECC*/
 		hw_id = flash_rd_reg(chip, MSM_NAND_HW_INFO);
@@ -7248,6 +7263,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		} else {
 			pr_info("Found a supported NAND device\n");
 		}
+
 		pr_info("NAND Controller ID : 0x%x\n", hw_id);
 		pr_info("NAND Device ID  : 0x%x\n", supported_flash.flash_id);
 		pr_info("Buswidth : %d Bits\n", (wide_bus) ? 16 : 8);
@@ -7305,6 +7321,8 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 	pr_info("CFG0 Init  : 0x%08x\n", chip->CFG0);
 	pr_info("CFG1 Init  : 0x%08x\n", chip->CFG1);
 	pr_info("ECCBUFCFG  : 0x%08x\n", chip->ecc_buf_cfg);
+	pr_info("CW size    : %d bytes\n", chip->cw_size);
+	pr_info("BCH ECC    : %s\n", enable_bch_ecc ? "enabled" : "disabled" );
 
 	if (mtd->oobsize == 64) {
 		mtd->oobavail = msm_nand_oob_64.oobavail;
