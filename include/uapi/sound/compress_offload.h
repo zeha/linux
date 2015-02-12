@@ -70,6 +70,7 @@ struct snd_compr_tstamp {
 	__u32 pcm_frames;
 	__u32 pcm_io_frames;
 	__u32 sampling_rate;
+	uint64_t timestamp;
 };
 
 /**
@@ -140,6 +141,17 @@ enum {
 struct snd_compr_metadata {
 	 __u32 key;
 	 __u32 value[8];
+};
+
+
+/**
+ * struct snd_compr_audio_info: compressed input audio information
+ * @frame_size: legth of the encoded frame with valid data
+ * @reserved: reserved for furture use
+ */
+struct snd_compr_audio_info {
+	uint32_t frame_size;
+	uint32_t reserved[15];
 };
 
 /**
