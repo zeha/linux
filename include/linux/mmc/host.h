@@ -281,6 +281,11 @@ struct mmc_host {
 #define MMC_CAP2_PACKED_WR	(1 << 13)	/* Allow packed write */
 #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
 				 MMC_CAP2_PACKED_WR)
+#define MMC_CAP2_PACKED_WR_CONTROL (1 << 12) /* Allow write packing control */
+
+#define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
+#define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
+#define MMC_CAP2_CLK_SCALE	(1 << 16)	/* Allow dynamic clk scaling */
 #define MMC_CAP2_NO_PRESCAN_POWERUP (1 << 14)	/* Don't power up before scan */
 #define MMC_CAP2_SANITIZE	(1 << 15)		/* Support Sanitize */
 
@@ -327,6 +332,7 @@ struct mmc_host {
 
 	wait_queue_head_t	wq;
 	struct task_struct	*claimer;	/* task that has host claimed */
+	struct task_struct	*suspend_task;
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;
