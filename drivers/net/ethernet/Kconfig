@@ -92,6 +92,7 @@ source "drivers/net/ethernet/micrel/Kconfig"
 source "drivers/net/ethernet/microchip/Kconfig"
 source "drivers/net/ethernet/moxa/Kconfig"
 source "drivers/net/ethernet/myricom/Kconfig"
+source "drivers/net/ethernet/msm/Kconfig"
 
 config FEALNX
 	tristate "Myson MTD-8xx PCI Ethernet support"
