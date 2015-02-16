@@ -63,6 +63,34 @@ enum usb_otg_state {
 struct usb_phy;
 struct usb_otg;
 
+enum usb_otg_event {
+	/* Device is not connected within
+	 * TA_WAIT_BCON or not responding.
+	 */
+	OTG_EVENT_DEV_CONN_TMOUT,
+	/* B-device returned STALL for
+	 * B_HNP_ENABLE feature request.
+	 */
+	OTG_EVENT_NO_RESP_FOR_HNP_ENABLE,
+	/* HUB class devices are not
+	 * supported.
+	 */
+	OTG_EVENT_HUB_NOT_SUPPORTED,
+	/* Device is not supported i.e
+	 * not listed in TPL.
+	 */
+	OTG_EVENT_DEV_NOT_SUPPORTED,
+	/* HNP failed due to
+	 * TA_AIDL_BDIS timeout or
+	 * TB_ASE0_BRST timeout
+	 */
+	OTG_EVENT_HNP_FAILED,
+	/* B-device did not detect VBUS
+	 * within TB_SRP_FAIL time.
+	 */
+	OTG_EVENT_NO_RESP_FOR_SRP,
+};
+
 /* for transceivers connected thru an ULPI interface, the user must
  * provide access ops
  */
@@ -116,6 +144,10 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
+	/* send events to user space */
+	int	(*send_event)(struct usb_otg *otg,
+			enum usb_otg_event event);
+
 };
 
 /**
@@ -189,6 +221,10 @@ usb_phy_vbus_off(struct usb_phy *x)
 
 	return x->set_vbus(x, false);
 }
+
+/* for USB core, host and peripheral controller drivers */
+/* Context: can sleep */
+extern int otg_send_event(enum usb_otg_event event);
 
 /* for usb host and peripheral controller drivers */
 #if IS_ENABLED(CONFIG_USB_PHY)

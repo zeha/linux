@@ -1,0 +1,34 @@
+#
+# USB OTG infrastructure may be needed for peripheral-only, host-only,
+# or OTG-capable configurations when OTG transceivers or controllers
+# are used.
+#
+
+comment "OTG and related infrastructure"
+
+config USB_OTG_UTILS
+	bool
+	help
+	  Select this to make sure the build includes objects from
+	  the OTG infrastructure directory.
+
+if USB || USB_GADGET
+
+#
+# USB Transceiver Drivers
+#
+
+config USB_MSM_OTG
+	tristate "OTG support for Qualcomm on-chip USB controller"
+	depends on (USB || USB_GADGET) && ARCH_MSM
+	select USB_OTG_UTILS
+	help
+	  Enable this to support the USB OTG transceiver on MSM chips. It
+	  handles PHY initialization, clock management, and workarounds
+	  required after resetting the hardware and power management.
+	  This driver is required even for peripheral only or host only
+	  mode configurations.
+	  This driver is not supported on boards like trout which
+	  has an external PHY.
+
+endif # USB || OTG
