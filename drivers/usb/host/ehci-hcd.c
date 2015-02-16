@@ -526,6 +526,7 @@ static int ehci_init(struct usb_hcd *hcd)
 	hw->hw_alt_next = QTD_NEXT(ehci, ehci->async->dummy->qtd_dma);
 
 	/* clear interrupt enables, set irq latency */
+	log2_irq_thresh = ehci->log2_irq_thresh;
 	if (log2_irq_thresh < 0 || log2_irq_thresh > 6)
 		log2_irq_thresh = 0;
 	temp = 1 << (16 + log2_irq_thresh);
@@ -803,6 +804,9 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	/* PCI errors [4.15.2.4] */
 	if (unlikely ((status & STS_FATAL) != 0)) {
 		ehci_err(ehci, "fatal error\n");
+		if (hcd->driver->dump_regs)
+			hcd->driver->dump_regs(hcd);
+		panic("System error\n");
 		dbg_cmd(ehci, "fatal", cmd);
 		dbg_status(ehci, "fatal", status);
 dead:
@@ -1248,6 +1252,12 @@ MODULE_LICENSE ("GPL");
 #define	PLATFORM_DRIVER		ehci_fsl_driver
 #endif
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+#include "ehci-msm-hsic.c"
+#define HSIC_PLATFORM_DRIVER		ehci_msm_hsic_driver
+#endif
+
+
 #ifdef CONFIG_USB_EHCI_SH
 #include "ehci-sh.c"
 #define PLATFORM_DRIVER		ehci_hcd_sh_driver
@@ -1348,8 +1358,18 @@ static int __init ehci_hcd_init(void)
 	if (retval < 0)
 		goto clean4;
 #endif
-	return retval;
 
+#ifdef HSIC_PLATFORM_DRIVER
+	retval = platform_driver_register(&HSIC_PLATFORM_DRIVER);
+	if (retval < 0)
+		goto clean5;
+#endif
+
+	return retval;
+#ifdef HSIC_PLATFORM_DRIVER
+	platform_driver_unregister(&HSIC_PLATFORM_DRIVER);
+clean5:
+#endif
 #ifdef XILINX_OF_PLATFORM_DRIVER
 	/* platform_driver_unregister(&XILINX_OF_PLATFORM_DRIVER); */
 clean4:
@@ -1383,6 +1403,9 @@ static void __exit ehci_hcd_cleanup(void)
 #endif
 #ifdef OF_PLATFORM_DRIVER
 	platform_driver_unregister(&OF_PLATFORM_DRIVER);
+#endif
+#ifdef HSIC_PLATFORM_DRIVER
+	platform_driver_unregister(&HSIC_PLATFORM_DRIVER);
 #endif
 #ifdef PLATFORM_DRIVER
 	platform_driver_unregister(&PLATFORM_DRIVER);
