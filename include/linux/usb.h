@@ -332,6 +332,14 @@ struct usb_bus {
 	u8 otg_port;			/* 0, or number of OTG/HNP port */
 	unsigned is_b_host:1;		/* true during some HNP roleswitches */
 	unsigned b_hnp_enable:1;	/* OTG: did A-Host enable HNP? */
+ 	unsigned hnp_support:1;		/* OTG: HNP is supported on OTG port */
+	unsigned quick_hnp:1;		/* OTG: Indiacates if hnp is required
+					   irrespective of host_request flag
+					 */
+	unsigned otg_vbus_off:1;	/* OTG: OTG test device feature bit that
+					 * tells A-device to turn off VBUS after
+					 * B-device is disconnected.
+					 */
 	unsigned no_stop_on_short:1;    /*
 					 * Quirk: some controllers don't stop
 					 * the ep queue on a short transfer
@@ -364,6 +372,15 @@ struct usb_bus {
 	struct mon_bus *mon_bus;	/* non-null when associated */
 	int monitored;			/* non-zero when monitored */
 #endif
+	unsigned skip_resume:1;		/* All USB devices are brought into full
+					 * power state after system resume. It
+					 * is desirable for some buses to keep
+					 * their devices in suspend state even
+					 * after system resume. The devices
+					 * are resumed later when a remote
+					 * wakeup is detected or an interface
+					 * driver starts I/O.
+					 */
 };
 
 /* ----------------------------------------------------------------------- */
@@ -1839,9 +1856,15 @@ static inline int usb_translate_errors(int error_code)
 #define USB_DEVICE_REMOVE	0x0002
 #define USB_BUS_ADD		0x0003
 #define USB_BUS_REMOVE		0x0004
+#define USB_DEVICE_CONFIG	0x0005
+
+#ifdef CONFIG_USB
 extern void usb_register_notify(struct notifier_block *nb);
 extern void usb_unregister_notify(struct notifier_block *nb);
-
+#else
+static inline void usb_register_notify(struct notifier_block *nb) {}
+static inline void usb_unregister_notify(struct notifier_block *nb) {}
+#endif
 /* debugfs stuff */
 extern struct dentry *usb_debug_root;
 

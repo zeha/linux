@@ -920,6 +920,9 @@ static void usb_bus_init (struct usb_bus *bus)
 	bus->bandwidth_isoc_reqs = 0;
 
 	INIT_LIST_HEAD (&bus->bus_list);
+#ifdef CONFIG_USB_OTG
+	INIT_DELAYED_WORK(&bus->hnp_polling, usb_hnp_polling_work);
+#endif
 }
 
 /*-------------------------------------------------------------------------*/
@@ -951,7 +954,11 @@ static int usb_register_bus(struct usb_bus *bus)
 	/* Add it to the local list of buses */
 	list_add (&bus->bus_list, &usb_bus_list);
 	mutex_unlock(&usb_bus_list_lock);
-
+#ifdef CONFIG_USB_OTG
+	/* Obvioulsy HNP is supported on B-host */
+	if (bus->is_b_host)
+		bus->hnp_support = 1;
+#endif
 	usb_notify_add_bus(bus);
 
 	dev_info (bus->controller, "new USB bus registered, assigned bus "
@@ -1552,7 +1559,8 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 	atomic_inc(&urb->use_count);
 	atomic_inc(&urb->dev->urbnum);
 	usbmon_urb_submit(&hcd->self, urb);
-
+	if (hcd->driver->log_urb)
+		hcd->driver->log_urb(urb, "S", urb->status);
 	/* NOTE requirements on root-hub callers (usbfs and the hub
 	 * driver, for now):  URBs' urb->transfer_buffer must be
 	 * valid and usb_buffer_{sync,unmap}() not be needed, since
@@ -1574,6 +1582,8 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 
 	if (unlikely(status)) {
 		usbmon_urb_submit_error(&hcd->self, urb, status);
+		if (hcd->driver->log_urb)
+		hcd->driver->log_urb(urb, "E", status);
 		urb->hcpriv = NULL;
 		INIT_LIST_HEAD(&urb->urb_list);
 		atomic_dec(&urb->use_count);
@@ -1663,6 +1673,8 @@ static void __usb_hcd_giveback_urb(struct urb *urb)
 	unmap_urb_for_dma(hcd, urb);
 	usbmon_urb_complete(&hcd->self, urb, status);
 	usb_anchor_suspend_wakeups(anchor);
+	if (hcd->driver->log_urb)
+		hcd->driver->log_urb(urb, "C", status);
 	usb_unanchor_urb(urb);
 
 	/* pass ownership to the completion handler */
