@@ -24,6 +24,8 @@
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
 
+#include <linux/sierra_bsudefs.h>
+
 #define TIMEOUT_MS 1000
 #define AUDIO_RX 0x0
 #define AUDIO_TX 0x1
@@ -38,6 +40,7 @@ struct adm_ctl {
 	atomic_t copp_cnt[AFE_MAX_PORTS];
 	atomic_t copp_stat[AFE_MAX_PORTS];
 	wait_queue_head_t wait;
+	int  ec_ref_rx;
 };
 
 static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
@@ -573,7 +576,18 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.endpoint_id1 = port_id;
 		open.endpoint_id2 = 0xFFFF;
 
-		/* convert path to acdb path */
+		if( bsgethwtype() == BSAR8652 ) {
+			if (this_adm.ec_ref_rx == 0) {
+				open.endpoint_id2 = 0xFFFF;
+			} else if (this_adm.ec_ref_rx && (path != 1)) {
+					open.endpoint_id2 = this_adm.ec_ref_rx;
+					this_adm.ec_ref_rx = 0;
+			}
+
+			pr_debug("%s open.endpoint_id1:%d open.endpoint_id2:%d",
+				__func__, open.endpoint_id1, open.endpoint_id2);
+		}
+
 		if (path == ADM_PATH_PLAYBACK)
 			open.topology_id = get_adm_rx_topology();
 		else {
@@ -703,7 +717,18 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 		open.endpoint_id1 = port_id;
 		open.endpoint_id2 = 0xFFFF;
 
-		/* convert path to acdb path */
+		if( bsgethwtype() == BSAR8652 ) {
+			if (this_adm.ec_ref_rx == 0) {
+				open.endpoint_id2 = 0xFFFF;
+			} else if (this_adm.ec_ref_rx && (path != 1)) {
+					open.endpoint_id2 = this_adm.ec_ref_rx;
+					this_adm.ec_ref_rx = 0;
+			}
+
+			pr_debug("%s open.endpoint_id1:%d open.endpoint_id2:%d",
+				__func__, open.endpoint_id1, open.endpoint_id2);
+		}
+
 		if (path == ADM_PATH_PLAYBACK)
 			open.topology_id = get_adm_rx_topology();
 		else {
@@ -1000,6 +1025,12 @@ int adm_get_copp_id(int port_index)
 	}
 
 	return atomic_read(&this_adm.copp_id[port_index]);
+}
+
+void adm_ec_ref_rx_id(int  port_id)
+{
+	this_adm.ec_ref_rx = port_id;
+	pr_debug("%s ec_ref_rx:%d", __func__, this_adm.ec_ref_rx);
 }
 
 int adm_close(int port_id)

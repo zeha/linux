@@ -30,6 +30,7 @@
 #include <sound/tlv.h>
 #include "msm-pcm-routing.h"
 #include "qdsp6/q6voice.h"
+#include <linux/sierra_bsudefs.h>
 
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
@@ -48,6 +49,7 @@ static struct mutex routing_lock;
 
 static int fm_switch_enable;
 static int fm_pcmrx_switch_enable;
+static int srs_alsa_ctrl_ever_called;
 
 #define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
@@ -68,7 +70,7 @@ static int msm_route_compressed_vol_control;
 static const DECLARE_TLV_DB_LINEAR(compressed_rx_vol_gain, 0,
 			INT_RX_VOL_MAX_STEPS);
 
-
+static int msm_route_ec_ref_rx;
 
 /* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
 #define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
@@ -120,6 +122,8 @@ static int srs_port_id = -1;
 
 static void srs_send_params(int port_id, unsigned int techs,
 		int param_block_idx) {
+	if (!srs_alsa_ctrl_ever_called)
+		return;
 	pr_debug("SRS %s: called, port_id = %d, techs flags = %u,"
 			" paramblockidx %d", __func__, port_id, techs,
 			param_block_idx);
@@ -320,6 +324,8 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 
 			payload.copp_ids[payload.num_copps++] =
 				msm_bedais[i].port_id;
+			srs_port_id = msm_bedais[i].port_id;
+			srs_send_params(srs_port_id, 1, 0);
 		}
 	}
 	if (payload.num_copps)
@@ -428,6 +434,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
+			srs_port_id = msm_bedais[reg].port_id;
+			srs_send_params(srs_port_id, 1, 0);
 		}
 	} else {
 		if (test_bit(val, &msm_bedais[reg].fe_sessions) &&
@@ -544,6 +552,8 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 			voc_disable_cvp(session_id);
 		}
 	}
+	pr_debug("%s(): msm_bedais[reg].port_id=%d\n", __func__,
+		       msm_bedais[reg].port_id);
 }
 
 static int msm_routing_get_voice_mixer(struct snd_kcontrol *kcontrol,
@@ -574,6 +584,7 @@ static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
+	pr_debug("%s(): %ld\n", __func__, ucontrol->value.integer.value[0] );
 	if (ucontrol->value.integer.value[0]) {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 1);
 		snd_soc_dapm_mixer_update_power(dapm, kcontrol, 1,0);
@@ -806,6 +817,8 @@ static int msm_routing_set_srs_trumedia_control_(struct snd_kcontrol *kcontrol,
 	unsigned int techs = 0;
 	unsigned short offset, value, max, index;
 
+	srs_alsa_ctrl_ever_called = 1;
+
 	max = sizeof(msm_srs_trumedia_params) >> 1;
 	index = (unsigned short)((ucontrol->value.integer.value[0] &
 			SRS_PARAM_INDEX_MASK) >> 31);
@@ -1020,6 +1033,47 @@ static int msm_routing_put_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 					ucontrol->value.integer.value[4];
 	return 0;
 }
+
+static int msm_routing_ec_ref_rx_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ec_ref_rx  = %d", __func__, msm_route_ec_ref_rx);
+	ucontrol->value.integer.value[0] = msm_route_ec_ref_rx;
+	return 0;
+}
+
+static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	extern void adm_ec_ref_rx_id(int  port_id);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_route_ec_ref_rx = SLIMBUS_0_RX;
+		break;
+	case 1:
+		msm_route_ec_ref_rx = PRIMARY_I2S_RX;
+		break;
+	default:
+		msm_route_ec_ref_rx = 0;
+		break;
+	}
+	adm_ec_ref_rx_id(msm_route_ec_ref_rx);
+	pr_debug("%s: msm_route_ec_ref_rx = %d\n",
+			__func__, msm_route_ec_ref_rx);
+	return 0;
+}
+
+static const char * const ec_ref_rx[] = {"SLIM_RX", "I2S_RX", "PROXY_RX",
+	"NONE"};
+static const struct soc_enum msm_route_ec_ref_rx_enum[] = {
+	SOC_ENUM_SINGLE_EXT(4, ec_ref_rx),
+};
+
+static const struct snd_kcontrol_new ec_ref_rx_mixer_controls[] = {
+	SOC_ENUM_EXT("EC_REF_RX", msm_route_ec_ref_rx_enum[0],
+	msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put),
+};
 
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_I2S_RX ,
@@ -1903,6 +1957,17 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("DTMF_DL_HL", "DTMF_RX_HOSTLESS Playback",
 		0, 0, 0, 0),
 
+	SND_SOC_DAPM_AIF_IN("PRI_I2S_DL_HL", "PRI_I2S_HOSTLESS Playback",
+		0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("PRI_I2S_UL_HL", "PRI_I2S_HOSTLESS Capture",
+		0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("MI2S_DL_HL", "MI2S_HOSTLESS Playback",
+		0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("MI2S_UL_HL", "MI2S_HOSTLESS Capture",
+		0, 0, 0, 0),
+	SND_SOC_DAPM_SWITCH("MI2S_RX_DL_HL", SND_SOC_NOPM, 0, 0,
+				&fm_switch_mixer_controls),
+
 	/* Backend AIF */
 	/* Stream name equals to backend dai link stream name
 	 */
@@ -2494,10 +2559,12 @@ static int msm_routing_write(struct snd_soc_platform *platform,
 /* Not used but frame seems to require it */
 static int msm_routing_probe(struct snd_soc_platform *platform)
 {
-	snd_soc_dapm_new_controls(&platform->dapm, msm_qdsp6_widgets,
-			    ARRAY_SIZE(msm_qdsp6_widgets));
-	snd_soc_dapm_add_routes(&platform->dapm, intercon,
-		ARRAY_SIZE(intercon));
+	{
+		snd_soc_dapm_new_controls(&platform->dapm, msm_qdsp6_widgets,
+					  ARRAY_SIZE(msm_qdsp6_widgets));
+		snd_soc_dapm_add_routes(&platform->dapm, intercon,
+					ARRAY_SIZE(intercon));
+	}
 
 	snd_soc_dapm_new_widgets(platform->card);
 
@@ -2540,7 +2607,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				lpa_SRS_trumedia_controls_I2S,
 			ARRAY_SIZE(lpa_SRS_trumedia_controls_I2S));
-
+	snd_soc_add_platform_controls(platform,
+				ec_ref_rx_mixer_controls,
+			ARRAY_SIZE(ec_ref_rx_mixer_controls));
 	return 0;
 }
 

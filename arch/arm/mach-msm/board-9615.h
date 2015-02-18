@@ -41,6 +41,10 @@ struct i2c_registry {
 #define TABLA_DIGITAL1_I2C_SLAVE_ADDR	0x66
 #define TABLA_DIGITAL2_I2C_SLAVE_ADDR	0x55
 #define MSM_9615_GSBI5_QUP_I2C_BUS_ID 0
+/* SWISTART */
+/* wm8944 */
+#define WM8944_I2C_SLAVE_ADDR		0x1a
+/* SWISTOP */
 /*
  * MDM9x15 I2S.
  */

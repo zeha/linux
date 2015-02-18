@@ -33,6 +33,7 @@
 #include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe.h"
 #include "msm-pcm-q6.h"
+#include <linux/sierra_bsudefs.h>
 
 #define MIN_PERIOD_SIZE (128 * 2)
 #define MAX_PERIOD_SIZE (128 * 2 * 2 * 6)
@@ -465,6 +466,7 @@ static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		prtd->start = 1;
+		hrtimer_start(&prtd->hrt, ns_to_ktime(0), HRTIMER_MODE_REL);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:

@@ -24,6 +24,9 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
+#ifdef CONFIG_MFD_WM8944
+#include <linux/mfd/wm8944/pdata.h>
+#endif
 /* SWISTOP */
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
@@ -797,6 +800,39 @@ static struct i2c_registry msm9615_i2c_devices[] __initdata = {
 #endif
 };
 
+/* SWISTART */
+#ifdef CONFIG_MFD_WM8944
+
+#define WM8944_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8018_IRQS)
+
+static struct wm8944_pdata wm8944_platform_data = {
+	.gpio_defaults[0] = 0x0003, /* IRQ output */
+	.gpio_defaults[1] = 0xC000, /* reset value */
+	.line_vroi = 0,
+	.spk_vroi = 0,
+	.micbias_lvl = 0,
+	.irq_base = WM8944_INTERRUPT_BASE,
+};
+
+static struct i2c_board_info wm8944_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("wm8944", WM8944_I2C_SLAVE_ADDR),
+		.platform_data = &wm8944_platform_data,
+		.irq = MSM_GPIO_TO_INT(86),
+	},
+};
+
+static struct i2c_registry msm9615_i2c_devices_wm8944[] __initdata = {
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_9615_GSBI5_QUP_I2C_BUS_ID,
+		wm8944_device_info,
+		ARRAY_SIZE(wm8944_device_info),
+	},
+};
+#endif
+/* SWISTOP */
+
 static struct slim_boardinfo msm_slim_devices[] = {
 	/* add slimbus slaves as needed */
 #ifdef CONFIG_WCD9310_CODEC
@@ -1299,13 +1335,30 @@ static void __init msm9615_i2c_init(void)
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
 #endif /* CONFIG_SIERRA_I2C_GSBI2 */
+
+#ifdef CONFIG_MFD_WM8944
+	if( bsgethwtype() == BSAR8652 ) {
+		for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices_wm8944); ++i) {
+			if (msm9615_i2c_devices_wm8944[i].machs & mach_mask) {
+				i2c_register_board_info(
+					msm9615_i2c_devices_wm8944[i].bus,
+					msm9615_i2c_devices_wm8944[i].info,
+					msm9615_i2c_devices_wm8944[i].len);
+				}
+		}
+	}
+	else
+#endif
 /* SWISTOP */
-	for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
-		if (msm9615_i2c_devices[i].machs & mach_mask) {
-			i2c_register_board_info(msm9615_i2c_devices[i].bus,
-						msm9615_i2c_devices[i].info,
-						msm9615_i2c_devices[i].len);
+	{
+		for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
+			if (msm9615_i2c_devices[i].machs & mach_mask) {
+				i2c_register_board_info(
+					msm9615_i2c_devices[i].bus,
+					msm9615_i2c_devices[i].info,
+					msm9615_i2c_devices[i].len);
 			}
+		}
 	}
 }
 
@@ -1353,8 +1406,10 @@ static void __init msm9615_common_init(void)
 	msm9615_init_ar6000pm();
 
 	msm9615_init_mmc();
-	slim_register_board_info(msm_slim_devices,
-		ARRAY_SIZE(msm_slim_devices));
+	if( bsgethwtype() != BSAR8652 ) {
+		slim_register_board_info(msm_slim_devices,
+					 ARRAY_SIZE(msm_slim_devices));
+	}
 
 	android_pdata->update_pid_and_serial_num =
 					usb_diag_update_pid_and_serial_num;

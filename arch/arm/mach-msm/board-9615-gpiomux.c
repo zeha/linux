@@ -16,6 +16,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include "board-9615.h"
+#include <linux/sierra_bsudefs.h>
 
 
 static struct gpiomux_setting ps_hold = {
@@ -363,7 +364,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi3_cs1_config,
 		},
 	},
-#endif 
+#endif
 /* SWISTOP */
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
@@ -436,8 +437,9 @@ int __init msm9615_init_gpiomux(void)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
-	msm_gpiomux_install(msm9615_slimbus_configs,
-			ARRAY_SIZE(msm9615_slimbus_configs));
+	if( bsgethwtype() != BSAR8652 )
+		msm_gpiomux_install(msm9615_slimbus_configs,
+				ARRAY_SIZE(msm9615_slimbus_configs));
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -446,7 +448,7 @@ int __init msm9615_init_gpiomux(void)
 
 	msm_gpiomux_install(sd_card_det_config,
 			ARRAY_SIZE(sd_card_det_config));
-#ifdef CONFIG_SIERRA_WIFI_SDCC2 
+#ifdef CONFIG_SIERRA_WIFI_SDCC2
 	msm_gpiomux_install(msm9615_sdcc2_configs,
 			ARRAY_SIZE(msm9615_sdcc2_configs));
 #endif

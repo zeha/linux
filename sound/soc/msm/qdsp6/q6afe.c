@@ -20,6 +20,7 @@
 #include <mach/qdsp6v2/audio_acdb.h>
 #include <sound/apr_audio.h>
 #include <sound/q6afe.h>
+#include <linux/sierra_bsudefs.h>
 
 struct afe_ctl {
 	void *apr;
