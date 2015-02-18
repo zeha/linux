@@ -42,7 +42,6 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/initval.h>
-
 #include <trace/events/asoc.h>
 
 #define DAPM_UPDATE_STAT(widget, val) widget->dapm->card->dapm_stats.val++;
@@ -1148,6 +1147,47 @@ static int is_connected_input_ep(struct snd_soc_dapm_widget *widget,
 	return con;
 }
 
+/* Get the DAPM AIF widget for thie DAI stream */
+struct snd_soc_dapm_widget *snd_soc_get_codec_widget(struct snd_soc_card *card,
+		struct snd_soc_codec *codec, const char *name)
+{
+	struct snd_soc_dapm_widget *w;
+
+	/* get stream root widget AIF from stream string and direction */
+	list_for_each_entry(w, &card->widgets, list) {
+
+		/* make sure the widget belongs the DAI codec or platform */
+		if (w->codec && w->codec != codec)
+			continue;
+
+		if (!strcmp(w->name, name))
+			return w;
+
+	}
+	dev_err(card->dapm.dev, "DAI AIF widget for %s not found\n", name);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_get_codec_widget);
+
+struct snd_soc_dapm_widget *snd_soc_get_platform_widget(struct snd_soc_card *card,
+		struct snd_soc_platform *platform, const char *name)
+{
+	struct snd_soc_dapm_widget *w;
+
+	/* get stream root widget AIF from stream string and direction */
+	list_for_each_entry(w, &card->widgets, list) {
+
+		/* make sure the widget belongs the DAI codec or platform */
+		if (w->platform && w->platform != platform)
+			continue;
+
+		if (!strcmp(w->name, name))
+			return w;
+	}
+	dev_err(card->dapm.dev, "DAI AIF widget for %s not found\n", name);
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_get_platform_widget);
 /**
  * snd_soc_dapm_get_connected_widgets - query audio path and it's widgets.
  * @dai: the soc DAI.
@@ -3686,6 +3726,56 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 	}
 }
 
+static void widget_stream_event(struct snd_soc_dapm_context *dapm,
+	struct snd_soc_dapm_widget *w, int event)
+{
+	if (!w)
+		return;
+
+	dapm_mark_dirty(w, "stream event");
+
+	switch(event) {
+	case SND_SOC_DAPM_STREAM_START:
+		w->active = 1;
+		break;
+	case SND_SOC_DAPM_STREAM_STOP:
+		w->active = 0;
+		break;
+	case SND_SOC_DAPM_STREAM_SUSPEND:
+	case SND_SOC_DAPM_STREAM_RESUME:
+	case SND_SOC_DAPM_STREAM_PAUSE_PUSH:
+	case SND_SOC_DAPM_STREAM_PAUSE_RELEASE:
+		break;
+	}
+
+	dapm_power_widgets(dapm, event);
+}
+
+
+void snd_soc_dapm_rtd_stream_event(struct snd_soc_pcm_runtime *rtd,
+	int stream, int event)
+{
+	struct snd_soc_dapm_context *pdapm = &rtd->platform->dapm;
+	struct snd_soc_dapm_context *cdapm = &rtd->codec->dapm;
+
+	dev_dbg(rtd->dev, "rtd stream %d event %d\n", stream, event);
+
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		widget_stream_event(pdapm, rtd->cpu_dai->playback_aif, event);
+		widget_stream_event(cdapm, rtd->codec_dai->playback_aif, event);
+	} else {
+		widget_stream_event(pdapm, rtd->cpu_dai->capture_aif, event);
+		widget_stream_event(cdapm, rtd->codec_dai->capture_aif, event);
+	}
+
+	/* do we need to notify any clients that DAPM stream is complete */
+	if (pdapm->stream_event)
+		pdapm->stream_event(pdapm, event);
+	if (cdapm->stream_event)
+		cdapm->stream_event(cdapm, event);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_rtd_stream_event);
+
 static void soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
 	int event)
 {
@@ -3754,7 +3844,7 @@ static void soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
  *
  * Returns 0 for success else error.
  */
-void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
+void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, const char *stream,
 			      int event)
 {
 	struct snd_soc_card *card = rtd->card;

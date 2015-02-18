@@ -644,13 +644,13 @@ int snd_soc_suspend(struct device *dev)
 			card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		if (driver->playback.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], driver->playback.stream_name,
-				SND_SOC_DAPM_STREAM_SUSPEND);
+		snd_soc_dapm_stream_event(&card->rtd[i],
+					  SNDRV_PCM_STREAM_PLAYBACK,
+					  SND_SOC_DAPM_STREAM_SUSPEND);
 
-		if (driver->capture.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], driver->capture.stream_name,
-				SND_SOC_DAPM_STREAM_SUSPEND);
+		snd_soc_dapm_stream_event(&card->rtd[i],
+					  SNDRV_PCM_STREAM_CAPTURE,
+					  SND_SOC_DAPM_STREAM_SUSPEND);
 	}
 
 	/* Recheck all analogue paths too */

@@ -385,35 +385,6 @@ enum snd_soc_card_subclass {
 	SND_SOC_CARD_CLASS_RUNTIME	= 1,
 };
 
-/*
- * Dynamic PCM DAI link states.
- */
-enum snd_soc_dpcm_state {
-	SND_SOC_DPCM_STATE_NEW	= 0,
-	SND_SOC_DPCM_STATE_OPEN,
-	SND_SOC_DPCM_STATE_HW_PARAMS,
-	SND_SOC_DPCM_STATE_PREPARE,
-	SND_SOC_DPCM_STATE_START,
-	SND_SOC_DPCM_STATE_STOP,
-	SND_SOC_DPCM_STATE_PAUSED,
-	SND_SOC_DPCM_STATE_SUSPEND,
-	SND_SOC_DPCM_STATE_HW_FREE,
-	SND_SOC_DPCM_STATE_CLOSE,
-};
-
-/*
- * Dynamic PCM trigger ordering. Triggering flexibility is required as some
- * DSPs require triggering before/after their clients/hosts.
- *
- * i.e. some clients may want to manually order this call in their PCM
- * trigger() whilst others will just use the regular core ordering.
- */
-enum snd_soc_dpcm_trigger {
-	SND_SOC_DPCM_TRIGGER_PRE		= 0,
-	SND_SOC_DPCM_TRIGGER_POST,
-	SND_SOC_DPCM_TRIGGER_BESPOKE,
-};
-
 
 int snd_soc_codec_set_sysclk(struct snd_soc_codec *codec, int clk_id,
 			     int source, unsigned int freq, int dir);
@@ -943,6 +914,9 @@ struct snd_soc_dai_link {
 
 	unsigned int dai_fmt;           /* format to set on init */
 
+	/* This DAI can support no host IO (no pcm data is copied to from host) */
+	unsigned int no_host_mode:2;
+	
 	enum snd_soc_dpcm_trigger trigger[2]; /* trigger type for DPCM */
 
 	/* Keep DAI active over suspend */
@@ -1008,12 +982,12 @@ struct snd_soc_card {
 	struct device *dev;
 	struct snd_card *snd_card;
 	struct module *owner;
+	struct mutex dpcm_mutex;
 
 	struct list_head list;
 	struct mutex mutex;
 	struct mutex dapm_mutex;
 
-	struct mutex dapm_mutex;
 	struct mutex dapm_power_mutex;
 	struct mutex dsp_mutex;
 	spinlock_t dsp_spinlock;
@@ -1103,7 +1077,7 @@ struct snd_soc_card {
 
  
 /* DSP runtime data */
-struct snd_soc_dpcm_runtime {
+/*struct snd_soc_dpcm_runtime {
 	struct list_head be_clients;
 	struct list_head fe_clients;
 	int users;
@@ -1112,7 +1086,7 @@ struct snd_soc_dpcm_runtime {
 	int runtime_update;
 	enum snd_soc_dpcm_state state;
 };
-
+*/
 /* SoC machine DAI configuration, glues a codec and cpu DAI together */
 struct snd_soc_pcm_runtime {
 	struct device *dev;

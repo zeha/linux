@@ -431,7 +431,7 @@ int snd_soc_dapm_weak_routes(struct snd_soc_dapm_context *dapm,
 /* dapm events */
 void snd_soc_dapm_codec_stream_event(struct snd_soc_codec *codec,
 	const char *stream, int event);
-int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
+void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	const char *stream, int event);
 void snd_soc_dapm_rtd_stream_event(struct snd_soc_pcm_runtime *rtd,
 	int stream, int event);

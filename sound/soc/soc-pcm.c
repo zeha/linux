@@ -31,7 +31,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dpcm.h>
 #include <sound/initval.h>
-
+#include <linux/dma-mapping.h>
 #define DPCM_MAX_BE_USERS	8
 
 
@@ -59,11 +59,10 @@ static const struct snd_pcm_hardware no_host_hardware = {
  * We can only hw_free, stop, pause or suspend a BE DAI if any of it's FE
  * are not running, paused or suspended for the specified stream direction.
  */
-int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
+/*int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
 		struct snd_soc_pcm_runtime *be, int stream)
 {
-	struct snd_soc_dpcm_params *dpcm_params;
-
+	struct snd_soc_dpcm *dpcm_params;
 	list_for_each_entry(dpcm_params, &be->dpcm[stream].fe_clients, list_fe) {
 
 		if (dpcm_params->fe == fe)
@@ -77,15 +76,16 @@ int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
 	return 1;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dpcm_can_be_free_stop);
-
+*/
 /*
  * We can only change hw params a BE DAI if any of it's FE are not prepared,
  * running, paused or suspended for the specified stream direction.
  */
-static int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
+/*
+int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
 		struct snd_soc_pcm_runtime *be, int stream)
 {
-	struct snd_soc_dpcm_params *dpcm_params;
+	struct snd_soc_dpcm *dpcm_params;
 
 	list_for_each_entry(dpcm_params, &be->dpcm[stream].fe_clients, list_fe) {
 
@@ -100,7 +100,7 @@ static int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
 	}
 	return 1;
 }
-
+*/
 
 /**
  * snd_soc_set_runtime_hwparams - set the runtime hardware parameters
@@ -332,7 +332,7 @@ static void soc_pcm_init_runtime_hw(struct snd_pcm_runtime *runtime,
 int soc_dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
 	int dir, const char *stream, int event)
 {
-	struct snd_soc_dpcm_params *dpcm_params;
+	struct snd_soc_dpcm *dpcm_params;
 
 	snd_soc_dapm_rtd_stream_event(fe, dir, event);
 
@@ -2264,6 +2264,277 @@ int soc_dpcm_be_digital_mute(struct snd_soc_pcm_runtime *fe, int mute)
 
 	return 0;
 }
+
+int soc_dpcm_be_cpu_dai_suspend(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* suspend for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI playback suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && !drv->ac97_control)
+				drv->suspend(dai);
+	}
+
+	/* suspend for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI capture suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && !drv->ac97_control)
+				drv->suspend(dai);
+	}
+
+	return 0;
+}
+
+int soc_dpcm_be_ac97_cpu_dai_resume(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* resume for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI playback resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && drv->ac97_control)
+				drv->resume(dai);
+	}
+
+	/* suspend for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI capture resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && drv->ac97_control)
+				drv->resume(dai);
+	}
+
+	return 0;
+}
+
+int soc_dpcm_be_ac97_cpu_dai_suspend(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* suspend for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI playback suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && drv->ac97_control)
+				drv->suspend(dai);
+	}
+
+	/* suspend for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI capture suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && drv->ac97_control)
+				drv->suspend(dai);
+	}
+
+	return 0;
+}
+
+int soc_dpcm_be_platform_suspend(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* suspend for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_platform *platform = be->platform;
+		struct snd_soc_platform_driver *drv = platform->driver;
+		struct snd_soc_dai *dai = be->cpu_dai;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE platform playback suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && !platform->suspended) {
+			drv->suspend(dai);
+			platform->suspended = 1;
+		}
+	}
+
+	/* suspend for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_platform *platform = be->platform;
+		struct snd_soc_platform_driver *drv = platform->driver;
+		struct snd_soc_dai *dai = be->cpu_dai;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE platform capture suspend %s\n",
+				be->dai_link->name);
+
+		if (drv->suspend && !platform->suspended) {
+			drv->suspend(dai);
+			platform->suspended = 1;
+		}
+	}
+	return 0;
+}
+
+int soc_dpcm_be_platform_resume(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* resume for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_platform *platform = be->platform;
+		struct snd_soc_platform_driver *drv = platform->driver;
+		struct snd_soc_dai *dai = be->cpu_dai;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE platform playback resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && platform->suspended) {
+			drv->resume(dai);
+			platform->suspended = 0;
+		}
+	}
+
+	/* resume for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_platform *platform = be->platform;
+		struct snd_soc_platform_driver *drv = platform->driver;
+		struct snd_soc_dai *dai = be->cpu_dai;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE platform capture resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && platform->suspended) {
+			drv->resume(dai);
+			platform->suspended = 0;
+		}
+	}
+
+	return 0;
+}
+
+
+int soc_dpcm_be_cpu_dai_resume(struct snd_soc_pcm_runtime *fe)
+{
+	struct snd_soc_dpcm *dpcm_params;
+
+	/* resume for playback */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_PLAYBACK].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI playback resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && !drv->ac97_control)
+				drv->resume(dai);
+	}
+
+	/* suspend for capture */
+	list_for_each_entry(dpcm_params,
+			&fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].be_clients, list_be) {
+
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+		struct snd_soc_dai *dai = be->cpu_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (be->dai_link->ignore_suspend)
+			continue;
+
+		dev_dbg(be->dev, "pm: BE CPU DAI capture resume %s\n",
+				be->dai_link->name);
+
+		if (drv->resume && !drv->ac97_control)
+				drv->resume(dai);
+	}
+
+	return 0;
+}
+
 
 static int dpcm_fe_dai_open(struct snd_pcm_substream *fe_substream)
 {

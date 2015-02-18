@@ -156,8 +156,9 @@ struct snd_soc_dai_ops {
 		unsigned int tx_num, unsigned int *tx_slot,
 		unsigned int rx_num, unsigned int *rx_slot);
 	int (*set_tristate)(struct snd_soc_dai *dai, int tristate);
-	int (*bespoke_trigger)(struct snd_pcm_substream *, int,
-		struct snd_soc_dai *);
+	int (*get_channel_map)(struct snd_soc_dai *dai,
+		unsigned int *tx_num, unsigned int *tx_slot,
+		unsigned int *rx_num, unsigned int *rx_slot);
 	/*
 	 * DAI digital mute - optional.
 	 * Called by soc-core to minimise any pops.
