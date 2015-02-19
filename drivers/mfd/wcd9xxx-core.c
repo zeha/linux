@@ -364,7 +364,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 
 	ret = mfd_add_devices(wcd9xxx->dev, -1,
 		      wcd9xxx_dev, wcd9xxx_dev_size,
-		      NULL, 0);
+		      NULL, 0,0);
 	if (ret != 0) {
 		dev_err(wcd9xxx->dev, "Failed to add children: %d\n", ret);
 		goto err_irq;
@@ -704,7 +704,7 @@ int wcd9xxx_i2c_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 	return wcd9xxx_i2c_write_device(reg, src, bytes);
 }
 
-static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
+static int wcd9xxx_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct wcd9xxx *wcd9xxx;
@@ -787,7 +787,7 @@ fail:
 	return ret;
 }
 
-static int __devexit wcd9xxx_i2c_remove(struct i2c_client *client)
+static int  wcd9xxx_i2c_remove(struct i2c_client *client)
 {
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata = client->dev.platform_data;
@@ -1125,7 +1125,7 @@ static struct i2c_driver tabla_i2c_driver = {
 	},
 	.id_table               =       tabla_id_table,
 	.probe                  =       wcd9xxx_i2c_probe,
-	.remove                 =       __devexit_p(wcd9xxx_i2c_remove),
+	.remove                 =       wcd9xxx_i2c_remove,
 	.resume	= wcd9xxx_i2c_resume,
 	.suspend = wcd9xxx_i2c_suspend,
 };
