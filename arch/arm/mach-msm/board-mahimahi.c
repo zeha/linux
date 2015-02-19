@@ -52,8 +52,8 @@ static void __init mahimahi_init(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
-static void __init mahimahi_fixup(struct tag *tags, char **cmdline,
-				  struct meminfo *mi)
+static void __init mahimahi_fixup(struct machine_desc *desc, struct tag *tags,
+				 char **cmdline, struct meminfo *mi)
 {
 	mi->nr_banks = 2;
 	mi->bank[0].start = PHYS_OFFSET;
@@ -78,7 +78,7 @@ static void __init mahimahi_init_late(void)
 void msm_timer_init(void);
 
 MACHINE_START(MAHIMAHI, "mahimahi")
-	.atag_offset	= 0x100,
+	.boot_params	= 0x20000100,
 	.fixup		= mahimahi_fixup,
 	.map_io		= mahimahi_map_io,
 	.init_irq	= msm_init_irq,
