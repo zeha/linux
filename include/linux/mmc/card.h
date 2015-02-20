@@ -311,6 +311,8 @@ struct mmc_bkops_info {
  * 100MB is chosen based on benchmark tests.
  */
 #define BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK 204800 /* 100MB */
+};
+
 /*
  * MMC device
  */

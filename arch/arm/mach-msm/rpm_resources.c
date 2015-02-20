@@ -29,6 +29,9 @@
 #include "rpm_resources.h"
 #include "spm.h"
 #include "idle.h"
+#include <linux/slab.h>
+
+
 
 /******************************************************************************
  * Debug Definitions
