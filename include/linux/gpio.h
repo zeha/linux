@@ -143,6 +143,16 @@ static inline int gpio_direction_output(unsigned gpio, int value)
 	return -ENOSYS;
 }
 
+static inline int gpio_pull_up(unsigned gpio)
+{
+        return -ENOSYS;
+}
+
+static inline int gpio_pull_down(unsigned gpio)
+{
+        return -ENOSYS;
+}
+
 static inline int gpio_set_debounce(unsigned gpio, unsigned debounce)
 {
 	return -ENOSYS;

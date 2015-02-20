@@ -227,6 +227,30 @@ static int msm_gpio_direction_output(struct gpio_chip *chip,
 	return 0;
 }
 
+static int msm_gpio_pull_up(struct gpio_chip *chip, unsigned offset)
+{
+        unsigned long irq_flags;
+
+        spin_lock_irqsave(&tlmm_lock, irq_flags);
+        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT, 
+                GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+        mb();
+        spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+        return 0;
+}
+
+static int msm_gpio_pull_down(struct gpio_chip *chip, unsigned offset)
+{
+        unsigned long irq_flags;
+
+        spin_lock_irqsave(&tlmm_lock, irq_flags);
+        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT, 
+                GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	mb();
+        spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+        return 0;
+}
+
 #ifdef CONFIG_OF
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
@@ -270,6 +294,8 @@ static struct msm_gpio_dev msm_gpio = {
 		.ngpio            = NR_MSM_GPIOS,
 		.direction_input  = msm_gpio_direction_input,
 		.direction_output = msm_gpio_direction_output,
+		.pull_up          = msm_gpio_pull_up,
+		.pull_down        = msm_gpio_pull_down,
 		.get              = msm_gpio_get,
 		.set              = msm_gpio_set,
 		.to_irq           = msm_gpio_to_irq,

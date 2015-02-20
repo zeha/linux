@@ -60,6 +60,7 @@ struct gpio_desc {
 #define FLAG_OPEN_DRAIN	7	/* Gpio is open drain type */
 #define FLAG_OPEN_SOURCE 8	/* Gpio is open source type */
 #define FLAG_USED_AS_IRQ 9	/* GPIO is connected to an IRQ */
+#define FLAG_IS_UP	10
 
 #define ID_SHIFT	16	/* add new flags before this one */
 
@@ -364,6 +365,49 @@ static ssize_t gpio_direction_store(struct device *dev,
 
 static /* const */ DEVICE_ATTR(direction, 0644,
 		gpio_direction_show, gpio_direction_store);
+static ssize_t gpio_pull_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	ssize_t			status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else
+		status = sprintf(buf, "%s\n",
+			test_bit(FLAG_IS_UP, &desc->flags)
+				? "up" : "down");
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+static ssize_t gpio_pull_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	unsigned		gpio = desc - gpio_desc;
+	ssize_t			status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else if (sysfs_streq(buf, "up"))
+		status = gpio_pull_up(gpio);
+	else if (sysfs_streq(buf, "down"))
+		status = gpio_pull_down(gpio);
+	else
+		status = -EINVAL;
+
+	mutex_unlock(&sysfs_lock);
+	return status ? : size;
+}
+
+static /* const */ DEVICE_ATTR(pull, 0644,
+		gpio_pull_show, gpio_pull_store);
 
 static ssize_t gpio_value_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -639,6 +683,7 @@ static const DEVICE_ATTR(active_low, 0644,
 static const struct attribute *gpio_attrs[] = {
 	&dev_attr_value.attr,
 	&dev_attr_active_low.attr,
+	&dev_attr_pull.attr,
 	NULL,
 };
 
@@ -1841,6 +1886,143 @@ fail:
 	return status;
 }
 EXPORT_SYMBOL_GPL(gpiod_direction_output);
+
+int gpio_pull_up(unsigned gpio)
+{
+	unsigned long		flags;
+	struct gpio_chip	*chip;
+	struct gpio_desc	*desc = &gpio_desc[gpio];
+	int			status = -EINVAL;
+
+	spin_lock_irqsave(&gpio_lock, flags);
+
+	if (!gpio_is_valid(gpio)) {
+		pr_debug("%s: gpio-%d invalid\n",
+                        __func__, gpio);
+		goto fail;
+	}
+	chip = desc->chip;
+	if (!chip)
+		pr_debug("%s: gpio-%d chip NULL\n",
+                        __func__, gpio);
+	if (!chip->get)
+                pr_debug("%s: gpio-%d chip->get NULL\n",
+                        __func__, gpio);
+	if (!chip->pull_up)
+                pr_debug("%s: gpio-%d chip->pull_up NULL\n",
+                        __func__, gpio);
+	if (!chip || !chip->get || !chip->pull_up)
+		goto fail;
+	gpio -= chip->base;
+	if (gpio >= chip->ngpio) {
+		pr_debug("%s: gpio-%d gpio error ngpio %d\n",
+                        __func__, gpio, chip->ngpio);
+		goto fail;
+	}
+	status = gpio_ensure_requested(desc, gpio);
+	if (status < 0) {
+		pr_debug("%s: gpio-%d gpio_ensure_requested %d\n",
+                        __func__, gpio, status);
+		goto fail;
+	}
+
+	/* now we know the gpio is valid and chip won't vanish */
+
+	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	might_sleep_if(chip->can_sleep);
+
+	if (status) {
+		status = chip->request(chip, gpio);
+		if (status < 0) {
+			pr_debug("GPIO-%d: chip request fail, %d\n",
+				chip->base + gpio, status);
+			/* and it's not available to anyone else ...
+			 * gpio_request() is the fully clean solution.
+			 */
+			goto lose;
+		}
+	}
+
+	status = chip->pull_up(chip, gpio);
+	if (status == 0)
+		set_bit(FLAG_IS_UP, &desc->flags);
+
+	trace_gpio_direction(chip->base + gpio, 1, status);
+lose:
+	return status;
+fail:
+	spin_unlock_irqrestore(&gpio_lock, flags);
+	if (status)
+		pr_debug("%s: gpio-%d status %d\n",
+			__func__, gpio, status);
+	return status;
+}
+EXPORT_SYMBOL_GPL(gpio_pull_up);
+
+int gpio_pull_down(unsigned gpio)
+{
+	unsigned long		flags;
+	struct gpio_chip	*chip;
+	struct gpio_desc	*desc = &gpio_desc[gpio];
+	int			status = -EINVAL;
+
+	/* Open drain pin should not be driven to 1 */
+/*	if (value && test_bit(FLAG_OPEN_DRAIN,  &desc->flags))
+		return gpio_direction_input(gpio);
+*/
+	/* Open source pin should not be driven to 0 */
+/*	if (!value && test_bit(FLAG_OPEN_SOURCE,  &desc->flags))
+		return gpio_direction_input(gpio);
+*/
+	spin_lock_irqsave(&gpio_lock, flags);
+
+	if (!gpio_is_valid(gpio))
+		goto fail;
+	chip = desc->chip;
+	if (!chip || !chip->set || !chip->pull_down)
+		goto fail;
+	gpio -= chip->base;
+	if (gpio >= chip->ngpio)
+		goto fail;
+	status = gpio_ensure_requested(desc, gpio);
+	if (status < 0)
+		goto fail;
+
+	/* now we know the gpio is valid and chip won't vanish */
+
+	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	might_sleep_if(chip->can_sleep);
+
+	if (status) {
+		status = chip->request(chip, gpio);
+		if (status < 0) {
+			pr_debug("GPIO-%d: chip request fail, %d\n",
+				chip->base + gpio, status);
+			/* and it's not available to anyone else ...
+			 * gpio_request() is the fully clean solution.
+			 */
+			goto lose;
+		}
+	}
+
+	status = chip->pull_down(chip, gpio);
+	if (status == 0)
+		clear_bit(FLAG_IS_UP, &desc->flags);
+//	trace_gpio_value(chip->base + gpio, 0, value);
+	trace_gpio_direction(chip->base + gpio, 0, status);
+lose:
+	return status;
+fail:
+	spin_unlock_irqrestore(&gpio_lock, flags);
+	if (status)
+		pr_debug("%s: gpio-%d status %d\n",
+			__func__, gpio, status);
+	return status;
+}
+EXPORT_SYMBOL_GPL(gpio_pull_down);
+
 
 /**
  * gpiod_set_debounce - sets @debounce time for a @gpio
