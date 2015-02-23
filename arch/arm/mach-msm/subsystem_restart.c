@@ -561,11 +561,6 @@ static int __init ssr_init_soc_restart_orders(void)
 		n_restart_orders = ARRAY_SIZE(restart_orders_8960);
 	}
 
-	if (restart_orders == NULL || n_restart_orders < 1) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
