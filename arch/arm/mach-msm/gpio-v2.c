@@ -540,7 +540,7 @@ static struct irq_chip msm_gpio_irq_chip = {
  */
 static struct lock_class_key msm_gpio_lock_class;
 
-static int __devinit msm_gpio_probe(void)
+static int msm_gpio_probe(void)
 {
 	int i, irq, ret;
 
@@ -570,7 +570,7 @@ static int __devinit msm_gpio_probe(void)
 	return 0;
 }
 
-static int __devexit msm_gpio_remove(void)
+static int msm_gpio_remove(void)
 {
 	int ret = gpiochip_remove(&msm_gpio.gpio_chip);
 

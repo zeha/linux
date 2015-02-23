@@ -254,6 +254,7 @@ config ARM_PATCH_PHYS_VIRT
 
 config NEED_MACH_GPIO_H
 	bool
+	default y
 	help
 	  Select this when mach/gpio.h is required to provide special
 	  definitions for this platform. The need for mach/gpio.h should
