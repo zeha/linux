@@ -94,6 +94,8 @@ struct msm_hsl_port {
 	u32			bus_perf_client;
 	/* BLSP UART required BUS Scaling data */
 	struct msm_bus_scale_pdata *bus_scale_table;
+	unsigned int		tx_fifothreshold;/* tx fifo threshold */
+	unsigned int		rx_fifothreshold;/* rx fifo threshold */
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -568,11 +570,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 			break;
 		}
 		c = msm_hsl_read(port, regmap[vid][UARTDM_RF]);
-		if (sr & UARTDM_SR_RX_BREAK_BMSK) {
-			port->icount.brk++;
-			if (uart_handle_break(port))
-				continue;
-		} else if (sr & UARTDM_SR_PAR_FRAME_BMSK) {
+		if (sr & UARTDM_SR_PAR_FRAME_BMSK) {
 			port->icount.frame++;
 		} else {
 			port->icount.rx++;
@@ -586,7 +584,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 			flag = TTY_FRAME;
 
 		/* TODO: handle sysrq */
-		/* if (!uart_handle_sysrq_char(port, c)) */
+		if (!uart_handle_sysrq_char(port, c))
 		tty_insert_flip_string(tty, (char *) &c,
 				       (count > 4) ? 4 : count);
 		count -= 4;
@@ -691,12 +689,29 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 	unsigned int vid;
 	unsigned int misr;
 	unsigned long flags;
+	int sr;
 
 	spin_lock_irqsave(&port->lock, flags);
 	vid = msm_hsl_port->ver_id;
 	misr = msm_hsl_read(port, regmap[vid][UARTDM_MISR]);
 	/* disable interrupt */
 	msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
+
+	if (misr & UARTDM_ISR_RXBREAK_BMSK){
+		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+		/* it is weird that two interrupts are triggered when
+		   issue a break signal, and the test result shows bit
+		   9 of UARTDM_SR can be used to distiguish the two
+		   interrupts
+		 */
+		if (sr & 0x100) {
+			port->icount.brk++;
+			uart_handle_break(port);
+		}
+
+		msm_hsl_write(port, RESET_BREAK_INT,
+					regmap[vid][UARTDM_CR]);
+	}
 
 	if (misr & (UARTDM_ISR_RXSTALE_BMSK | UARTDM_ISR_RXLEV_BMSK)) {
 		handle_rx(port, misr);
@@ -788,6 +803,128 @@ static void msm_hsl_break_ctl(struct uart_port *port, int break_ctl)
 	else
 		msm_hsl_write(port, STOP_BREAK, regmap[vid][UARTDM_CR]);
 }
+
+#ifdef CONFIG_CONSOLE_POLL
+
+#define MAX_BUF_SIZE 2024
+
+/*
+ * Console polling routines for writing and reading from the uart while
+ * in an interrupt or debug context.
+ */
+static int msm_hsl_get_poll_char(struct uart_port *port)
+{
+	unsigned int vid, sr, c, misr = 0;
+        struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	int i, count = 0;
+	char *pchar, tmp_char;
+	static char *buffer;
+	static int  left_char_num, total_char_num;
+
+	if (buffer == NULL)
+		buffer = kmalloc(MAX_BUF_SIZE, GFP_ATOMIC);
+
+	vid = msm_hsl_port->ver_id;
+
+	if (left_char_num == 0) {
+		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+		if ((sr & UARTDM_SR_RXRDY_BMSK) == 0)
+			return NO_POLL_CHAR;
+
+		misr = msm_hsl_read(port, regmap[vid][UARTDM_MISR]);
+		if (misr & UARTDM_ISR_RXSTALE_BMSK) {
+			count = msm_hsl_read(port,
+				regmap[vid][UARTDM_RX_TOTAL_SNAP]) -
+				msm_hsl_port->old_snap_state;
+
+			if (count < 0) {
+				count = msm_hsl_read(port,
+				regmap[vid][UARTDM_RX_TOTAL_SNAP]);
+			}
+			msm_hsl_port->old_snap_state = 0;
+		} else {
+			count = 4 * (msm_hsl_read(port,
+					regmap[vid][UARTDM_RFWR]));
+			msm_hsl_port->old_snap_state += count;
+		}
+
+		/* and now the main RX loop */
+		while (count > 0) {
+			sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+
+			c = msm_hsl_read(port, regmap[vid][UARTDM_RF]);
+
+			pchar = (char *) &c;
+			for (i = 0; i < ((count > 4) ? 4 : count); i++) {
+				buffer[left_char_num++] = *pchar;
+				pchar++;
+			}
+
+			total_char_num = left_char_num;
+
+			count -= 4;
+		}
+
+		if ( count <= 0) {
+			if (misr & (UARTDM_ISR_RXSTALE_BMSK))
+				msm_hsl_write(port, RESET_STALE_INT,
+						regmap[vid][UARTDM_CR]);
+			msm_hsl_write(port, 6500, regmap[vid][UARTDM_DMRX]);
+			msm_hsl_write(port, STALE_EVENT_ENABLE,
+					regmap[vid][UARTDM_CR]);
+		}
+	}
+
+	if (left_char_num != 0) {
+		tmp_char = buffer[total_char_num - left_char_num];
+		left_char_num--;
+		return tmp_char;
+	}
+
+	return NO_POLL_CHAR;
+}
+
+static void msm_hsl_put_poll_char(struct uart_port *port,
+			 unsigned char c)
+{
+	unsigned int vid;
+        struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	unsigned long flags;
+
+	/*
+	 *	First save the ISR then disable the interrupts
+	 */
+	spin_lock_irqsave(&port->lock, flags);
+        vid = msm_hsl_port->ver_id;
+
+        /* disable interrupt */
+        msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
+
+	wait_for_xmitr(port);
+	msm_hsl_write(port, 1, regmap[vid][UARTDM_NCF_TX]);
+        msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+	msm_hsl_write(port, c, regmap[vid][UARTDM_TF]);
+
+	/*
+	 *	Send the character out.
+	 *	If a LF, also do CR...
+	 */
+	if (c == 10) {
+		wait_for_xmitr(port);
+		msm_hsl_write(port, 13, regmap[vid][UARTDM_TF]);
+	}
+
+	/*
+	 *	Finally, wait for transmitter to become empty
+	 *	and restore the IER
+	 */
+	wait_for_xmitr(port);
+	/* restore interrupt */
+        msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
+        spin_unlock_irqrestore(&port->lock, flags);
+}
+
+#endif /* CONFIG_CONSOLE_POLL */
 
 /**
  * msm_hsl_set_baud_rate: set requested baud rate
@@ -918,11 +1055,12 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	 * whereas it is consider to be in Bytes for UART Core.
 	 * Hence configuring Rx Watermark as 48 Words.
 	 */
-	watermark = (port->fifosize * 3) / 4;
+	watermark = msm_hsl_port->rx_fifothreshold;
 	msm_hsl_write(port, watermark, regmap[vid][UARTDM_RFWR]);
 
 	/* set TX watermark */
-	msm_hsl_write(port, 0, regmap[vid][UARTDM_TFWR]);
+	msm_hsl_write(port, msm_hsl_port->tx_fifothreshold,
+			regmap[vid][UARTDM_TFWR]);
 
 	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
 	msm_hsl_reset(port);
@@ -935,7 +1073,7 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	msm_hsl_write(port, RESET_STALE_INT, regmap[vid][UARTDM_CR]);
 	/* turn on RX and CTS interrupts */
 	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
-		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
+		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK | UARTDM_ISR_RXBREAK_BMSK;
 	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
 	msm_hsl_write(port, 6500, regmap[vid][UARTDM_DMRX]);
 	msm_hsl_write(port, STALE_EVENT_ENABLE, regmap[vid][UARTDM_CR]);
@@ -1292,6 +1430,10 @@ static struct uart_ops msm_hsl_uart_pops = {
 	.config_port = msm_hsl_config_port,
 	.verify_port = msm_hsl_verify_port,
 	.pm = msm_hsl_power,
+#ifdef CONFIG_CONSOLE_POLL
+        .poll_get_char = msm_hsl_get_poll_char,
+        .poll_put_char = msm_hsl_put_poll_char,
+#endif
 };
 
 static struct msm_hsl_port msm_hsl_uart_ports[] = {
@@ -1303,6 +1445,8 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 0,
 		},
+		.tx_fifothreshold = 0,
+		.rx_fifothreshold = 48,
 	},
 	{
 		.uart = {
@@ -1312,6 +1456,8 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 1,
 		},
+		.tx_fifothreshold = 0,
+		.rx_fifothreshold = 48,
 	},
 	{
 		.uart = {
@@ -1321,6 +1467,8 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 2,
 		},
+		.tx_fifothreshold = 0,
+		.rx_fifothreshold = 48,
 	},
 };
 
@@ -1601,6 +1749,131 @@ static DEVICE_ATTR(console, S_IWUSR | S_IRUGO, show_msm_console,
 #define MSM_HSL_CONSOLE	NULL
 #endif
 
+/* show_msm_fifo_rx - provide serial fifo rx size. */
+static ssize_t show_msm_fifo_rx(struct device *dev,
+                                struct device_attribute *attr, char *buf)
+{
+	struct uart_port *port;
+
+        struct platform_device *pdev = to_platform_device(dev);
+	port = get_port_from_line(get_line(pdev));
+	return snprintf(buf, sizeof(UART_TO_MSM(port)->rx_fifothreshold),
+			"%d\n", UART_TO_MSM(port)->rx_fifothreshold);
+
+}
+
+/*
+ * set_msm_fifo_rx - allow to set serial fifo rx size.
+ */
+
+static ssize_t set_msm_fifo_rx(struct device *dev,
+                                struct device_attribute *attr,
+                                const char *buf, size_t count)
+{
+        int err, set_size;
+        struct uart_port *port;
+	unsigned int vid;
+
+        struct platform_device *pdev = to_platform_device(dev);
+        port = get_port_from_line(get_line(pdev));
+	vid = UART_TO_MSM(port)->ver_id;
+
+	err = kstrtoint(buf, 0, &set_size);
+	if (err)
+                return err;
+
+	if(UART_TO_MSM(port)->rx_fifothreshold == set_size)
+		return count;
+	if((set_size <= 46) && (set_size >= 0))
+		UART_TO_MSM(port)->rx_fifothreshold = set_size;
+	else {
+		printk("%s: rx fifo threshold should be between"
+			" 0 - 48 Words(4 Bytes per Word)", __func__);
+		return -EINVAL;
+	}
+
+        /* Set RX watermark
+         * Configure Rx Watermark as 3/4 size of Rx FIFO.
+         * RFWR register takes value in Words for UARTDM Core
+         * whereas it is consider to be in Bytes for UART Core.
+         * Hence configuring Rx Watermark as 48 Words.
+         */
+        msm_hsl_write(port, UART_TO_MSM(port)->rx_fifothreshold,
+			regmap[vid][UARTDM_RFWR]);
+
+        /* set TX watermark */
+        msm_hsl_write(port, UART_TO_MSM(port)->tx_fifothreshold,
+			regmap[vid][UARTDM_TFWR]);
+
+	return count;
+}
+
+static DEVICE_ATTR(fifo_rx, S_IWUSR | S_IRUGO, show_msm_fifo_rx,
+                                                set_msm_fifo_rx);
+
+/* show_msm_fifo_tx - provide serial fifo rx size. */
+static ssize_t show_msm_fifo_tx(struct device *dev,
+                                struct device_attribute *attr, char *buf)
+{
+	struct uart_port *port;
+
+        struct platform_device *pdev = to_platform_device(dev);
+	port = get_port_from_line(get_line(pdev));
+	return snprintf(buf, sizeof(UART_TO_MSM(port)->tx_fifothreshold),
+			"%d\n", UART_TO_MSM(port)->tx_fifothreshold);
+
+}
+
+/*
+ * set_msm_fifo_tx - allow to set serial fifo rx size.
+ */
+
+static ssize_t set_msm_fifo_tx(struct device *dev,
+                                struct device_attribute *attr,
+                                const char *buf, size_t count)
+{
+        unsigned int vid;
+	int err, set_size;
+        struct uart_port *port;
+
+        struct platform_device *pdev = to_platform_device(dev);
+        port = get_port_from_line(get_line(pdev));
+	vid = UART_TO_MSM(port)->ver_id;
+
+	err = kstrtoint(buf, 0, &set_size);
+	if (err)
+                return err;
+
+	if(UART_TO_MSM(port)->tx_fifothreshold == set_size)
+		return count;
+
+	if((set_size <= 46) && (set_size >= 0))
+		UART_TO_MSM(port)->tx_fifothreshold = set_size;
+	else {
+		printk("%s: tx fifo threshold should be between"
+			"0 - 48 Words(4 Bytes per Word)", __func__);
+		return -EINVAL;
+	}
+
+        /* Set RX watermark
+	* Configure Rx Watermark as 3/4 size of Rx FIFO.
+        * RFWR register takes value in Words for UARTDM Core
+        * whereas it is consider to be in Bytes for UART Core.
+        * Hence configuring Rx Watermark as 48 Words.
+        */
+        msm_hsl_write(port, UART_TO_MSM(port)->rx_fifothreshold,
+			regmap[vid][UARTDM_RFWR]);
+
+        /* set TX watermark */
+        msm_hsl_write(port, UART_TO_MSM(port)->tx_fifothreshold,
+			regmap[vid][UARTDM_TFWR]);
+
+	return count;
+}
+
+static DEVICE_ATTR(fifo_tx, S_IWUSR | S_IRUGO, show_msm_fifo_tx,
+                                                set_msm_fifo_tx);
+
 static struct uart_driver msm_hsl_uart_driver = {
 	.owner = THIS_MODULE,
 	.driver_name = "msm_serial_hsl",
@@ -1799,6 +2072,15 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	if (unlikely(ret))
 		pr_err("Can't create console attribute\n");
 #endif
+
+	ret = device_create_file(&pdev->dev, &dev_attr_fifo_tx);
+        if (unlikely(ret))
+                pr_err("Can't create fifo_tx attribute\n");
+
+	ret = device_create_file(&pdev->dev, &dev_attr_fifo_rx);
+        if (unlikely(ret))
+                pr_err("Can't create fifo_rx attribute\n");
+
 	msm_hsl_debugfs_init(msm_hsl_port, get_line(pdev));
 	mutex_init(&msm_hsl_port->clk_mutex);
 	if (pdata && pdata->use_pm)
