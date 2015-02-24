@@ -43,6 +43,8 @@
 #include <linux/of_gpio.h>
 #include "spi_qsd.h"
 
+static int word_delay = 0;
+
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
 {
@@ -708,6 +710,8 @@ static inline void msm_spi_write_rmn_to_fifo(struct msm_spi *dd)
 		SPI_OP_OUTPUT_FIFO_FULL)) {
 		msm_spi_write_word_to_fifo(dd);
 		count++;
+		if (word_delay >= 0)
+			udelay(word_delay);
 	}
 }
 
@@ -2208,6 +2212,8 @@ static void __exit msm_spi_exit(void)
 }
 module_exit(msm_spi_exit);
 
+module_param(word_delay, int, 0644);
+MODULE_PARM_DESC(word_delay, "Add a delay (us) between sending a word");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.4");
 MODULE_ALIAS("platform:"SPI_DRV_NAME);
