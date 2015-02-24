@@ -74,6 +74,9 @@ struct gether {
 	bool				is_fixed;
 	u32				fixed_out_len;
 	u32				fixed_in_len;
+/* Max number of SKB packets to be used to create Multi Packet RNDIS */
+#define TX_SKB_HOLD_THRESHOLD		3
+	bool				multi_pkt_xfer;
 	struct sk_buff			*(*wrap)(struct gether *port,
 						struct sk_buff *skb);
 	int				(*unwrap)(struct gether *port,
@@ -249,7 +252,10 @@ unsigned gether_get_qmult(struct net_device *net);
 int gether_get_ifname(struct net_device *net, char *name, int len);
 
 void gether_cleanup(struct eth_dev *dev);
-
+/* variant of gether_setup that allows customizing network device name */
+int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+		const char *netname);
+ 
 /* connect/disconnect is handled by individual functions */
 struct net_device *gether_connect(struct gether *);
 void gether_disconnect(struct gether *);
@@ -265,6 +271,17 @@ static inline bool can_support_ecm(struct usb_gadget *gadget)
 	 * your controller.  Add it above if it can't handle CDC.
 	 */
 	return true;
+}
+
+
+int rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+				u32 vendorID, const char *manufacturer);
+
+static inline int
+rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+				u32 vendorID, const char *manufacturer)
+{
+	return 0;
 }
 
 #endif /* __U_ETHER_H */

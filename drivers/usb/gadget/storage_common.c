@@ -333,6 +333,45 @@ ssize_t fsg_show_nofua(struct fsg_lun *curlun, char *buf)
 }
 EXPORT_SYMBOL(fsg_show_nofua);
 
+
+#ifdef CONFIG_USB_MSC_PROFILING
+static ssize_t fsg_show_perf(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+	unsigned long rbytes, wbytes;
+	int64_t rtime, wtime;
+
+	spin_lock(&curlun->lock);
+	rbytes = curlun->perf.rbytes;
+	wbytes = curlun->perf.wbytes;
+	rtime = ktime_to_us(curlun->perf.rtime);
+	wtime = ktime_to_us(curlun->perf.wtime);
+	spin_unlock(&curlun->lock);
+
+	return snprintf(buf, PAGE_SIZE, "Write performance :"
+					"%lu bytes in %lld microseconds\n"
+					"Read performance :"
+					"%lu bytes in %lld microseconds\n",
+					wbytes, wtime, rbytes, rtime);
+}
+static ssize_t fsg_store_perf(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+	int value;
+
+	sscanf(buf, "%d", &value);
+	if (!value) {
+		spin_lock(&curlun->lock);
+		memset(&curlun->perf, 0, sizeof(curlun->perf));
+		spin_unlock(&curlun->lock);
+	}
+
+	return count;
+}
+#endif
+
 ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
 		      char *buf)
 {
@@ -435,12 +474,15 @@ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
 		       const char *buf, size_t count)
 {
 	int		rc = 0;
-
+#if !defined(CONFIG_USB_G_ANDROID)
+	/* disabled in android because we need to allow closing the backing file
+	 * if the media was removed
+	 */
 	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
 		LDBG(curlun, "eject attempt prevented\n");
 		return -EBUSY;				/* "Door is locked" */
 	}
-
+#endif
 	/* Remove a trailing newline */
 	if (count > 0 && buf[count-1] == '\n')
 		((char *) buf)[count-1] = 0;		/* Ugh! */

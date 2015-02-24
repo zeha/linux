@@ -51,7 +51,7 @@
 #define USB_GADGET_DELAYED_STATUS       0x7fff	/* Impossibly large value */
 
 /* big enough to hold our biggest descriptor */
-#define USB_COMP_EP0_BUFSIZ	1024
+#define USB_COMP_EP0_BUFSIZ	4096
 
 #define USB_MS_TO_HS_INTERVAL(x)	(ilog2((x * 1000 / 125)) + 1)
 struct usb_configuration;
@@ -394,6 +394,12 @@ struct usb_composite_dev {
 
 	/* protects deactivations and delayed_status counts*/
 	spinlock_t			lock;
+	/*
+	 * specify the mA units for the bMaxPower field in
+	 * the configuration descriptor. Should be 2mA for HS
+	 * and 8mA for SS.
+	 */
+	int vbus_draw_units;
 };
 
 extern int usb_string_id(struct usb_composite_dev *c);
