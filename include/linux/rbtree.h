@@ -58,6 +58,15 @@ struct rb_root {
 	((node)->__rb_parent_color = (unsigned long)(node))
 
 
+
+static inline void rb_init_node(struct rb_node *rb)
+{
+	rb->__rb_parent_color = 0;
+	rb->rb_right = NULL;
+	rb->rb_left = NULL;
+	RB_CLEAR_NODE(rb);
+}
+	
 extern void rb_insert_color(struct rb_node *, struct rb_root *);
 extern void rb_erase(struct rb_node *, struct rb_root *);
 
