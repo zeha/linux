@@ -37,9 +37,18 @@
 #include <linux/of.h>
 #include <linux/of_i2c.h>
 
+#define MODULE_NAME "i2c_qup"
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
 MODULE_ALIAS("platform:i2c_qup");
+
+/*
+ * On the kernel command line specify
+ * i2c_qup.i2c_clk_freq = xxx to set the i2c bus freq
+ */
+static int i2c_clk_freq;
+module_param(i2c_clk_freq, uint, 0);
+MODULE_PARM_DESC(i2c_clk_freq, "i2c bus frequency: max 400000");
 
 /* QUP Registers */
 enum {
@@ -1189,6 +1198,12 @@ blsp_core_init:
 		ret = PTR_ERR(pclk);
 		clk_put(clk);
 		goto err_clk_get_failed;
+	}
+
+	/* use i2c_clk_freq to set i2c freq if i2c_clk_freq is set */
+	if (i2c_clk_freq != 0 && i2c_clk_freq <= 400000) {
+		dev_dbg(&pdev->dev, "set i2c freq to %d\n", i2c_clk_freq);
+		pdata->clk_freq = i2c_clk_freq;
 	}
 
 	/* We support frequencies upto FAST Mode(400KHz) */
