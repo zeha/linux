@@ -1919,7 +1919,7 @@ int gpio_pull_up(unsigned gpio)
                         __func__, gpio, chip->ngpio);
 		goto fail;
 	}
-	status = gpio_ensure_requested(desc, gpio);
+	status = gpio_ensure_requested(desc);
 	if (status < 0) {
 		pr_debug("%s: gpio-%d gpio_ensure_requested %d\n",
                         __func__, gpio, status);
@@ -1985,7 +1985,7 @@ int gpio_pull_down(unsigned gpio)
 	gpio -= chip->base;
 	if (gpio >= chip->ngpio)
 		goto fail;
-	status = gpio_ensure_requested(desc, gpio);
+	status = gpio_ensure_requested(desc);
 	if (status < 0)
 		goto fail;
 

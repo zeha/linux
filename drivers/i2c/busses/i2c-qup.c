@@ -1094,7 +1094,7 @@ static const struct i2c_algorithm qup_i2c_algo = {
 	.functionality	= qup_i2c_func,
 };
 
-static int __devinit
+static int 
 qup_i2c_probe(struct platform_device *pdev)
 {
 	struct qup_i2c_dev	*dev;
@@ -1395,7 +1395,7 @@ get_res_failed:
 	return ret;
 }
 
-static int __devexit
+static int 
 qup_i2c_remove(struct platform_device *pdev)
 {
 	struct qup_i2c_dev	*dev = platform_get_drvdata(pdev);
@@ -1517,7 +1517,7 @@ static struct of_device_id i2c_qup_dt_match[] = {
 
 static struct platform_driver qup_i2c_driver = {
 	.probe		= qup_i2c_probe,
-	.remove		= __devexit_p(qup_i2c_remove),
+	.remove		= qup_i2c_remove,
 	.driver		= {
 		.name	= "qup_i2c",
 		.owner	= THIS_MODULE,
@@ -1527,7 +1527,7 @@ static struct platform_driver qup_i2c_driver = {
 };
 
 /* QUP may be needed to bring up other drivers */
-static int __init
+static int 
 qup_i2c_init_driver(void)
 {
 	return platform_driver_register(&qup_i2c_driver);
