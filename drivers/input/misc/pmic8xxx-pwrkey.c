@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,9 +29,12 @@
 /**
  * struct pmic8xxx_pwrkey - pmic8xxx pwrkey information
  * @key_press_irq: key press irq number
+ * @pdata: platform data
  */
 struct pmic8xxx_pwrkey {
+	struct input_dev *pwr;
 	int key_press_irq;
+	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwr)
@@ -79,15 +82,82 @@ static int pmic8xxx_pwrkey_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(pm8xxx_pwr_key_pm_ops,
 		pmic8xxx_pwrkey_suspend, pmic8xxx_pwrkey_resume);
 
+static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
+{
+	int err;
+	u32 delay;
+	u8 pon_cntl;
+	struct regmap *regmap;
+
+	regmap = dev_get_regmap(dev->dev.parent, NULL);
+	if (!regmap) {
+		dev_err(&pdev->dev, "failed to locate regmap for the device\n");
+		return -ENODEV;
+	}
+
+	/* Valid range of pwr key trigger delay is 1/64 sec to 2 seconds. */
+	if (debounce_us > USEC_PER_SEC * 2 ||
+		debounce_us < USEC_PER_SEC / 64) {
+		dev_err(dev, "invalid power key trigger delay\n");
+		return -EINVAL;
+	}
+
+	delay = (debounce_us << 6) / USEC_PER_SEC;
+	delay = ilog2(delay);
+
+	err = regmap_read(regmap, PON_CNTL_1, &pon_cntl);
+	if (err < 0) {
+		dev_err(&dev->dev, "failed reading PON_CNTL_1 err=%d\n", err);
+		return err;
+	}
+
+	pon_cntl &= ~PON_CNTL_TRIG_DELAY_MASK;
+	pon_cntl |= (delay & PON_CNTL_TRIG_DELAY_MASK);
+
+	if (pull_up)
+		pon_cntl |= PON_CNTL_PULL_UP;
+	else
+		pon_cntl &= ~PON_CNTL_PULL_UP;
+
+	err = regmap_write(regmap, PON_CNTL_1, pon_cntl);
+	if (err < 0) {
+		dev_err(&dev->dev, "failed writing PON_CNTL_1 err=%d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static ssize_t pmic8xxx_debounce_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	struct pmic8xxx_pwrkey *pwrkey = dev_get_drvdata(dev);
+	int err;
+	unsigned long val;
+
+	if (size > 8)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &val);
+	if (err < 0)
+		return err;
+
+	err = pmic8xxx_set_pon1(dev, val, pwrkey->pdata->pull_up);
+	if (err < 0)
+		return err;
+
+	return size;
+}
+
+static DEVICE_ATTR(debounce_us, 0664, NULL, pmic8xxx_debounce_store);
+
 static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 {
 	struct input_dev *pwr;
 	int key_release_irq = platform_get_irq(pdev, 0);
 	int key_press_irq = platform_get_irq(pdev, 1);
 	int err;
-	unsigned int delay;
-	unsigned int pon_cntl;
-	struct regmap *regmap;
 	struct pmic8xxx_pwrkey *pwrkey;
 	const struct pm8xxx_pwrkey_platform_data *pdata =
 					dev_get_platdata(&pdev->dev);
@@ -97,22 +167,12 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	if (pdata->kpd_trigger_delay_us > 62500) {
-		dev_err(&pdev->dev, "invalid power key trigger delay\n");
-		return -EINVAL;
-	}
-
-	regmap = dev_get_regmap(pdev->dev.parent, NULL);
-	if (!regmap) {
-		dev_err(&pdev->dev, "failed to locate regmap for the device\n");
-		return -ENODEV;
-	}
-
 	pwrkey = devm_kzalloc(&pdev->dev, sizeof(*pwrkey), GFP_KERNEL);
 	if (!pwrkey)
 		return -ENOMEM;
 
 	pwrkey->key_press_irq = key_press_irq;
+	pwrkey->pdata = pdata;
 
 	pwr = devm_input_allocate_device(&pdev->dev);
 	if (!pwr) {
@@ -125,44 +185,10 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	pwr->name = "pmic8xxx_pwrkey";
 	pwr->phys = "pmic8xxx_pwrkey/input0";
 
-	delay = (pdata->kpd_trigger_delay_us << 10) / USEC_PER_SEC;
-	delay = 1 + ilog2(delay);
-
-	err = regmap_read(regmap, PON_CNTL_1, &pon_cntl);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed reading PON_CNTL_1 err=%d\n", err);
-		return err;
-	}
-
-	pon_cntl &= ~PON_CNTL_TRIG_DELAY_MASK;
-	pon_cntl |= (delay & PON_CNTL_TRIG_DELAY_MASK);
-	if (pdata->pull_up)
-		pon_cntl |= PON_CNTL_PULL_UP;
-	else
-		pon_cntl &= ~PON_CNTL_PULL_UP;
-
-	err = regmap_write(regmap, PON_CNTL_1, pon_cntl);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed writing PON_CNTL_1 err=%d\n", err);
-		return err;
-	}
-
-	err = devm_request_irq(&pdev->dev, key_press_irq, pwrkey_press_irq,
-			       IRQF_TRIGGER_RISING,
-			       "pmic8xxx_pwrkey_press", pwr);
+	err = pmic8xxx_set_pon1(&pdev->dev,
+				pdata->kpd_trigger_delay_us, pdata->pull_up);
 	if (err) {
-		dev_err(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
-			key_press_irq, err);
-		return err;
-	}
-
-	err = devm_request_irq(&pdev->dev, key_release_irq, pwrkey_release_irq,
-			       IRQF_TRIGGER_RISING,
-			       "pmic8xxx_pwrkey_release", pwr);
-	if (err) {
-		dev_err(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
-			key_release_irq, err);
-		return err;
+		dev_dbg(&pdev->dev, "Can't set PON CTRL1 register: %d\n", err);
 	}
 
 	err = input_register_device(pwr);
@@ -171,7 +197,32 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	pwrkey->pwr = pwr;
+
 	platform_set_drvdata(pdev, pwrkey);
+
+
+	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
+			IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
+	if (err < 0) {
+		dev_dbg(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
+				 key_press_irq, err);
+	}
+
+	err = request_any_context_irq(key_release_irq, pwrkey_release_irq,
+			 IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_release", pwrkey);
+	if (err < 0) {
+		dev_dbg(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
+				 key_release_irq, err);
+	}
+
+	err = device_create_file(&pdev->dev, &dev_attr_debounce_us);
+	if (err < 0) {
+		dev_err(&pdev->dev,
+				"dev file creation for debounce failed: %d\n",
+				err);
+	}
+
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
 
 	return 0;
@@ -193,7 +244,18 @@ static struct platform_driver pmic8xxx_pwrkey_driver = {
 		.pm	= &pm8xxx_pwr_key_pm_ops,
 	},
 };
-module_platform_driver(pmic8xxx_pwrkey_driver);
+
+static int __init pmic8xxx_pwrkey_init(void)
+{
+	return platform_driver_register(&pmic8xxx_pwrkey_driver);
+}
+module_init(pmic8xxx_pwrkey_init);
+
+static void __exit pmic8xxx_pwrkey_exit(void)
+{
+	platform_driver_unregister(&pmic8xxx_pwrkey_driver);
+}
+module_exit(pmic8xxx_pwrkey_exit);
 
 MODULE_ALIAS("platform:pmic8xxx_pwrkey");
 MODULE_DESCRIPTION("PMIC8XXX Power Key driver");
