@@ -49,6 +49,12 @@
 #include <asm/traps.h>
 #include <asm/unwind.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 /* Dummy functions to avoid linker complaints */
 void __aeabi_unwind_cpp_pr0(void)
 {
@@ -438,6 +444,13 @@ void unwind_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		frame.lr = 0;
 		frame.pc = thread_saved_pc(tsk);
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* log error str */
+	sierra_smem_errdump_save_frame(tsk, &frame);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	while (1) {
 		int urc;

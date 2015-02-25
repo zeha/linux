@@ -32,7 +32,7 @@
 #include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>
 
-#include "ci13xxx_udc.c"
+#include "ci13xxx_udc_msm9615.c"
 
 #define MSM_USB_BASE	(mhsic->regs)
 

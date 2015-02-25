@@ -21,6 +21,13 @@
 #include <linux/usb/composite.h>
 #include <asm/unaligned.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/usb/sierra_ududefs.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
+
 /*
  * The code in this file is utility code, used to build a gadget driver
  * from one or more "function" drivers, one or more "configuration"
@@ -33,6 +40,82 @@ static struct usb_gadget_strings **get_containers_gs(
 {
 	return (struct usb_gadget_strings **)uc->stash;
 }
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#define MSOS_STRING_SIGNATURE_SIZE 14
+#define MSOS_STRING_DESCRIPTOR_SIZE 18
+#define MSOS_SIGNATURE "MSFT100"
+#define MSOS_VENDOR_CODE       0x20
+#define MSOS_STRING_INDEX 0xEE
+#define USB_REQ_GET_MS_DESCRIPTOR	MSOS_VENDOR_CODE
+
+struct ms_os_string_desc {
+	__u8  bLength;
+	__u8  bDescriptorType;
+	__u8  qwSignature[MSOS_STRING_SIGNATURE_SIZE];
+	__u8  bMS_VendorCode;
+	__u8  bPad;
+} __attribute__ ((packed));
+
+static struct ms_os_string_desc android_msos_decriptor = {
+	.bLength = MSOS_STRING_DESCRIPTOR_SIZE,
+	.bDescriptorType = USB_DT_STRING,
+	.qwSignature = {'M',0,'S',0,'F',0,'T',0,'1',0,'0',0,'0',0},
+	.bMS_VendorCode = MSOS_VENDOR_CODE,
+	.bPad = 0,
+};
+
+/* Microsoft Extended Configuration Descriptor Header Section */
+struct ms_ext_config_desc_header {
+	__le32	dwLength;
+	__le16	bcdVersion;
+	__le16	wIndex;
+	__u8	bCount;
+	__u8	bReserved[7];
+} __attribute__ ((packed));
+
+/* Microsoft Extended Configuration Descriptor Function Section */
+struct ms_ext_config_desc_function {
+	__u8	bFirstInterfaceNumber;
+	__u8	bInterfaceCount;
+	__u8	compatibleID[8];
+	__u8	subCompatibleID[8];
+	__u8	bReserved[6];
+} __attribute__ ((packed));
+
+/* MS Extended Configuration Descriptor Before Configuration Selection */
+static struct {
+	struct ms_ext_config_desc_header		header;
+	struct ms_ext_config_desc_function	function;
+} __attribute__((packed)) ms_ext_config_desc = {
+	.header = {
+		.dwLength = __constant_cpu_to_le32(sizeof(ms_ext_config_desc)),
+		.bcdVersion = __constant_cpu_to_le16(0x0100),
+		.wIndex = __constant_cpu_to_le16(0x0004),
+		.bCount = 1,
+		.bReserved = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+	},
+	.function = {
+		.bFirstInterfaceNumber = 2,
+		.bInterfaceCount = 3,
+		.compatibleID = { 'A', 'L', 'T', 'R', 'C', 'F', 'G', 0x00 },
+		.subCompatibleID = { 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+		.bReserved = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+	},
+};
+
+/* MS Extended Configuration Descriptor After Configuration Selection*/
+static struct ms_ext_config_desc_header ms_ext_config_desc_done = {
+	.dwLength = __constant_cpu_to_le32(sizeof(ms_ext_config_desc_done)),
+	.bcdVersion = __constant_cpu_to_le16(0x0100),
+	.wIndex = __constant_cpu_to_le16(0x0004),
+	.bCount = 0,
+	.bReserved = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+};
+#endif /* SIERRA and MORPHING */
+/* SWISTOP */
+
 
 /**
  * next_ep_desc() - advance to the next EP descriptor
@@ -331,9 +414,22 @@ int usb_interface_id(struct usb_configuration *config,
 	unsigned id = config->next_interface_id;
 
 	if (id < MAX_CONFIG_INTERFACES) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Obtain Interface Number Desired 
+			 Allow existing next_interface_id to continue counting
+			 That is used elsewhere for total number of interfaces in configuration */
+		unsigned swi_id;
+		swi_id = ud_get_interface_number( function->name, config );
+		config->interface[swi_id] = function;
+		config->next_interface_id = id + 1;
+		return swi_id;
+#else
 		config->interface[id] = function;
 		config->next_interface_id = id + 1;
 		return id;
+#endif /* SIERRA */
+/* SWISTOP */
 	}
 	return -ENODEV;
 }
@@ -641,10 +737,16 @@ static int set_config(struct usb_composite_dev *cdev,
 	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
 		struct usb_function	*f = c->interface[tmp];
 		struct usb_descriptor_header **descriptors;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Our Interface numbers are not sequential, allow continuing when one is not used */
+		if (!f)
+			continue;
+#else
 		if (!f)
 			break;
-
+#endif /* SIERRA */
+/* SWISTOP */
 		/*
 		 * Record which endpoints are used by the function. This is used
 		 * to dispatch control requests targeted at that endpoint to the
@@ -1241,7 +1343,86 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	req->complete = composite_setup_complete;
 	req->length = 0;
 	gadget->ep0->driver_data = cdev;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	switch(ctrl->bRequestType & USB_TYPE_MASK) {
+    
+	case USB_TYPE_VENDOR:
+		/*Handle vendor specific request here*/
+		switch( ctrl->bRequest ) {
 
+		case UD_SWI_SETUP_REQ_GET_DEV_SWOC_INFO:
+		case UD_SWI_SETUP_REQ_SET_DEV_SWOC_MODE:
+			/*Intercept a Vendor specific command for mass storage. 
+			* Find the interface number*/
+			for(intf_cnt=0; intf_cnt<MAX_CONFIG_INTERFACES; intf_cnt++ ) {
+				f  = cdev->config->interface[intf_cnt];
+				if( f ) {
+					if (!strcmp(cdev->config->interface[intf_cnt]->name,"mass_storage")) {
+						f = cdev->config->interface[intf_cnt];
+							break;
+					}
+				}
+			}
+			if (f && f->setup)
+				value = f->setup(f, ctrl);
+			break;
+
+#if defined(FEATURE_MORPHING)
+		case USB_REQ_GET_MS_DESCRIPTOR:
+			if ( cdev->desc.bNumConfigurations > 1 )
+			{  
+				/* Handle MS OS descriptor or Identity Morphing */
+				if ( (ctrl->bRequestType & USB_DIR_IN) && (w_index == 4) ) {
+					DBG(cdev, "MS request: %d index: %d value: %d length: %d\n",
+									ctrl->bRequest, w_index, w_value, w_length);
+          
+					if (cdev->config) {
+						value = (w_length < sizeof(ms_ext_config_desc_done) ?
+								w_length : sizeof(ms_ext_config_desc_done));
+						memcpy(req->buf, (const void *)&ms_ext_config_desc_done, value);
+					} else {
+						/* Update First Interface # and Number of Interfaces */
+						uint i;
+						list_for_each_entry(c, &cdev->configs, list) {
+							if (c->bConfigurationValue == 1) {            
+								ms_ext_config_desc.function.bInterfaceCount = c->next_interface_id;          
+								f = list_first_entry(&c->functions, struct usb_function, list);
+								for (i = 0 ; i < MAX_CONFIG_INTERFACES ; i++ )
+								{
+									if ( f == c->interface[i] )
+									{
+										ms_ext_config_desc.function.bFirstInterfaceNumber = i;
+										break;
+									}
+								}
+								break;
+							}
+						}
+						value = (w_length < sizeof(ms_ext_config_desc) ?
+								w_length : sizeof(ms_ext_config_desc));
+						memcpy(req->buf, (const void *)&ms_ext_config_desc, value);
+					}
+				}
+			}
+			break;
+#endif /* FEATURE_MORPHING */
+    
+		default:
+			VDBG(cdev,
+				"unknown vendor control req%02x.%02x v%04x i%04x l%d\n",
+				ctrl->bRequestType, ctrl->bRequest,
+				w_value, w_index, w_length);
+			break;
+    
+		}
+		break;
+ 
+	case USB_TYPE_STANDARD:
+	case USB_TYPE_CLASS:
+	default:
+#endif /*SIERRA*/
+/* SWISTOP */
 	switch (ctrl->bRequest) {
 
 	/* we handle all standard USB descriptors */
@@ -1300,6 +1481,18 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 						USB_DT_OTG);
 			break;
 		case USB_DT_STRING:
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+			if ( (cdev->desc.bNumConfigurations > 1) &&
+					((w_value & 0xff) == MSOS_STRING_INDEX) )
+			{
+				value = (w_length < sizeof(android_msos_decriptor)
+									? w_length : sizeof(android_msos_decriptor));
+				memcpy(req->buf, (const void *)&android_msos_decriptor, value);
+				break;
+			}
+#endif /* SIERRA */
+/* SWISTOP */
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
 			if (value >= 0)
@@ -1492,7 +1685,11 @@ unknown:
 
 		goto done;
 	}
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    } /*bRequestType & USB_TYPE_MASK*/
+#endif /*SIERRA*/
+/* SWISTOP */
 	/* respond with data transfer before status phase? */
 	if (value >= 0 && value != USB_GADGET_DELAYED_STATUS) {
 		req->length = value;

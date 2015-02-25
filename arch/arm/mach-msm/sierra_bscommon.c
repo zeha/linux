@@ -1,0 +1,605 @@
+/* arch/arm/mach-msm/sierra_smem.c
+ *
+ * Copyright (C) 2013 Sierra Wireless, Inc
+ * Author: Alex Tan <atan@sierrawireless.com>
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/module.h>
+#include <linux/miscdevice.h>
+#include <linux/uaccess.h>
+
+
+#include <mach/sierra_smem.h>
+#include <mach/sierra_bsidefs.h>
+#include <linux/sierra_bsudefs.h>
+
+/* RAM Copies of HW type, rev, etc. */
+/* note that there is a copy for the bootloader and another for the app */
+bool bshwconfigread = false;
+union bshwconfig bscfg;
+
+
+/* Local structures and functions */
+/************
+ *
+ * Name:     bsreadhwconfig
+ *
+ * Purpose:  To get the hardware configuration from gpio
+ *
+ * Parms:    none
+ *
+ * Return:   uint32 bitmask of hardware configuration
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+static ssize_t bsreadhwconfig(void)
+{
+  struct bcboottoappmsg *mp = (struct bcboottoappmsg *)BS_BOOT_APP_MSG_START;
+  return mp->hwconfig;
+}
+/************
+ *
+ * Name:     bsgethwtype
+ *
+ * Purpose:  Returns hardware type read from QFPROM /GPIO
+ *
+ * Parms:    none
+ *
+ * Return:   hardware type
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+enum bshwtype bsgethwtype(
+  void)
+{
+  if (bshwconfigread == false)
+  {
+    bscfg.all = bsreadhwconfig();
+    bshwconfigread = true;
+  }
+
+  return (enum bshwtype) bscfg.hw.type;
+}
+EXPORT_SYMBOL(bsgethwtype);
+
+/************
+ *
+ * Name:     bsgethwrev
+ *
+ * Purpose:  Returns hardware revision read from QFPROM /GPIO
+ *
+ * Parms:    none
+ *
+ * Return:   hardware ID
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint8_t bsgethwrev(
+  void)
+{
+  if (bshwconfigread == false)
+  {
+    bscfg.all = bsreadhwconfig();
+    bshwconfigread = true;
+  }
+
+  return bscfg.hw.rev;
+}
+EXPORT_SYMBOL(bsgethwrev);
+
+/************
+ *
+ * Name:     bsgetmanufacturingcode
+ *
+ * Purpose:  Returns the current coverage code
+ *
+ * Parms:    None
+ *
+ * Return:   manufacturing code
+ *
+ * Abort:    None
+ *
+ * Notes:    Bit states are inverted and lines are not necessarilly
+ *           in the same register
+ *
+ *
+ *           Code    MODE2   MODE1   MODE0         MANFMode
+ *           -----------------------------------------------------
+ *            000    high    high    high    Normal Mode (Default)
+ *            110     low     low    high    AT on USB, Diag on UART
+ *            111     low     low     low    AT on UART, Diag on USB
+ *
+ *
+ ************/
+uint32_t bsgetmanufacturingcode(
+  void)
+{
+  if (bshwconfigread == false)
+  {
+    bscfg.all = bsreadhwconfig();
+    bshwconfigread = true;
+  }
+
+  return bscfg.hw.mfgmode;
+}
+EXPORT_SYMBOL(bsgetmanufacturingcode);
+
+/************
+ *
+ * Name:     bssupport
+ *
+ * Purpose:  To check if the hardware supports a particular feature
+ *
+ * Parms:    feature - feature to check
+ *
+ * Return:   true if hardware supports this feature
+ *           false otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    This function is primarily designed to keep hardware variant
+ *           checks to a central location.
+ *
+ ************/
+bool bssupport(
+  enum bsfeature feature)
+{
+  bool supported = false;
+  enum bshwtype hwtype;
+
+  hwtype = bsgethwtype();
+
+  switch (feature)
+  {
+    case BSFEATURE_MINICARD:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSEM7655:
+        case BSMC7305:
+        case BSEM7305:
+        case BSMC8805:
+        case BSEM8805:
+        case BSMC7800:
+        case BSMC7800LO:
+        case BSMC7802:
+        case BSMC7804:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_USB:
+      switch (hwtype)
+      {
+        case BSAC340U:
+        case BSAC342U:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_MHS:
+      switch (hwtype)
+      {
+        case BSAC770S:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_AR:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554: 
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:     
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:             
+          supported = true;
+          break;
+          
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_WP:
+      switch (hwtype)
+      {
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:          
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_W_DISABLE:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSEM7655:
+        case BSMC7305:
+        case BSEM7305:
+        case BSMC8805:
+        case BSEM8805:
+        case BSMC7800:
+        case BSMC7800LO:
+        case BSMC7802:
+        case BSMC7804:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_SD:
+      switch (hwtype)
+      {
+        case BSAC340U:
+        case BSAC342U:
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:                        
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_VOICE:
+      switch (hwtype)
+      {
+        case BSAR7550:      
+        case BSAR7552:
+        case BSAR7554:   
+        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:                
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:                  
+        case BSMC7800:
+        case BSMC7800LO:
+        case BSMC7802:
+        case BSMC7804:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW: 
+          supported = true;
+          break;
+          
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_HSUPA:
+      switch (hwtype)
+      {
+        case BSMC7800:
+        case BSMC7800LO:
+          supported = false;
+          break;
+
+        default:
+          supported = true;
+          break;
+      }
+      break;
+
+    case BSFEATURE_GPIOSAR:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSMC7305:
+        case BSEM7305:
+        case BSEM7655:
+        case BSMC8805:
+        case BSEM8805:
+        case BSMC7800:
+        case BSMC7802:
+        case BSMC7804:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_RMAUTOCONNECT:
+      supported = true;
+      break;
+
+    case BSFEATURE_UART:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:         
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW: 
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_ANTSEL:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSEM7655:
+        case BSMC7305:
+        case BSEM7305:
+        case BSMC8805:
+        case BSEM8805:
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY: 		
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:        
+        case BSMC7800:
+        case BSMC7800LO:
+        case BSMC7802:
+        case BSMC7804:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:       
+          supported = true;
+          break;
+            
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_INSIM:
+      /* Not supported any more in WP710x, so returns false for all devices */
+      supported = false;
+      break;
+
+    case BSFEATURE_OOBWAKE:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSMC7305:
+        case BSEM7305:
+        case BSEM7655:
+        case BSMC8805:
+        case BSEM8805:
+        case BSMC7800:
+        case BSMC7800LO:
+        case BSMC7802:
+        case BSMC7804:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_CDMA:
+      switch (hwtype)
+      {
+        case BSMC7355:
+        case BSEM7355:
+        case BSEM7655:
+        case BSAR7550:
+        case BSAR7550_LARGER_MEMORY:        
+        case BSWP7100:
+        case BSWP7100_LARGER_MEMORY:        
+        case BSMC7800:
+        case BSWP7100_NEW:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_GSM:
+      switch (hwtype)
+      {
+        case BSMC7800:
+        case BSMC7800LO:
+          supported = false;
+          break;
+
+        default:
+          supported = true;
+          break;
+      }
+      break;
+
+    case BSFEATURE_WCDMA:
+      switch (hwtype)
+      {
+        case BSMC7800:
+        case BSMC7800LO:
+          supported = false;
+          break;
+
+        default:
+          supported = true;
+          break;
+      }
+      break;
+
+    case BSFEATURE_LTE:
+      switch (hwtype)
+      {
+        case BSMC8805:
+        case BSEM8805:
+          supported = false;
+          break;
+
+        default:
+          supported = true;
+          break;
+      }
+      break;
+
+    case BSFEATURE_EM:
+      switch (hwtype)
+      {
+        case BSEM7355:
+        case BSEM7305:
+        case BSEM7655:
+        case BSEM8805:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_SVC_PIN_DLOAD:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7550_LARGER_MEMORY:      
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:         
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:  
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:                 
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_BUZZER:
+      switch (hwtype)
+      {         
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:                  
+          supported = true;
+          break;
+          
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    default:
+      pr_err("Unknown feature %X", (uint32_t)feature);
+      break;
+  }
+
+  return supported;
+
+}
+EXPORT_SYMBOL(bssupport);
+
+

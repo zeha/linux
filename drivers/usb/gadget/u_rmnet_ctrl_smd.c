@@ -396,6 +396,7 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	unsigned long		flags;
 	struct smd_ch_info	*c;
 	struct rmnet_ctrl_pkt	*cpkt;
+	int clear_bits;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
 
@@ -427,9 +428,11 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (test_and_clear_bit(CH_OPENED, &c->flags))
+	if (test_and_clear_bit(CH_OPENED, &c->flags)) {
+		clear_bits = ~(c->cbits_tomodem | TIOCM_RTS);
 		/* send dtr zero */
-		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
+		smd_tiocmset(c->ch, c->cbits_tomodem, clear_bits);
+	}
 
 	if (c->ch) {
 		smd_close(c->ch);
@@ -506,6 +509,26 @@ static void grmnet_ctrl_smd_port_free(int portno)
 	}
 }
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+void gsmd_ctrl_smd_port_reg(void)
+{
+	int i;
+	struct rmnet_ctrl_port	*port;
+	struct platform_driver	*pdrv;
+
+	for ( i = 0 ; i < NR_CTRL_SMD_PORTS ; i++ ) {
+		port = ctrl_smd_ports[i].port;
+		pdrv = &ctrl_smd_ports[i].pdrv;
+		if ( port ) {
+			pr_debug("%s: register port:%d\n", __func__, i);
+			platform_driver_register(pdrv);
+		}
+	}
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
 static int grmnet_ctrl_smd_port_alloc(int portno)
 {
 	struct rmnet_ctrl_port	*port;
@@ -537,7 +560,11 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	pdrv->driver.name = c->name;
 	pdrv->driver.owner = THIS_MODULE;
 
+/* SWISTART */
+#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
 	platform_driver_register(pdrv);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);
 

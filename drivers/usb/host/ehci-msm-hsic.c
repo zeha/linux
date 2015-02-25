@@ -560,6 +560,12 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 #define HSIC_STROBE_GPIO_PAD_CTL	(MSM_TLMM_BASE+0x20C0)
 #define HSIC_DATA_GPIO_PAD_CTL		(MSM_TLMM_BASE+0x20C4)
 #define HSIC_CAL_PAD_CTL       (MSM_TLMM_BASE+0x20C8)
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define HSIC_STROBE_PAD_CTL	(MSM_TLMM_BASE+0x20CC)
+#define HSIC_DATA_PAD_CTL	(MSM_TLMM_BASE+0x20C8)
+#endif
+/* SWISTOP */
 #define HSIC_LV_MODE		0x04
 #define HSIC_PAD_CALIBRATION	0xA8
 #define HSIC_GPIO_PAD_VAL	0x0A0AAA10
@@ -610,6 +616,14 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 	} else {
 		/* HSIC init sequence when HSIC signals (Strobe/Data) are routed
 		via dedicated I/O */
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Decrease the ROUT from 0x05(default) to 0x03 */
+	writel_relaxed(0x034A4E10, HSIC_STROBE_PAD_CTL);
+	writel_relaxed(0x034A4E10, HSIC_DATA_PAD_CTL);
+#endif
+/* SWISTOP */
 
 		/* programmable length of connect signaling (33.2ns) */
 		ret = ulpi_write(mehci, 3, HSIC_DBG1_REG);

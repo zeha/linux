@@ -47,11 +47,21 @@ static struct gpiomux_setting gsbi3 = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+#ifndef CONFIG_SIERRA_AR7
 static struct gpiomux_setting gsbi3_cs1_config = {
 	.func = GPIOMUX_FUNC_4,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+#endif /* !CONFIG_SIERRA_AR7 */
+#ifdef CONFIG_SIERRA_AR7
+static struct gpiomux_setting gsbi5_uart = {
+    .func = GPIOMUX_FUNC_1,
+    .drv = GPIOMUX_DRV_8MA,
+    .pull = GPIOMUX_PULL_NONE,
+};
+#endif /* CONFIG_SIERRA_AR7 */
+/* SWISTOP */
 
 #ifdef CONFIG_LTC4088_CHARGER
 static struct gpiomux_setting ltc4088_chg_cfg = {
@@ -61,6 +71,7 @@ static struct gpiomux_setting ltc4088_chg_cfg = {
 };
 #endif
 
+#ifndef CONFIG_SIERRA
 static struct gpiomux_setting sdcc2_clk_actv_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_16MA,
@@ -78,6 +89,7 @@ static struct gpiomux_setting sdcc2_suspend_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+#endif
 
 static struct gpiomux_setting cdc_mclk = {
 	.func = GPIOMUX_FUNC_1,
@@ -128,6 +140,7 @@ static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 	},
 };
 
+#ifndef CONFIG_SIERRA
 static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 	{
 		/* SDC2_DATA_0 */
@@ -178,6 +191,7 @@ static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 		},
 	},
 };
+#endif
 
 struct msm_gpiomux_config msm9615_ps_hold_config[] __initdata = {
 	{
@@ -291,6 +305,20 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi5,
 		},
 	},
+#ifdef CONFIG_SIERRA_AR7
+    {
+        .gpio      = 18,    /* GSBI5 UART */
+        .settings = {
+            [GPIOMUX_SUSPENDED] = &gsbi5_uart,
+        },
+    },
+    {
+        .gpio      = 19,    /* GSBI5 UART */
+        .settings = {
+            [GPIOMUX_SUSPENDED] = &gsbi5_uart,
+        },
+    },
+#else /* CONFIG_SIERRA_AR7 */
 	{
 		/* GPIO 19 can be used for I2C/UART on GSBI5 */
 		.gpio      = 19,	/* GSBI3 QUP SPI_CS_1 */
@@ -298,6 +326,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi3_cs1_config,
 		},
 	},
+#endif /* CONFIG_SIERRA_AR7 */
 };
 
 static struct msm_gpiomux_config msm9615_slimbus_configs[] __initdata = {
@@ -368,8 +397,10 @@ int __init msm9615_init_gpiomux(void)
 			ARRAY_SIZE(msm9615_ps_hold_config));
 	msm_gpiomux_install(sd_card_det_config,
 			ARRAY_SIZE(sd_card_det_config));
+#ifndef CONFIG_SIERRA
 	msm_gpiomux_install(msm9615_sdcc2_configs,
 			ARRAY_SIZE(msm9615_sdcc2_configs));
+#endif
 #ifdef CONFIG_LTC4088_CHARGER
 	msm_gpiomux_install(msm9615_ltc4088_charger_config,
 			ARRAY_SIZE(msm9615_ltc4088_charger_config));

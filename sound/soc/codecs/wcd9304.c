@@ -1024,7 +1024,13 @@ static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	int i;
 	int ret;
 	int num_anc_slots;
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	struct anc_header *anc_head;
+#else
+    struct sitar_anc_header *anc_head;
+#endif
+/* SWISTOP */
 	struct sitar_priv *sitar = snd_soc_codec_get_drvdata(codec);
 	u32 anc_writes_size = 0;
 	int anc_size_remaining;
@@ -1048,17 +1054,30 @@ static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
 				ret);
 			return -ENODEV;
 		}
-
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		if (fw->size < sizeof(struct anc_header)) {
+#else
+		if (fw->size < sizeof(struct sitar_anc_header)) {
+#endif
+/* SWISTOP */
 			dev_err(codec->dev, "Not enough data\n");
 			release_firmware(fw);
 			return -ENOMEM;
 		}
 
 		/* First number is the number of register writes */
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		anc_head = (struct anc_header *)(fw->data);
 		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
 		anc_size_remaining = fw->size - sizeof(struct anc_header);
+#else
+		anc_head = (struct sitar_anc_header *)(fw->data);
+		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct sitar_anc_header));
+		anc_size_remaining = fw->size - sizeof(struct sitar_anc_header);
+#endif
+/* SWISTOP */
 		num_anc_slots = anc_head->num_anc_slots;
 
 		if (sitar->anc_slot >= num_anc_slots) {

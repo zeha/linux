@@ -590,6 +590,14 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	event->wValue = cpu_to_le16(0);
 	event->wIndex = cpu_to_le16(dev->ctrl_id);
 	event->wLength = cpu_to_le16(0);
+
+/* SWISTART */
+/* Fix the wrong notification response packet length */
+#ifdef CONFIG_SIERRA
+	req->length = sizeof *event;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	ret = usb_ep_queue(dev->not_port.notify,
@@ -755,8 +763,6 @@ static void mbim_do_notify(struct f_mbim *mbim)
 {
 	struct usb_request		*req = mbim->not_port.notify_req;
 	struct usb_cdc_notification	*event;
-	struct usb_composite_dev	*cdev = mbim->cdev;
-	__le32				*data;
 	int				status;
 
 	pr_debug("notify_state: %d", mbim->not_port.notify_state);
@@ -783,6 +789,14 @@ static void mbim_do_notify(struct f_mbim *mbim)
 			pr_debug("notify_response_avaliable: done");
 			return;
 		}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Added to avoid wrong formatted notification */
+		event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
+		event->wLength = 0;
+		req->length = sizeof *event;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 		spin_unlock(&mbim->lock);
 		status = usb_ep_queue(mbim->not_port.notify, req, GFP_ATOMIC);
@@ -793,36 +807,6 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		}
 
 		return;
-
-	case NCM_NOTIFY_CONNECT:
-		event->bNotificationType = USB_CDC_NOTIFY_NETWORK_CONNECTION;
-		if (mbim->is_open)
-			event->wValue = cpu_to_le16(1);
-		else
-			event->wValue = cpu_to_le16(0);
-		event->wLength = 0;
-		req->length = sizeof *event;
-
-		pr_info("notify connect %s\n",
-			mbim->is_open ? "true" : "false");
-		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
-		break;
-
-	case NCM_NOTIFY_SPEED:
-		event->bNotificationType = USB_CDC_NOTIFY_SPEED_CHANGE;
-		event->wValue = cpu_to_le16(0);
-		event->wLength = cpu_to_le16(8);
-		req->length = NCM_STATUS_BYTECOUNT;
-
-		/* SPEED_CHANGE data is up/down speeds in bits/sec */
-		data = req->buf + sizeof *event;
-		data[0] = cpu_to_le32(mbim_bitrate(cdev->gadget));
-		data[1] = data[0];
-
-		pr_info("notify speed %d\n",
-			mbim_bitrate(cdev->gadget));
-		mbim->not_port.notify_state = NCM_NOTIFY_CONNECT;
-		break;
 	}
 
 	event->bmRequestType = 0xA1;
@@ -848,6 +832,9 @@ static void mbim_do_notify(struct f_mbim *mbim)
 /*
  * Context: mbim->lock held
  */
+/* SWISTART*/
+/* To fix the yellow bang error code 10 issue, this function is not called anymore */
+#ifndef CONFIG_SIERRA
 static void mbim_notify(struct f_mbim *mbim)
 {
 	/*
@@ -860,6 +847,8 @@ static void mbim_notify(struct f_mbim *mbim)
 	mbim->not_port.notify_state = NCM_NOTIFY_SPEED;
 	mbim_do_notify(mbim);
 }
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
@@ -1393,9 +1382,15 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 
 		mbim->data_alt_int = alt;
+
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+/* To work around the yellow bang error code 10 issue when using compositions support identity morphing */
 		spin_lock(&mbim->lock);
-		mbim_notify(mbim);
+		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 		spin_unlock(&mbim->lock);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	} else {
 		goto fail;
 	}
@@ -1488,6 +1483,13 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	if (status < 0)
 		goto fail;
 	mbim->ctrl_id = status;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	mbim->data_alt_int = 0;
+#endif
+/* SWISTOP */
+
 	mbim_iad_desc.bFirstInterface = status;
 
 	mbim_control_intf.bInterfaceNumber = status;

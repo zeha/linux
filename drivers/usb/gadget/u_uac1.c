@@ -29,8 +29,17 @@
  * This component encapsulates the ALSA devices for USB audio gadget
  */
 
+/* SWISTART */
+/* SWI AFE PCM deveice is pcmC0D4p/pcmC0D5p */
+#ifndef CONFIG_SIERRA
 #define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D5p"
 #define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D6c"
+#else
+#define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D4p"
+#define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D5c"
+#endif
+/* SWISTOP */
+
 #define FILE_CONTROL		"/dev/snd/controlC0"
 
 static char *fn_play = FILE_PCM_PLAYBACK;

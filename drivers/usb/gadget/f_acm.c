@@ -181,8 +181,15 @@ static int acm_port_disconnect(struct f_acm *acm)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_NOTIFY_INTERVAL_MS		32
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Work around issue where driver needs zero length packet if interrupt packet is at MAX size */
+#define GS_NOTIFY_MAXPACKET		10 + 2	/* notification + 2 bytes + 2 spares */
+#else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
-
+#endif
+/* SWISTOP */
+ 
 /* interface and class descriptors: */
 
 static struct usb_interface_assoc_descriptor

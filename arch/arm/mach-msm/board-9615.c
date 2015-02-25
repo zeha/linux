@@ -19,6 +19,12 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(CONFIG_WCD9304_CODEC)
+#include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/pdata.h>
+#endif
+/* SWISTOP */
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
 #include <linux/usb/android.h>
@@ -55,6 +61,12 @@
 #include <mach/gpiomux.h>
 #include <linux/usb/gadget.h>
 #include "ci13xxx_udc.h"
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/rpm-regulator.h>
+#endif
+/* SWISTOP */
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_AUDIO_SIZE	0xAF000
@@ -197,10 +209,36 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_FUNC_NORMAL, 0, 0)
 
 /* Initial PM8018 GPIO configurations */
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 	PM8018_GPIO_OUTPUT(2,	0,	HIGH), /* EXT_LDO_EN_WLAN */
 	PM8018_GPIO_OUTPUT(6,	0,	LOW), /* WLAN_CLK_PWR_REQ */
 };
+#else
+static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
+	PM8018_GPIO_INPUT(2,PM_GPIO_PULL_NO), /* EXT_LDO_EN_WLAN */
+	PM8018_GPIO_INPUT(6,PM_GPIO_PULL_NO), /* WLAN_CLK_PWR_REQ */
+};
+#endif
+/* SWISTOP */
+
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+static struct pm8xxx_mpp_init pm8018_mpp_swi =
+	PM8018_MPP_INIT(1, D_INPUT, PM8018_MPP_DIG_LEVEL_L4, DOUT_CTRL_LOW);
+	
+void msm9615_pm8xxx_gpio_mpp_init_swi(void)
+{
+	int rc;
+	rc = pm8xxx_mpp_config(pm8018_mpp_swi.mpp, &pm8018_mpp_swi.config);
+	if (rc) {
+	pr_err("%s: pm8018_mpp_config_swi: rc=%d\n", __func__, rc);
+	}
+} 
+#endif
+/* SWISTOP */
 
 /* Initial PM8018 MPP configurations */
 static struct pm8xxx_mpp_init pm8018_mpps[] __initdata = {
@@ -246,6 +284,10 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	 */
 	{"batt_id", CHANNEL_BATT_ID_THERM, CHAN_PATH_SCALING1,
 		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+/* SWISTART */
+	{"mpp_05", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1,
+		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+/* SWISTOP */
 	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
 	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
@@ -284,16 +326,38 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata = {
 	.mpp_base		= PM8018_MPP_PM_TO_SYS(1),
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AR7
+static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
+	.rtc_write_enable	= false,
+	.rtc_alarm_powerup	= true,
+};
+#else
+
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
 	.rtc_write_enable	= false,
 	.rtc_alarm_powerup	= false,
 };
+#endif
+/* SWISTOP */
 
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
+	.pull_up		= 1,
+	.kpd_trigger_delay_us	= 31250,   /* 1/32 Second */
+	.wakeup			= 1,
+};
+
+#else
 static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.pull_up		= 1,
 	.kpd_trigger_delay_us	= 15625,
 	.wakeup			= 1,
 };
+#endif
+/* SWISTOP */
 
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 	.priority		= 0,
@@ -308,6 +372,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
  */
 #define PM8XXX_PWM_CHANNEL_NONE		-1
 
+#ifndef CONFIG_SIERRA
 static struct led_info pm8018_led_info[] = {
 	[0] = {
 		.name	= "led:kb",
@@ -334,6 +399,7 @@ static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 		.configs = pm8018_led_configs,
 		.num_configs = ARRAY_SIZE(pm8018_led_configs),
 };
+#endif
 
 #ifdef CONFIG_LTC4088_CHARGER
 static struct ltc4088_charger_platform_data ltc4088_chg_pdata = {
@@ -343,6 +409,7 @@ static struct ltc4088_charger_platform_data ltc4088_chg_pdata = {
 };
 #endif
 
+#ifndef CONFIG_SIERRA
 static struct pm8018_platform_data pm8018_platform_data = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
 	.gpio_pdata		= &pm8xxx_gpio_pdata,
@@ -354,6 +421,19 @@ static struct pm8018_platform_data pm8018_platform_data = {
 	.adc_pdata		= &pm8018_adc_pdata,
 	.leds_pdata		= &pm8xxx_leds_pdata,
 };
+
+#else
+static struct pm8018_platform_data pm8018_platform_data  = {
+	.irq_pdata		= &pm8xxx_irq_pdata,
+	.gpio_pdata		= &pm8xxx_gpio_pdata,
+	.mpp_pdata		= &pm8xxx_mpp_pdata,
+	.rtc_pdata		= &pm8xxx_rtc_pdata,
+	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
+	.misc_pdata		= &pm8xxx_misc_pdata,
+	.regulator_pdatas	= msm_pm8018_regulator_pdata,
+	.adc_pdata		= &pm8018_adc_pdata,
+};
+#endif
 
 static struct msm_ssbi_platform_data msm9615_ssbi_pm8018_pdata = {
 	.controller_type = MSM_SBI_CTRL_PMIC_ARBITER,
@@ -404,7 +484,11 @@ static void __init msm9615_init_buses(void)
  * MDM9x15 I2S.
  */
 static struct wcd9xxx_pdata wcd9xxx_i2c_platform_data = {
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AR7
 	.irq = MSM_GPIO_TO_INT(85),
+#endif
+/* SWISTOP */
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
 	.reset_gpio = 84,
@@ -559,6 +643,156 @@ static struct slim_device msm_slim_tabla20 = {
 };
 #endif
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#ifdef CONFIG_WCD9304_CODEC
+
+#define SITAR_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + 256/*NR_PM8921_IRQS*/)
+
+/* Micbias setting is based on 8660 CDP/MTP/FLUID requirement
+ * 4 micbiases are used to power various analog and digital
+ * microphones operating at 1800 mV. Technically, all micbiases
+ * can source from single cfilter since all microphones operate
+ * at the same voltage level. The arrangement below is to make
+ * sure all cfilters are exercised. LDO_H regulator ouput level
+ * does not need to be as high as 2.85V. It is choosen for
+ * microphone sensitivity purpose.
+ */
+static struct wcd9xxx_pdata sitar_platform_data = {
+		.slimbus_slave_device = {
+		.name = "sitar-slave",
+		.e_addr = {0, 0, 0x00, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(86),
+	.irq_base = SITAR_INTERRUPT_BASE,
+	.num_irqs = NR_WCD9XXX_IRQS,
+	.reset_gpio = 84,
+	.micbias = {
+		.ldoh_v = SITAR_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
+		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
+		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
+		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "VDDD_CDC_D",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_A_1P2V",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	},
+	},
+};
+
+static struct slim_device msm_slim_sitar = {
+	.name = "sitar-slim",
+	.e_addr = {0, 1, 0x00, 0, 0x17, 2},
+	.dev = {
+	.platform_data = &sitar_platform_data,
+	},
+};
+
+static struct wcd9xxx_pdata sitar1p1_platform_data = {
+		.slimbus_slave_device = {
+		.name = "sitar-slave",
+		.e_addr = {0, 0, 0x70, 0, 0x17, 2},
+	},
+	.irq = MSM_GPIO_TO_INT(86),
+	.irq_base = SITAR_INTERRUPT_BASE,
+	.num_irqs = NR_WCD9XXX_IRQS,
+	.reset_gpio = 84,
+	.micbias = {
+		.ldoh_v = SITAR_LDOH_2P85_V,
+		.cfilt1_mv = 1800,
+		.cfilt2_mv = 1800,
+		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
+		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
+		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
+		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
+	},
+	.regulator = {
+	{
+		.name = "CDC_VDD_CP",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_CP_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_RX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_RX_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_TX",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_CDC_VDDA_TX_CUR_MAX,
+	},
+	{
+		.name = "VDDIO_CDC",
+		.min_uV = 1800000,
+		.max_uV = 1800000,
+		.optimum_uA = WCD9XXX_VDDIO_CDC_CUR_MAX,
+	},
+	{
+		.name = "VDDD_CDC_D",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_D_CUR_MAX,
+	},
+	{
+		.name = "CDC_VDDA_A_1P2V",
+		.min_uV = 1225000,
+		.max_uV = 1225000,
+		.optimum_uA = WCD9XXX_VDDD_CDC_A_CUR_MAX,
+	},
+	},
+};
+
+static struct slim_device msm_slim_sitar1p1 = {
+	.name = "sitar1p1-slim",
+	.e_addr = {0, 1, 0x70, 0, 0x17, 2},
+	.dev = {
+	.platform_data = &sitar1p1_platform_data,
+	},
+};
+#endif
+#endif
+/* SWISTOP */
+
 static struct i2c_registry msm9615_i2c_devices[] __initdata = {
 #ifdef CONFIG_WCD9310_CODEC
 	{
@@ -578,6 +812,20 @@ static struct slim_boardinfo msm_slim_devices[] = {
 		.slim_slave = &msm_slim_tabla20,
 	},
 #endif
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#ifdef CONFIG_WCD9304_CODEC
+	{
+		.bus_num = 1,
+		.slim_slave = &msm_slim_sitar,
+	},
+	{
+		.bus_num = 1,
+		.slim_slave = &msm_slim_sitar1p1,
+	},
+#endif
+#endif
+/* SWISTOP */
 };
 
 static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
@@ -589,7 +837,13 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.src_clk_rate = 24000000,
 };
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 #define USB_5V_EN		3
+#else
+#define USB_5V_EN   4
+#endif
+/* SWISTOP */
 #define PM_USB_5V_EN	PM8018_GPIO_PM_TO_SYS(USB_5V_EN)
 
 static int msm_hsusb_vbus_power(bool on)
@@ -758,6 +1012,13 @@ static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 	.usb_bam_num_pipes = 16,
 };
 
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+#define MSM_MPM_PIN_USB1_OTGSESSVLD    40
+#endif
+/* SWISTOP */
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control	= OTG_PHY_CONTROL,
@@ -767,6 +1028,13 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.enable_lpm_on_dev_suspend	= true,
 	.core_clk_always_on_workaround = true,
 	.delay_lpm_on_disconnect = true,
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+    .vdd_min_enable     = PM8018_MPP_PM_TO_SYS(1),
+    .mpm_otgsessvld_int = MSM_MPM_PIN_USB1_OTGSESSVLD, 
+#endif
+/* SWISTOP */
 };
 
 
@@ -885,6 +1153,10 @@ static struct platform_device *common_devices[] = {
 	&msm_android_usb_hsic_device,
 #endif
 	&msm9615_device_uart_gsbi4,
+#ifdef CONFIG_SIERRA_AR7
+    &msm9615_device_uart_gsbi5,
+#endif /* CONFIG_SIERRA_AR7 */
+/* SWISTOP */
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
 	&msm9615_device_qup_i2c_gsbi5,
@@ -982,6 +1254,42 @@ static void __init msm9615_reserve(void)
 	msm_reserve();
 #endif
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* 
+ * We need to have LDO5 turned on to keep LCD on MHS powered. Other
+ * products want to keep it off - we provide a param to turn it off
+ * at runtime (or keep it off from command line).
+ * (There  should be a better way!)
+ */
+typedef bool ldo5_t;
+static ldo5_t ldo5 = 1;
+#define param_check_ldo5_t(name, p) __param_check(name, p, ldo5_t);
+
+int param_set_ldo5(const char *val, const struct kernel_param *kp)
+{
+	int voltage = 0;
+	int rv = param_set_bool( val, kp );
+	if( !rv )
+	{
+		printk( KERN_INFO "Setting LDO5 to %d\n", ldo5 );
+
+		if( ldo5 )
+			voltage = 2850000;
+
+		rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L5, RPM_VREG_VOTER3,
+							 voltage, voltage, 1);
+	}
+	return rv;
+}
+static const struct kernel_param_ops param_ops_ldo5_t = {
+	.set = param_set_ldo5,
+	.get = param_get_bool,
+	.free = NULL,
+};
+core_param(ldo5, ldo5, ldo5_t, 0644);
+#endif
+/* SWISTOP */
 
 static void __init msm9615_common_init(void)
 {
@@ -995,6 +1303,14 @@ static void __init msm9615_common_init(void)
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
 	platform_device_register(&msm9615_device_rpm_regulator);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if( ldo5 )
+			/* LDO5 always on - on HotSpot it powers LCD controller */
+			rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L5, RPM_VREG_VOTER3,
+							2850000, 2850000, 1);  
+#endif
+/* SWISTOP */
 	msm_xo_init();
 	msm_clock_init(&msm9615_clock_init_data);
 	msm9615_init_buses();

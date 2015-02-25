@@ -80,6 +80,16 @@ VREG_CONSUMERS(S2) = {
 	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",     "0-000d"),
 	REGULATOR_SUPPLY("VDDD_CDC_D",		"tabla top level"),
 	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"tabla top level"),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#ifdef CONFIG_WCD9304_CODEC
+	REGULATOR_SUPPLY("VDDD_CDC_D",		"sitar-slim"),
+	REGULATOR_SUPPLY("VDDD_CDC_D",		"sitar1p1-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"sitar-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"sitar1p1-slim"),
+#endif
+#endif
+/* SWISTOP */
 };
 VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("8018_s3",		NULL),
@@ -100,6 +110,20 @@ VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"0-000d"),
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"0-000d"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"0-000d"),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#ifdef CONFIG_WCD9304_CODEC
+	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar-slim"),
+	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar1p1-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_RX",		"sitar-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_RX",		"sitar1p1-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_TX",		"sitar-slim"),
+	REGULATOR_SUPPLY("CDC_VDDA_TX",		"sitar1p1-slim"),
+	REGULATOR_SUPPLY("VDDIO_CDC",		"sitar-slim"),
+	REGULATOR_SUPPLY("VDDIO_CDC",		"sitar1p1-slim"),
+#endif
+#endif
+/* SWISTOP */
 };
 VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("8018_s4",		NULL),
@@ -329,8 +353,20 @@ msm_rpm_regulator_init_data[] = {
 	/*	 ID    a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
 	RPM_LDO(L2,      1, 1, 0, 1800000, 1800000, NULL,      0, 10000),
 	RPM_LDO(L3,      1, 1, 0, 1800000, 1800000, NULL,      0, 0),
+/* SWISTART */
+#if defined(CONFIG_SIERRA)
+	/* Increase the VREG_L4 from 3.075V to 3.3V */
+    RPM_LDO(L4,      0, 1, 0, 3300000, 3300000, NULL,      0, 0),
+#else
 	RPM_LDO(L4,      0, 1, 0, 3075000, 3075000, NULL,      0, 0),
+#endif
+#if defined(CONFIG_SIERRA)
+/* set ss so can turn on it later - on HotSpot it powers LCD controller */
+	RPM_LDO(L5,      0, 1, 1, 2850000, 2850000, NULL,      0, 0),
+#else
 	RPM_LDO(L5,      0, 1, 0, 2850000, 2850000, NULL,      0, 0),
+#endif
+/* SWISTOP */
 	RPM_LDO(L6,      0, 1, 0, 1800000, 2850000, NULL,      0, 0),
 	RPM_LDO(L7,      0, 1, 0, 1850000, 1900000, "8018_s4", 0, 0),
 	RPM_LDO(L8,      0, 1, 0, 1200000, 1200000, "8018_s3", 0, 0),

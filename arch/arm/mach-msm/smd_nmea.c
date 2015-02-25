@@ -28,6 +28,13 @@
 #include <mach/msm_smd.h>
 
 #define MAX_BUF_SIZE 200
+/*SWISTART */
+#ifdef CONFIG_SIERRA
+#define READ_BUF_SIZE 10240
+char smd_buf[READ_BUF_SIZE];
+int smd_use=0;
+#endif
+/* SWISTOP */
 
 static DEFINE_MUTEX(nmea_ch_lock);
 static DEFINE_MUTEX(nmea_rx_buf_lock);
@@ -66,10 +73,41 @@ static void nmea_work_func(struct work_struct *ws)
 			printk(KERN_ERR "nmea: not enough data?!\n");
 			continue;
 		}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+        if((smd_use+sz)<READ_BUF_SIZE)
+        {
+
+  		  nmea_devp->bytes_read = sz;
+           memcpy((char *)(&smd_buf)+smd_use,nmea_devp->rx_buf,sz);
+           smd_use+=sz;
+           smd_buf[smd_use]=0;
+        }
+        else
+        {
+          printk(KERN_ERR "NMEA read driver miss interrupt, abandon current buff\n");
+          smd_use=0;
+
+        }
+		mutex_unlock(&nmea_rx_buf_lock);
+    
+          if(smd_use>512)
+          {
+		    wake_up_interruptible(&nmea_wait_queue);
+          }
+	}
+
+    if(smd_use!=0)
+    {
+	   wake_up_interruptible(&nmea_wait_queue);
+     }
+#else
 		nmea_devp->bytes_read = sz;
 		mutex_unlock(&nmea_rx_buf_lock);
 		wake_up_interruptible(&nmea_wait_queue);
 	}
+#endif
+/* SWISTOP */
 }
 
 struct workqueue_struct *nmea_wq;
@@ -100,8 +138,15 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 	int r;
 	int bytes_read;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	r = wait_event_interruptible(nmea_wait_queue,
+				smd_use);
+#else
 	r = wait_event_interruptible(nmea_wait_queue,
 				nmea_devp->bytes_read);
+#endif
+/* SWISTOP */
 	if (r < 0) {
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
@@ -118,9 +163,18 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 	}
 
 	mutex_lock(&nmea_rx_buf_lock);
+/*SWISTART */
+#ifdef CONFIG_SIERRA
+	bytes_read = smd_use;
+    smd_use=0;
+    
+	r = copy_to_user(buf, &smd_buf, bytes_read);
+#else
 	bytes_read = nmea_devp->bytes_read;
 	nmea_devp->bytes_read = 0;
 	r = copy_to_user(buf, nmea_devp->rx_buf, bytes_read);
+#endif
+/* SWISTOP */
 	mutex_unlock(&nmea_rx_buf_lock);
 
 	if (r > 0) {
@@ -136,6 +190,39 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 	return bytes_read;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* code reference: smd_pkt_write */
+static int nmea_write(struct file *file, const char __user *buf,
+			 size_t count, loff_t *ppos)
+{
+	int r;
+	unsigned char cmd[64];
+
+	if (count > sizeof(cmd))
+		return -EINVAL;
+
+	if (smd_write_avail(nmea_devp->ch) < count) {
+        printk(KERN_ERR "nmea_write - Not enough space to write\n");
+		return -ENOMEM;
+	}
+
+	r = copy_from_user(cmd, buf, count);
+	if (r) {
+		printk(KERN_ERR "nmea_write - copy_from_user failed %d\n", r);
+		return -EFAULT;
+	}
+
+	r = smd_write(nmea_devp->ch, cmd, count);
+	if (r != count) {
+		printk(KERN_ERR "nmea_write failed to write %d bytes: %d.\n", count, r);
+		return -EIO;
+	}
+
+	return count;
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 static int nmea_open(struct inode *ip, struct file *fp)
 {
 	int r = 0;
@@ -165,6 +252,11 @@ static int nmea_release(struct inode *ip, struct file *fp)
 static const struct file_operations nmea_fops = {
 	.owner = THIS_MODULE,
 	.read = nmea_read,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	.write = nmea_write,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	.open = nmea_open,
 	.release = nmea_release,
 };

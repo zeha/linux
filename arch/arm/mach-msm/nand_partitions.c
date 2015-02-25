@@ -48,7 +48,13 @@ struct msm_ptbl_entry {
 	__u32 flags;
 };
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 #define MSM_MAX_PARTITIONS 18
+#else /* SIERRA */
+#define MSM_MAX_PARTITIONS 32
+#endif /* SIERRA */
+/* SWISTOP */
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
 static char msm_nand_names[MSM_MAX_PARTITIONS * 16];

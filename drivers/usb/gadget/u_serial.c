@@ -1570,6 +1570,18 @@ static int userial_init(void)
 			B9600 | CS8 | CREAD | HUPCL | CLOCAL;
 	gs_tty_driver->init_termios.c_ispeed = 9600;
 	gs_tty_driver->init_termios.c_ospeed = 9600;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* set ~ICANON so that serial data will not be buffered
+	 * set ~ECHO so that serial data from host will not be echoed back
+	 * These two settings are required for NMEA port so that the short NMEA
+	 * command $GPS_START from host will not be buffered and echoed.
+	 * FIXME: make sure this will not affect other serial ports (diag and modem
+	 *        are not affected and they are not using this function)                
+	 */ 
+	gs_tty_driver->init_termios.c_lflag &= ~(ICANON | ECHO);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 	tty_set_operations(gs_tty_driver, &gs_tty_ops);
 	for (i = 0; i < MAX_U_SERIAL_PORTS; i++)

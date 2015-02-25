@@ -183,6 +183,11 @@ static struct mmc_platform_data sdc1_data = {
 	.status_gpio	= GPIO_SDC1_HW_DET,
 	.status_irq	= MSM_GPIO_TO_INT(GPIO_SDC1_HW_DET),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	.is_status_gpio_active_low = true,
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
 #endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
@@ -196,6 +201,9 @@ static struct mmc_platform_data *msm9615_sdc1_pdata;
 #endif
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+/* SWISTOP */
 static unsigned int sdc2_sup_clk_rates[] = {
 	400000, 24000000, 48000000
 };
@@ -211,8 +219,17 @@ static struct mmc_platform_data sdc2_data = {
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 static struct mmc_platform_data *msm9615_sdc2_pdata = &sdc2_data;
+/* SWISTART */
+#endif
+/* SWISTOP */
 #else
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+/* SWISTOP */
 static struct mmc_platform_data *msm9615_sdc2_pdata;
+/* SWISTART */
+#endif
+/* SWISTOP */
 #endif
 
 void __init msm9615_init_mmc(void)
@@ -221,9 +238,11 @@ void __init msm9615_init_mmc(void)
 		/* SDC1: External card slot for SD/MMC cards */
 		msm_add_sdcc(1, msm9615_sdc1_pdata);
 
+#ifndef CONFIG_SIERRA
 	if (msm9615_sdc2_pdata)
 		/* SDC2: External card slot used for WLAN */
 		msm_add_sdcc(2, msm9615_sdc2_pdata);
+#endif
 }
 #else
 void __init msm9615_init_mmc(void)

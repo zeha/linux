@@ -55,5 +55,10 @@ void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans);
 int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(unsigned int count);
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+void gsmd_ctrl_smd_port_reg(void);
+#endif /* SIERRA and FEATURE_MORPHING */
+/* SWISTOP */
 
 #endif /* __U_RMNET_H*/

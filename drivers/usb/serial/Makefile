@@ -61,3 +61,6 @@ obj-$(CONFIG_USB_SERIAL_WHITEHEAT)		+= whiteheat.o
 obj-$(CONFIG_USB_SERIAL_XIRCOM)			+= keyspan_pda.o
 obj-$(CONFIG_USB_SERIAL_XSENS_MT)		+= xsens_mt.o
 obj-$(CONFIG_USB_SERIAL_ZTE)			+= zte_ev.o
+#SWISTART
+obj-$(CONFIG_USB_SERIAL_GOBI_SERIAL)		+= GobiSerial.o
+#SWISTOP

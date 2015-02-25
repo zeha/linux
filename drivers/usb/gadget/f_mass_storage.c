@@ -257,6 +257,19 @@ static struct usb_gadget_strings *fsg_strings_array[] = {
 
 /*-------------------------------------------------------------------------*/
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int swoc_en;
+static int sd_en;
+static int usr_pid;
+static ud_msg_notify switch_cmd;
+static int switch_sig = 0;
+
+/*SCSI commands we recognize */
+#define SC_GET_CONFIG<>0x46
+#endif /* SIERRA */
+/* SWISTOP */
+
 struct fsg_dev;
 struct fsg_common;
 
@@ -496,7 +509,110 @@ static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 	wakeup_thread(common);
 	spin_unlock(&common->lock);
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/*netlink for switching cdrom to ecm */
+static int vendor_setup_req(struct fsg_dev *fsg,
+                           const struct usb_ctrlrequest *ctrl)
 
+{
+    char buf[60] ;
+    char *pbuf = buf;
+    struct usb_request                  *req = fsg->common->ep0req; 
+    int                                 value = -EOPNOTSUPP;
+    u16                                 w_index = le16_to_cpu(ctrl->wIndex);
+    u16                                 w_value = le16_to_cpu(ctrl->wValue);
+    u16                                 w_length = le16_to_cpu(ctrl->wLength);
+    struct usb_cdrom_verfile_ioctl_type info;
+
+     /* Usually this just stores reply data in the pre-allocated ep0 buffer,
+     * but config change events will also reconfigure hardware. */
+
+    pr_info("[%s:%d]Got request: ReqType=%02X, Req=%02X\n", __FILE__, __LINE__, ctrl->bRequestType, ctrl->bRequest);
+    pr_info("[%s:%d]USB req len=%u actual=%u ptr=%p\n", __FILE__, __LINE__, req->length, req->actual,req->buf);
+	switch (ctrl->bRequest) {
+		case UD_SWI_SETUP_REQ_GET_DEV_SWOC_INFO:
+			if (ctrl->bRequestType != (USB_DIR_IN | USB_TYPE_VENDOR |
+									 USB_RECIP_DEVICE))
+                    break;
+			if (w_index != 0 || w_value != 0) {
+                value = -EDOM;
+				break;
+			}
+			if (w_length > 0x3c) {
+                value = -EOVERFLOW;
+                break;
+			}
+            value = w_length;
+
+            getcdromverinfo(&info);
+            memset(buf, 0x00, sizeof(buf));
+
+			memcpy(++pbuf, &info.os1_sipc, sizeof(info.os1_sipc));
+			pbuf = pbuf + sizeof(info.os1_sipc);
+			memcpy(pbuf, &info.os1_siver, sizeof(info.os1_siver));
+			pbuf = pbuf + sizeof(info.os1_siver);
+			memcpy(pbuf, &info.os2_sipc, sizeof(info.os2_sipc));
+			pbuf = pbuf + sizeof(info.os2_sipc);
+			memcpy(pbuf, &info.os2_siver, sizeof(info.os2_siver));
+			pbuf = pbuf + sizeof(info.os2_siver);
+			memcpy(pbuf, &info.os3_sipc, sizeof(info.os3_sipc));
+			pbuf = pbuf + sizeof(info.os3_sipc);
+			memcpy(pbuf, &info.os3_siver, sizeof(info.os3_siver));
+			pbuf = pbuf + sizeof(info.os3_siver);
+			memcpy(pbuf, &info.os4_sipc, sizeof(info.os4_sipc));
+			pbuf = pbuf + sizeof(info.os4_sipc);
+			memcpy(pbuf, &info.os4_siver, sizeof(info.os4_siver));
+			pbuf = pbuf + sizeof(info.os4_siver);
+			memcpy(pbuf, &info.cdpc, sizeof(info.cdpc));
+			pbuf = pbuf + sizeof(info.cdpc);
+			memcpy(pbuf, &info.cd_version, sizeof(info.cd_version) - 1);
+
+			memcpy(req->buf, buf, 60);
+            pr_info("[%s:%d]swoc values sent os1=(%u,%u), os2=(%u,%u),\
+os3=(%u%u) return value = %u\n", __FILE__, __LINE__,
+info.os1_sipc,info.os1_siver,
+info.os2_sipc,info.os2_siver,
+info.os3_sipc,info.os3_siver,
+value );
+			break;
+
+		case UD_SWI_SETUP_REQ_SET_DEV_SWOC_MODE:
+			if (ctrl->bRequestType != (USB_DIR_OUT | USB_TYPE_VENDOR |
+									  USB_RECIP_DEVICE))
+                break;
+			if (w_index != 0 || w_length != 0) {
+                value = -EDOM;
+                break;
+			}
+			if (1 == w_value ){
+				switch_sig =1;
+				switch_cmd.MsgType = CDROM_TO_ECM;
+                if( usr_pid > 0 )
+                    switch_sig = 0;
+                sendnlmsg((char*)&switch_cmd, sizeof(switch_cmd), usr_pid );
+                pr_info("\n%s: SWI__TRU-Install_TBD switch to network mode", __func__ );
+			}
+            if( 0 == w_value ){
+                switch_sig =1;
+                switch_cmd.MsgType = ECM_TO_CDROM;
+                if( usr_pid > 0 )
+                    switch_sig = 0;
+                sendnlmsg((char*)&switch_cmd, sizeof(switch_cmd), usr_pid );
+                pr_info("\n%s: SWI__TRU-Install_TBD switch to CDROM mode", __func__ );
+            }
+			value = 0;
+			break;
+		 default:
+			VDBG(fsg,
+					"unknown control req %02x.%02x v%04x i%04x l%u\n",
+					ctrl->bRequestType, ctrl->bRequest,
+					w_value, w_index, le16_to_cpu(ctrl->wLength));
+		 }
+        return value;
+}
+#endif /* SIERRA */
+/* SWISTOP */
 static int fsg_setup(struct usb_function *f,
 		     const struct usb_ctrlrequest *ctrl)
 {
@@ -513,6 +629,13 @@ static int fsg_setup(struct usb_function *f,
 	req->context = NULL;
 	req->length = 0;
 	dump_msg(fsg, "ep0-setup", (u8 *) ctrl, sizeof(*ctrl));
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR)
+        return vendor_setup_req(fsg, ctrl);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	switch (ctrl->bRequest) {
 
@@ -608,6 +731,22 @@ static bool start_out_transfer(struct fsg_common *common, struct fsg_buffhd *bh)
 		       bh->outreq, &bh->outreq_busy, &bh->state);
 	return true;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int do_get_config( struct fsg_common *common, struct fsg_buffhd *bh)
+{
+    u8		*buf = (u8 *) bh->buf;
+    memset(buf,0,4);
+    bh->inreq->length = 4;
+    bh->state = BUF_STATE_FULL;
+    bh->inreq->zero = 0;
+    start_transfer(common->fsg,common->fsg->bulk_in,bh->inreq,&bh->inreq_busy,&bh->state);
+    return 0;
+}
+#endif /* SIERRA */
+/* SWISTOP */
+ 
 
 static int sleep_thread(struct fsg_common *common, bool can_freeze)
 {
@@ -1282,6 +1421,63 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 		return -EINVAL;
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    memset(buf, 0, 48);
+    buf[1] = 0x2e;
+    buf[2] = 1;
+    buf[3] = 1;
+    //A0
+    buf[4] = 1;
+    buf[5] = 0x14;
+    buf[6] = 0;           //tno = 0
+    buf[7] = 0xa0;  //point a0 a1 a2 01
+
+    buf[8] = 0;
+    buf[9] = 0;
+    buf[10] = 0;
+    buf[11] = 0;         //zero
+    buf[12] = 1;         //first track number
+    buf[13] = 0x20;  //dis type
+    buf[14] = 0;
+    //A1
+    buf[15] = 1;
+    buf[16] = 0x14;
+    buf[17] = 0;         //tno = 0
+    buf[18] = 0xa1;  //point a0 a1 a2 01       
+
+    buf[19] = 0;         //ATime
+    buf[20] = 0x20;
+    buf[21] = 0x44;
+    buf[22] = 0x72;  //zero
+    buf[23] = 0x01; //last track number
+    buf[24] = 0x76; //0
+    buf[25] = 0x65; //0                         
+    //A2
+    buf[26] = 1;
+    buf[27] = 0x14;
+    buf[28] = 0x33;   //should always tno = 0
+    buf[29] = 0xa2;  //point a0 a1 a2 01
+
+    buf[30] = 0x30;
+    buf[31] = 0x20;
+    buf[32] = 0x36;
+
+    store_cdrom_address(&buf[33], msf, curlun->num_sectors);
+    //           buf[33] = ;
+    //           buf[34] = ;           //START postion of lead out
+    //           buf[35] = ;
+    //           buf[36] = ;
+
+    //01
+    buf[37] = 1;
+    buf[38] = 0x14;
+    buf[39] = 0;         //tno = 0
+    buf[40] = 0x01;  //point a0 a1 a2 01
+
+    buf[46] = 2;
+    return 48;
+#else
 	memset(buf, 0, 20);
 	buf[1] = (20-2);		/* TOC data length */
 	buf[2] = 1;			/* First track number */
@@ -1294,6 +1490,8 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[14] = 0xAA;			/* Lead-out track number */
 	store_cdrom_address(&buf[16], msf, curlun->num_sectors);
 	return 20;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
@@ -1428,7 +1626,16 @@ static int do_start_stop(struct fsg_common *common)
 	fsg_lun_close(curlun);
 	up_write(&common->filesem);
 	down_read(&common->filesem);
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    switch_sig = 1;
+    switch_cmd.MsgType = CDROM_TO_ECM;
+    if( usr_pid > 0 )
+        switch_sig = 0;
+    sendnlmsg((char*)&switch_cmd,sizeof(switch_cmd),usr_pid);
+    pr_info("\n%s: SWI__TRU-Install_TBD switch to network mode", __func__ );
+#endif /* SIERRA */
+/* SWISTOP */
 	return 0;
 }
 
@@ -1924,7 +2131,17 @@ static int do_scsi_command(struct fsg_common *common)
 
 	down_read(&common->filesem);	/* We're using the backing file */
 	switch (common->cmnd[0]) {
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case SC_GET_CONFIG:
+		common->data_size_from_cmnd = common->cmnd[4];
+		reply = check_command(common, 6, DATA_DIR_TO_HOST,
+				(1<<4), 0,
+				"GET CONFIG");
+            if (reply == 0)
+                reply = do_get_config(common, bh);
+#endif /* SIERRA */
+/* SWISTOP */
 	case INQUIRY:
 		common->data_size_from_cmnd = common->cmnd[4];
 		reply = check_command(common, 6, DATA_DIR_TO_HOST,
@@ -3138,6 +3355,13 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 
 	/* Prepare inquiryString */
 	i = get_default_bcdDevice();
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    snprintf(common->inquiry_string, sizeof common->inquiry_string,
+		 "%-8s%-16s%4s", "Aircard",
+          /* Assume product name dependent on the first LUN */
+         "TRU-Install","2.31");
+#else
 	snprintf(common->inquiry_string, sizeof(common->inquiry_string),
 		 "%-8s%-16s%04x", vn ?: "Linux",
 		 /* Assume product name dependent on the first LUN */
@@ -3145,6 +3369,8 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 		     ? "File-CD Gadget"
 		     : "File-Stor Gadget"),
 		 i);
+#endif /* SIERRA */
+/* SWISTOP */
 }
 EXPORT_SYMBOL_GPL(fsg_common_set_inquiry_string);
 

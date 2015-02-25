@@ -2492,6 +2492,26 @@ config MSM_VP_REGULATOR
 
 config HAVE_ARCH_HAS_CURRENT_TIMER
 	bool
+	
+# SWISTART
+config SIERRA
+	bool "Activates/Deactivates Sierra Wireless changes"
+	help
+	  All Sierra Wireless changes are controlled by this define
+	default n  
+
+config SIERRA_AR7
+	bool "MDM9615 SIERRA AR7 FEATURES"
+	help
+	  this config used for features only valid in AR7 products
+	default n
+
+config SIERRA_SMEM
+	depends on ARCH_MSM9615 && SIERRA
+	bool "MSM9615 SIERRA"
+	help
+	  Support for the Sierra Wireless MSM9615 based devices.
+#SWISTOP
 
 config MSM_CACHE_DUMP
 	bool "Cache dumping support"

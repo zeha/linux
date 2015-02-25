@@ -23,8 +23,14 @@
 #include "gadget_chips.h"
 
 #define RMNET_NOTIFY_INTERVAL	5
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Work around issue where driver needs zero length packet if interrupt packet is at MAX size */
+#define RMNET_MAX_NOTIFY_SIZE	( sizeof(struct usb_cdc_notification) + 2 )
+#else
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
-
+#endif
+/* SWISTOP */
 
 #define ACM_CTRL_DTR	(1 << 0)
 
@@ -49,7 +55,18 @@ struct f_rmnet {
 	struct list_head		cpkt_resp_q;
 	atomic_t			notify_count;
 	unsigned long			cpkts_len;
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+	struct work_struct  ctrl_reg_w;
+#endif /* SIERRA */
+/* SWISTOP */
 };
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+static struct workqueue_struct  *frmnet_wq;
+#endif /* SIERRA */
+/* SWISTOP */
 
 #define NR_RMNET_PORTS	3
 static unsigned int nr_rmnet_ports;
@@ -542,6 +559,14 @@ static void frmnet_suspend(struct usb_function *f)
 	unsigned		port_num;
 	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 
+/* SWISTART */
+/* QCT case 01085205 */
+#if defined(CONFIG_SIERRA)
+	struct rmnet_ctrl_pkt   *cpkt;
+	unsigned long		 flags;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num);
@@ -563,6 +588,30 @@ static void frmnet_suspend(struct usb_function *f)
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 				xport_to_str(dxport));
 	}
+
+/* SWISTART */
+/* Code provided by QCT case 01085205 
+ * If RESPONSE_AVAILABLE has been sent to host, but responses or indications haven't been read out by host side before 
+ * modem enters suspend state, the queue counter and the queue will be out of sync. Drop any pending packets in the 
+ * queue to resolve this issue, otherwise RmNet interface can't work properly after resume.
+ */
+#if defined(CONFIG_SIERRA)
+	/* Drop any pending packets */
+	spin_lock_irqsave(&dev->lock, flags);
+	while(!list_empty(&dev->cpkt_resp_q)) {
+		cpkt = list_first_entry(&dev->cpkt_resp_q, 
+								struct rmnet_ctrl_pkt, list);
+		pr_debug("%s: dev:%p port#%d Removing Pkt %p id %d\n",
+				 __func__, dev, dev->port_num, cpkt, *((char*)cpkt->buf + 7));
+		list_del(&cpkt->list);
+		rmnet_free_ctrl_pkt(cpkt);
+	}
+	atomic_set(&dev->notify_count, 0);
+	pr_debug("%s: dev: %p port#%d Cleared Counts\n", __func__,
+			 dev, dev->port_num);
+	spin_unlock_irqrestore(&dev->lock, flags);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 }
 
 static void frmnet_resume(struct usb_function *f)
@@ -621,6 +670,54 @@ static void frmnet_disable(struct usb_function *f)
 	gport_rmnet_disconnect(dev);
 }
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+extern void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req);
+
+static int
+frmnet_bind_ep_req(struct usb_function *f)
+{
+	struct f_rmnet			*dev = func_to_rmnet(f);
+	int				ret = -ENODEV;
+	static int rmnet_gport_initialized = 0;
+
+	pr_info("Enter frmnet_bind_ep_req");
+
+	if( !rmnet_gport_initialized ) {
+		queue_work(frmnet_wq, &dev->ctrl_reg_w);
+		rmnet_gport_initialized = 1;
+	}
+
+	/* allocate notification request and buffer */
+	dev->notify_req = frmnet_alloc_req(dev->notify,
+				sizeof(struct usb_cdc_notification),
+				GFP_KERNEL);
+	if (IS_ERR(dev->notify_req)) {
+		pr_err("%s: unable to allocate memory for notify req\n",
+				__func__);
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	dev->notify_req->complete = frmnet_notify_complete;
+	dev->notify_req->context = dev;
+	pr_info("allocated notify ep request & request buffer\n");
+
+	return 0;
+
+fail:
+	pr_err("%s failed to allocate req, err %d\n", f->name, ret);
+	dev->notify->driver_data = NULL;
+	dev->notify = NULL;
+	dev->port.out->driver_data = NULL;
+	dev->port.out = NULL;
+	dev->port.in->driver_data = NULL;
+	dev->port.in = NULL;
+	return ret;
+}
+#endif /* SIERRA and FEATURE_MORPHING */
+/* SWISTOP */
+
 static int
 frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
@@ -630,6 +727,14 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct list_head *cpkt;
 
 	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+  /* Allocate Request buffer and bind to EP now that config is assigned */
+	if (!dev->notify_req)
+		ret = frmnet_bind_ep_req(f);
+#endif /* SIERRA and FEATURE_MORPHING */
+/* SWISTOP */
 
 	if (dev->notify->driver_data) {
 		pr_debug("%s: reset port:%d\n", __func__, dev->port_num);
@@ -844,7 +949,13 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 }
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
+#else
 static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
+#endif
+/* SWISTOP */
 {
 	struct f_rmnet *dev = req->context;
 	int status = req->status;
@@ -1018,6 +1129,11 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->notify = ep;
 	ep->driver_data = cdev;
 
+/* SWISTART */
+/* 
+ Bind EP with Request Allocation after configuration selected
+*/
+#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
 	dev->notify_req = frmnet_alloc_req(ep,
 				sizeof(struct usb_cdc_notification),
 				GFP_KERNEL);
@@ -1030,6 +1146,8 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 
 	dev->notify_req->complete = frmnet_notify_complete;
 	dev->notify_req->context = dev;
+#endif /* SIERRA and FEATURE_MORPHING */
+/* SWISTOP */
 
 	ret = -ENOMEM;
 	f->descriptors = usb_copy_descriptors(rmnet_fs_function);
@@ -1083,7 +1201,11 @@ fail:
 		usb_free_descriptors(f->descriptors);
 	if (dev->notify_req)
 		frmnet_free_req(dev->notify, dev->notify_req);
+/* SWISTART */
+#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
 ep_notify_alloc_fail:
+#endif /* SIERRA and FEATURE_MORPHING */
+/* SWISTOP */
 	dev->notify->driver_data = NULL;
 	dev->notify = NULL;
 ep_auto_notify_fail:
@@ -1173,7 +1295,27 @@ static void frmnet_cleanup(void)
 	no_data_hsic_ports = 0;
 	no_ctrl_hsuart_ports = 0;
 	no_data_hsuart_ports = 0;
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+	destroy_workqueue(frmnet_wq);
+#endif /* SIERRA */
+/* SWISTOP */
 }
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+/* 
+	Need to register the SMD ports but it cannot be done in the context
+	of the frmnet_set_alt function (interrupt handler)
+	Therefore we are using the work queue to get them registered
+*/
+static void frmnet_port_reg_work(struct work_struct *w)
+{
+	gsmd_ctrl_smd_port_reg();
+}
+#endif /* SIERRA */
+/* SWISTOP */
 
 static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 {
@@ -1255,6 +1397,21 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		goto fail_probe;
 	}
 	nr_rmnet_ports++;
+
+/* SWISTART */
+#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+	/* 
+		Need to establish a work queue to support registering rmnet QMI ports
+		over SMD after configuration selected to prevent collision with use by MBIM 
+	*/
+	frmnet_wq  = create_singlethread_workqueue("frmnet");
+	if (!frmnet_wq) {
+		pr_err("%s: Unable to create workqueue: frmnet\n", __func__);
+		return -ENOMEM;
+	}
+	INIT_WORK(&dev->ctrl_reg_w, frmnet_port_reg_work);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	return 0;
 

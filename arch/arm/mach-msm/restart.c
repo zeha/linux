@@ -36,6 +36,12 @@
 #include "msm_watchdog.h"
 #include "timer.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
 #define WDT0_BARK_TIME	0x4C
@@ -188,14 +194,28 @@ static void msm_restart_prepare(const char *cmd)
 	/* Write download mode flags if we're panic'ing */
 	set_dload_mode(in_panic);
 
+/* SWISTART */
+/* move it down, download_mode should not control RESTART_DLOAD
+ * which is for firmware download
+ */
+#ifndef CONFIG_SIERRA
 	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	/* Kill download mode if master-kill switch is set */
 	if (!download_mode)
 		set_dload_mode(0);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Write download mode flags if restart_mode says so */
+	if (restart_mode == RESTART_DLOAD)
+		set_dload_mode(1);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 #endif
 
 	pm8xxx_reset_pwr_off(1);
@@ -264,6 +284,12 @@ static int __init msm_restart_init(void)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	download_mode = sierra_smem_get_download_mode();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	set_dload_mode(download_mode);
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();

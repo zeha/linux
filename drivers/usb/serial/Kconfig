@@ -689,6 +689,13 @@ config USB_SERIAL_ZTE
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called zte.
+config USB_SERIAL_GOBI_SERIAL
+	tristate "Qualcomm Serial USB driver Implementation"
+	help
+	  Say Y here if you want to use Qualcomm GOBI Serial.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called zio.
 
 config USB_SERIAL_SSU100
 	tristate "USB Quatech SSU-100 Single Port Serial Driver"

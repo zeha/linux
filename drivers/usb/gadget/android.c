@@ -16,6 +16,14 @@
  *
  */
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define FEATURE_MORPHING
+//#define CONFIG_USB_DEBUG
+//#define DEBUG 1
+#endif
+/* SWISTOP */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -199,11 +207,32 @@ static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Add support for Vendor Specific Strings */
+#define STRING_PRINUM_IDX	241
+#define STRING_PRIVER_IDX	243
+#define STRING_IMEI_IDX		242
+
+static char pri_number_string[256];
+static char pri_revision_string[256];
+static char imei_string[256];
+static int usb_det = 0;
+#endif /* SIERRA */
+/* SWISTOP */
+
 /* String Table */
 static struct usb_string strings_dev[] = {
 	[STRING_MANUFACTURER_IDX].s = manufacturer_string,
 	[STRING_PRODUCT_IDX].s = product_string,
 	[STRING_SERIAL_IDX].s = serial_string,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{STRING_PRINUM_IDX, pri_number_string, },
+	{STRING_PRIVER_IDX, pri_revision_string, },
+	{STRING_IMEI_IDX,   imei_string, },
+#endif
+/* SWISTOP */
 	{  }			/* end of list */
 };
 
@@ -212,8 +241,25 @@ static struct usb_gadget_strings stringtab_dev = {
 	.strings	= strings_dev,
 };
 
+/* SWISTART */
+/* Test code from case 00984853 */
+/* Win8 MBIM driver will ask for Manufacturer and product string with invalid lang ID 0x0000 */
+#ifdef CONFIG_SIERRA
+static struct usb_gadget_strings stringtab_dev1 = {
+	.language	= 0x0000,	/* unspecified */
+	.strings	= strings_dev,
+};
+#endif /* SIERRA */
+/* SWISTOP */
+
 static struct usb_gadget_strings *dev_strings[] = {
 	&stringtab_dev,
+/* SWISTART */
+/* Test code from case 00984853 */
+#ifdef CONFIG_SIERRA
+	&stringtab_dev1,
+#endif /* SIERRA */
+/* SWISTOP */
 	NULL,
 };
 
@@ -274,7 +320,14 @@ static void android_work(struct work_struct *data)
 	char *connected[2]    = { "USB_STATE=CONNECTED", NULL };
 	char *configured[2]   = { "USB_STATE=CONFIGURED", NULL };
 	char **uevent_envp = NULL;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Set initial value to CONNECTED to ensure missing DISCONNECT is sent */
+	static enum android_device_state last_uevent=USB_CONNECTED, next_state;
+#else
 	static enum android_device_state last_uevent, next_state;
+#endif
+/* SWISTOP */
 	unsigned long flags;
 	int pm_qos_vote = -1;
 
@@ -1504,17 +1557,95 @@ struct mass_storage_function_config {
 static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
-	struct android_dev *dev = cdev_to_android_dev(cdev);
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
 	int err;
+#ifndef CONFIG_SIERRA
+	struct android_dev *dev = cdev_to_android_dev(cdev);
 	int i;
 	const char *name[2];
+#endif
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	config->fsg.can_stall = 1;
+	config->fsg.nluns = swoc_en + sd_en;
+	pr_info("%s:Number of LUNs = %d\n",__func__,
+		config->fsg.nluns );
+
+	switch	(config->fsg.nluns) {
+	case 2:
+		/*case sd + swoc*/
+		config->fsg.luns[0].removable = 1;
+		config->fsg.luns[1].removable = 1;
+		config->fsg.luns[1].cdrom = 1;
+		break;
+
+	case 1:
+		config->fsg.luns[0].removable = 1;
+		config->fsg.luns[0].cdrom = swoc_en;
+		break;
+
+	default:
+		/*default set it to one LUN to prevent crash
+		 * if somebody enables Mass storage
+		 */
+		config->fsg.nluns = 1;
+		pr_info("%s:Setting default  = %d\n",__func__,
+				config->fsg.nluns );
+		config->fsg.luns[0].removable = 1;
+		break;
+	}
+
+	common = fsg_common_init(NULL, cdev, &config->fsg);
+	if (IS_ERR(common)) {
+		kfree(config);
+		return PTR_ERR(common);
+	}
+
+	/*defer creation of file until bind function is called*/
+	switch (config->fsg.nluns) {
+	case 2:
+		/*case sd + swoc*/
+		err = sysfs_create_link(&f->dev->kobj,
+				&common->luns[0].dev.kobj,
+				"lun");
+		if (err ) {
+			fsg_common_release(&common->ref);
+			kfree(config);
+			return err;
+		}
+
+		err = sysfs_create_link(&f->dev->kobj,
+			&common->luns[1].dev.kobj,
+			"cdlun");
+		if (err ) {
+		fsg_common_release(&common->ref);
+		kfree(config);
+		return err;
+		}
+		break;
+
+	case 1:
+		err = sysfs_create_link(&f->dev->kobj,
+				&common->luns[0].dev.kobj,
+				swoc_en ? "cdlun" : "lun");
+		if (err ) {
+			fsg_common_release(&common->ref);
+			kfree(config);
+			return err;
+		}
+		break;
+
+	default:
+		break;
+	}
+#else
 
 	config->fsg.nluns = 1;
 	name[0] = "lun";
@@ -1542,9 +1673,12 @@ static int mass_storage_function_init(struct android_usb_function *f,
 			goto error;
 	}
 
+#endif /* SIERRA */
+/* SWISTOP */
 	config->common = common;
 	f->config = config;
 	return 0;
+#ifndef CONFIG_SIERRA
 error:
 	for (; i > 0 ; i--)
 		sysfs_remove_link(&f->dev->kobj, name[i-1]);
@@ -1552,6 +1686,7 @@ error:
 	fsg_common_release(&common->ref);
 	kfree(config);
 	return err;
+#endif
 }
 
 static void mass_storage_function_cleanup(struct android_usb_function *f)
@@ -1564,6 +1699,27 @@ static int mass_storage_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct mass_storage_function_config *config = f->config;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    int err;
+    if( !f->config)
+    {
+        pr_info("\n%s:Init if NULL", __func__ );
+
+        /*late init of mass storage figure out number of LUN's*/
+        err = mass_storage_function_init(f,c->cdev);
+        if( err )
+        {
+            pr_err("%s: mass_storage_function_init failed error=%d for Product = %s", __func__,
+                                err, product_string);
+            return err;
+        }
+        pr_info("%s: Init successfull for Product = %s", __func__,
+                                    product_string);
+    }
+    config = f->config;
+#endif /* SIERRA */
+/* SWISTOP */
 	return fsg_bind_config(c->cdev, c, config->common);
 }
 
@@ -1598,7 +1754,11 @@ static struct device_attribute *mass_storage_function_attributes[] = {
 
 static struct android_usb_function mass_storage_function = {
 	.name		= "mass_storage",
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	.init		= mass_storage_function_init,
+#endif /* SIERRA */
+/* SWISTOP */
 	.cleanup	= mass_storage_function_cleanup,
 	.bind_config	= mass_storage_function_bind_config,
 	.attributes	= mass_storage_function_attributes,
@@ -1973,6 +2133,151 @@ static ssize_t remote_wakeup_store(struct device *pdev,
 
 	return size;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t self_powered_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+	struct android_configuration *conf;
+
+	/*
+	 * Show the wakeup attribute of the first configuration,
+	 * since all configurations have the same wakeup attribute
+	 */
+	if (dev->configs_num == 0)
+		return 0;
+	conf = list_entry(dev->configs.next,
+			  struct android_configuration,
+			  list_item);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			!!(conf->usb_config.bmAttributes &
+				USB_CONFIG_ATT_SELFPOWER));
+}
+
+static ssize_t self_powered_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+    struct android_dev *dev = dev_get_drvdata(pdev);
+    struct android_configuration *conf;
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_debug("android_usb: %s self_powered\n",
+			enable ? "ON" : "OFF");
+
+    list_for_each_entry(conf, &dev->configs, list_item)
+	if (enable)
+		conf->usb_config.bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
+	else
+		conf->usb_config.bmAttributes &= ~USB_CONFIG_ATT_SELFPOWER;
+
+	return size;
+}
+static ssize_t swoc_en_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",swoc_en);
+}
+static ssize_t swoc_en_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_err("android_usb: %s swoc\n",
+			enable ? "ON" : "OFF");
+
+	if (enable)
+		swoc_en = 1;
+	else
+        swoc_en = 0;
+
+	return size;
+}
+static ssize_t sd_en_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",sd_en);
+}
+static ssize_t sd_en_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_err("android_usb: %s SD card\n",
+			enable ? "ON" : "OFF");
+
+	if (enable)
+		sd_en = 1;
+	else
+        sd_en = 0;
+
+	return size;
+}
+static ssize_t usr_pid_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",usr_pid);
+}
+static ssize_t usr_pid_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int pid = 0;
+
+	sscanf(buff, "%d", &pid);
+
+	pr_info("android_usb: User process id = %d\n",
+			pid);
+    usr_pid = pid;
+
+    /*If switch_sig = 1, re-send the last sent cmd
+     * to correct pid*/
+    if( switch_sig == 1)
+    {
+        sendnlmsg((char*)&switch_cmd,sizeof(switch_cmd), usr_pid);
+        switch_sig = 0;
+        pr_info("android_usb: Sending msg = %d to pid = %d\n",(int)switch_cmd.MsgType,usr_pid);
+    }
+	return size;
+}
+static ssize_t usb_det_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",usb_det);
+}
+
+static ssize_t usb_det_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int usbdetect = 0;
+
+	sscanf(buff, "%d", &usbdetect);
+
+	pr_info("android_usb: USB_DET = %d\n",
+			usbdetect);
+	usb_det = usbdetect;
+
+	/* Changes based on 80-N5423-14 */
+	if (usb_det == 2)
+	{
+		msm9615_pm8xxx_gpio_mpp_init_swi();	
+		msm_otg_vddmin_init();
+	}
+ 	return size;
+}
+
+int msm_get_usb_det(void)
+{
+	return usb_det;
+}
+#endif /* SIERRA */
+/* SWISTOP */
 
 static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
@@ -2196,6 +2501,13 @@ field ## _store(struct device *dev, struct device_attribute *attr,	\
 }									\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
+/* SWISTART */
+/*
+  Needed to change the SSCANF Format string from "%255S" to "%255C"
+  in order to prevent stopping at first space char in strings "Sierra Wireless" and
+  "Aircard 770S"
+*/
+#ifndef CONFIG_SIERRA
 #define DESCRIPTOR_STRING_ATTR(field, buffer)				\
 static ssize_t								\
 field ## _show(struct device *dev, struct device_attribute *attr,	\
@@ -2215,6 +2527,27 @@ field ## _store(struct device *dev, struct device_attribute *attr,	\
 }									\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
+#else
+#define DESCRIPTOR_STRING_ATTR(field, buffer)				\
+static ssize_t								\
+field ## _show(struct device *dev, struct device_attribute *attr,	\
+		char *buf)						\
+{									\
+	return snprintf(buf, PAGE_SIZE, "%s", buffer);			\
+}									\
+static ssize_t								\
+field ## _store(struct device *dev, struct device_attribute *attr,	\
+    const char *buf, size_t size)				\
+{									\
+	if (size >= sizeof(buffer)) return -EINVAL;			\
+	if (sscanf(buf, "%255c", buffer) == 1) {			\
+		return size;						\
+	}								\
+	return -1;							\
+}									\
+static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
+#endif
+/* SWISTOP */
 
 DESCRIPTOR_ATTR(idVendor, "%04x\n")
 DESCRIPTOR_ATTR(idProduct, "%04x\n")
@@ -2225,6 +2558,13 @@ DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
 DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
 DESCRIPTOR_STRING_ATTR(iProduct, product_string)
 DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+DESCRIPTOR_STRING_ATTR(iPriNumber, pri_number_string)
+DESCRIPTOR_STRING_ATTR(iPriRevision, pri_revision_string)
+DESCRIPTOR_STRING_ATTR(iImei, imei_string)
+#endif
+/* SWISTOP */
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
@@ -2234,6 +2574,21 @@ static DEVICE_ATTR(pm_qos, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 static DEVICE_ATTR(remote_wakeup, S_IRUGO | S_IWUSR,
 		remote_wakeup_show, remote_wakeup_store);
+
+/* SIWSTART */
+#ifdef CONFIG_SIERRA
+static DEVICE_ATTR(self_powered, S_IRUGO | S_IWUSR,
+		self_powered_show, self_powered_store);
+static DEVICE_ATTR(swoc_en, S_IRUGO | S_IWUSR,
+        swoc_en_show, swoc_en_store);
+static DEVICE_ATTR(sd_en, S_IRUGO | S_IWUSR,
+        sd_en_show, sd_en_store);
+static DEVICE_ATTR(usr_pid, S_IRUGO | S_IWUSR,
+        usr_pid_show, usr_pid_store);
+static DEVICE_ATTR(usb_det, S_IRUGO | S_IWUSR,
+		usb_det_show, usb_det_store);
+#endif /* SIERRA */
+/* SWISTOP */
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
@@ -2245,6 +2600,18 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_iManufacturer,
 	&dev_attr_iProduct,
 	&dev_attr_iSerial,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	&dev_attr_iPriNumber,
+	&dev_attr_iPriRevision,
+	&dev_attr_iImei,
+	&dev_attr_self_powered,
+    &dev_attr_swoc_en,
+    &dev_attr_sd_en,
+    &dev_attr_usr_pid,
+    &dev_attr_usb_det,
+#endif
+/* SWISTOP */
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_pm_qos,
@@ -2315,11 +2682,16 @@ static int android_bind(struct usb_composite_dev *cdev)
 	strings_dev[STRING_PRODUCT_IDX].id = id;
 	device_desc.iProduct = id;
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+	/* These Strings are now updated from SMEM */
 	/* Default strings - should be updated by userspace */
 	strlcpy(manufacturer_string, "Android",
 		sizeof(manufacturer_string) - 1);
 	strlcpy(product_string, "Android", sizeof(product_string) - 1);
 	strlcpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+#endif
+/* SWISTOP */
 
 	id = usb_string_id(cdev);
 	if (id < 0)
@@ -2347,9 +2719,14 @@ static int android_usb_unbind(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = cdev_to_android_dev(cdev);
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+	/* Revisit -SWI-TBD - Not sure if allowing this is an issue */
 	manufacturer_string[0] = '\0';
 	product_string[0] = '\0';
 	serial_string[0] = '0';
+#endif
+/* SWISTOP */
 	cancel_work_sync(&dev->work);
 	android_cleanup_functions(dev->functions);
 	return 0;
@@ -2404,9 +2781,22 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (!dev->connected) {
 		dev->connected = 1;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		pr_info("%s: Connected\n", __func__);
+#endif
+/* SWISTOP */
 		schedule_work(&dev->work);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Limit check to the actual config request */
+	} else if (c->bRequestType == 0 && c->bRequest == USB_REQ_SET_CONFIGURATION && cdev->config) {
+		pr_info("%s: Configured\n", __func__);
+#else
 	} else if (c->bRequest == USB_REQ_SET_CONFIGURATION &&
 						cdev->config) {
+#endif
+/* SWISTOP */
 		schedule_work(&dev->work);
 	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
@@ -2429,6 +2819,11 @@ static void android_disconnect(struct usb_gadget *gadget)
 
 	spin_lock_irqsave(&cdev->lock, flags);
 	dev->connected = 0;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pr_info("%s: Disconnected\n", __func__);
+#endif
+/* SWISTOP */
 	schedule_work(&dev->work);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
@@ -2596,6 +2991,12 @@ static int __devinit android_probe(struct platform_device *pdev)
 	android_dev->disable_depth = 1;
 	android_dev->functions = supported_functions;
 	android_dev->configs_num = 0;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Set initial value to CONNECTED to trigger inital DISCONNECT */
+	android_dev->sw_connected = 1; 
+#endif
+/* SWISTOP */
 	INIT_LIST_HEAD(&android_dev->configs);
 	INIT_WORK(&android_dev->work, android_work);
 	mutex_init(&android_dev->mutex);

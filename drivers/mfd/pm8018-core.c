@@ -597,6 +597,24 @@ static int pm8018_probe(struct platform_device *pdev)
 	val &= PM8018_RESTART_REASON_MASK;
 	pr_info("PMIC Restart Reason: %s\n", pm8018_restart_reason[val]);
 
+/* SWISATRT */
+#ifdef CONFIG_SIERRA_AR7
+	val = 0x18;
+	rc = msm_ssbi_write(pdev->dev.parent, 0x1AC, &val, 1);
+	if (rc) {
+		pr_err("Cannot write 0x1AC reason rc=%d\n", rc);
+		goto err_read_rev;
+	}
+	
+	val = 0x02;
+	rc = msm_ssbi_write(pdev->dev.parent, 0x1A5, &val, 1);
+	if (rc) {
+		pr_err("Cannot write 0x1A5 reason rc=%d\n", rc);
+		goto err_read_rev;
+	}
+#endif
+/* SWISTOP */
+
 	rc = pm8018_add_subdevices(pdata, pmic);
 	if (rc) {
 		pr_err("Cannot add subdevices rc=%d\n", rc);

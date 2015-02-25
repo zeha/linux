@@ -6758,6 +6758,13 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		}
 	}
 
+/* SWISTART - Add support for Samsung flash */
+	if (supported_flash.flash_id == 0x1900aaec)
+	{
+		supported_flash.oobsize = 64;
+	}
+/* SWISTOP */
+
 	if (dev_found) {
 		(!interleave_enable) ? (i = 1) : (i = 2);
 		wide_bus       = supported_flash.widebus;

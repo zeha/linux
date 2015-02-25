@@ -49,6 +49,11 @@
 #define MSM_GSBI4_PHYS		0x16300000
 #define MSM_GSBI5_PHYS          0x16400000
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AR7
+#define MSM_UART5DM_PHYS  (MSM_GSBI5_PHYS + 0x40000)
+#endif /* CONFIG_SIERRA_AR7 */
+/* SWISTOP */
 #define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
 
 /* GSBI QUP devices */
@@ -136,7 +141,13 @@ struct platform_device msm_device_otg = {
 	},
 };
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA)
+#define MSM_HSUSB_RESUME_GPIO	82
+#else
 #define MSM_HSUSB_RESUME_GPIO	79
+#endif
+/* SWISTOP */
 
 static struct resource resources_hsusb[] = {
 	{
@@ -273,6 +284,36 @@ struct platform_device msm_device_hsic_host = {
 	},
 };
 
+#ifdef CONFIG_SIERRA_AR7
+static struct resource resources_uart_gsbi5[] = {
+  {
+    .start  = GSBI5_UARTDM_IRQ,
+    .end  = GSBI5_UARTDM_IRQ,
+    .flags  = IORESOURCE_IRQ,
+  },
+  {
+    .start  = MSM_UART5DM_PHYS,
+    .end  = MSM_UART5DM_PHYS + PAGE_SIZE - 1,
+    .name = "uartdm_resource",
+    .flags  = IORESOURCE_MEM,
+  },
+  {
+    .start  = MSM_GSBI5_PHYS,
+    .end  = MSM_GSBI5_PHYS + PAGE_SIZE - 1,
+    .name = "gsbi_resource",
+    .flags  = IORESOURCE_MEM,
+  },
+};
+
+struct platform_device msm9615_device_uart_gsbi5 = {
+  .name = "msm_serial_hsl",
+  .id = 1,
+  .num_resources  = ARRAY_SIZE(resources_uart_gsbi5),
+  .resource = resources_uart_gsbi5,
+};
+#endif /* CONFIG_SIERRA_AR7 */
+/* SWISTOP */
+
 static struct resource resources_uart_gsbi4[] = {
 	{
 		.start	= GSBI4_UARTDM_IRQ,
@@ -299,6 +340,51 @@ struct platform_device msm9615_device_uart_gsbi4 = {
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi4),
 	.resource	= resources_uart_gsbi4,
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct resource resources_qup_i2c_gsbi2[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI2_PHYS,
+		.end	= MSM_GSBI2_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI2_QUP_PHYS,
+		.end	= MSM_GSBI2_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI2_QUP_IRQ,
+		.end	= GSBI2_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name   = "i2c_clk",
+		.start     = MSM_GPIO_I2C_CLK,
+		.end       = MSM_GPIO_I2C_CLK,
+		.flags     = IORESOURCE_IO,
+	},
+	{
+		.name   = "i2c_sda",
+		.start     = MSM_GPIO_I2C_SDA,
+		.end       = MSM_GPIO_I2C_SDA,
+		.flags     = IORESOURCE_IO,
+
+	},
+};
+
+struct platform_device msm9615_device_qup_i2c_gsbi2 = {
+	.name		= "qup_i2c",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi2),
+	.resource	= resources_qup_i2c_gsbi2,
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static struct resource resources_qup_i2c_gsbi5[] = {
 	{
@@ -360,6 +446,28 @@ static struct resource resources_qup_spi_gsbi3[] = {
 		.end    = GSBI3_QUP_IRQ,
 		.flags  = IORESOURCE_IRQ,
 	},
+/* SWISTART */
+#if defined(CONFIG_SIERRA)
+	{
+		.name   = "spi_clk",
+		.start  = 8,
+		.end    = 8,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_mosi",
+		.start  = 11,
+		.end    = 11,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 9,
+		.end    = 9,
+		.flags  = IORESOURCE_IO,
+	},
+#endif
+/* SWISTOP */
 };
 
 struct platform_device msm9615_device_qup_spi_gsbi3 = {
@@ -368,6 +476,40 @@ struct platform_device msm9615_device_qup_spi_gsbi3 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi3),
 	.resource	= resources_qup_spi_gsbi3,
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct resource resources_qup_spi_gsbi4[] = {
+	{
+		.name   = "spi_base",
+		.start  = MSM_GSBI4_QUP_PHYS,
+		.end    = MSM_GSBI4_QUP_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "gsbi_base",
+		.start  = MSM_GSBI4_PHYS,
+		.end    = MSM_GSBI4_PHYS + 4 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "spi_irq_in",
+		.start  = GSBI4_QUP_IRQ,
+		.end    = GSBI4_QUP_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm9615_device_qup_spi_gsbi4 = {
+	.name	= "spi_qsd",
+	.id	= 4,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi4),
+	.resource	= resources_qup_spi_gsbi4,
+};
+/* Exporting this symbol so this struct can be access / used by a module */
+EXPORT_SYMBOL_GPL(msm9615_device_qup_spi_gsbi4);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 #define LPASS_SLIMBUS_PHYS	0x28080000
 #define LPASS_SLIMBUS_BAM_PHYS	0x28084000

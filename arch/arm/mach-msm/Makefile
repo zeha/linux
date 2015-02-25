@@ -381,3 +381,8 @@ ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
+
+# SWISTART
+obj-$(CONFIG_SIERRA) += sierra_bscommon.o
+obj-$(CONFIG_SIERRA_SMEM) += sierra_smem.o sierra_smem_errdump.o
+#SWISTOP

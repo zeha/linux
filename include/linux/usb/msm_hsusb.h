@@ -226,6 +226,12 @@ struct msm_otg_platform_data {
 	const char *mhl_dev_name;
 	int (*link_clk_reset)(struct clk *link_clk, bool assert);
 	int (*phy_clk_reset)(struct clk *phy_clk);
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+	unsigned vdd_min_enable;
+#endif
+/* SWISTOP */
 };
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
@@ -482,6 +488,15 @@ enum usb_bam {
 	HSIC_BAM,
 	MAX_BAMS,
 };
+
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+int msm_get_usb_det(void);
+void msm9615_pm8xxx_gpio_mpp_init_swi(void);
+void msm_otg_vddmin_init(void);
+#endif
+/* SWISTOP */
 
 #ifdef CONFIG_USB_CI13XXX_MSM
 void msm_hw_bam_disable(bool bam_disable);

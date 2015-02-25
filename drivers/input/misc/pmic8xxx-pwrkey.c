@@ -37,6 +37,14 @@ struct pmic8xxx_pwrkey {
 	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA)
+	int key_release_irq; 
+	bool press; 
+	struct device *dev;
+#endif
+/* SWISTOP */
+
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwr)
 {
 	struct input_dev *pwr = _pwr;
@@ -200,7 +208,22 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	pwrkey->pwr = pwr;
 
 	platform_set_drvdata(pdev, pwrkey);
+/* SWISTART */
+#if defined(CONFIG_SIERRA)
+	/* check power key status during boot */
+	err = pm8xxx_read_irq_stat(pdev->dev.parent, key_press_irq);
+	if (err < 0) {
+		dev_err(&pdev->dev, "reading irq status failed\n");
+		goto unreg_input_dev;
+	}
+	pwrkey->press = !!err;
 
+	if (pwrkey->press) {
+		input_report_key(pwrkey->pwr, KEY_POWER, 1);
+		input_sync(pwrkey->pwr);
+	}
+#endif
+/* SWISTOP */
 
 	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
 			IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);

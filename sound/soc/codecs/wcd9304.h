@@ -181,7 +181,13 @@ extern int sitar_hs_detect(struct snd_soc_codec *codec,
 			const struct sitar_mbhc_config *cfg);
 
 #ifndef anc_header_dec
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 struct anc_header {
+#else
+struct sitar_anc_header {
+#endif
+/* SWISTOP */
 	u32 reserved[3];
 	u32 num_anc_slots;
 };

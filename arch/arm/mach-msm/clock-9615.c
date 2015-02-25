@@ -695,7 +695,14 @@ static struct rcg_clk usb_hs1_xcvr_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_xcvr_clk",
 		.ops = &clk_ops_rcg,
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+		VDD_DIG_FMAX_MAP1(NONE, 60000000),
+#else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
+#endif
+/* SWISTOP */
 		CLK_INIT(usb_hs1_xcvr_clk.c),
 	},
 };
@@ -720,7 +727,14 @@ static struct rcg_clk usb_hs1_sys_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_sys_clk",
 		.ops = &clk_ops_rcg,
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+		VDD_DIG_FMAX_MAP1(NONE, 60000000),
+#else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
+#endif
+/* SWISTOP */
 		CLK_INIT(usb_hs1_sys_clk.c),
 	},
 };
@@ -1207,6 +1221,13 @@ static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
 	{ .ns_val = BIT(10) /* external input */ },
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	F_PCM(   64000, pll4, 4, 1, 1536),
+	F_PCM(  128000, pll4, 4, 1,  768),
+	F_PCM(  256000, pll4, 4, 1,  384),
+#endif
+/* SWISTOP */
 	F_PCM(  512000, pll4, 4, 1, 192),
 	F_PCM(  768000, pll4, 4, 1, 128),
 	F_PCM( 1024000, pll4, 4, 1,  96),
@@ -1612,10 +1633,18 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 	CLK_LOOKUP("core_clk", gsbi3_uart_clk.c, ""),
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
+#ifdef CONFIG_SIERRA_AR7
+    CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
+#endif /* CONFIG_SIERRA_AR7 */
+/* SWISTOP */
 	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, ""),
 
 	CLK_LOOKUP("core_clk",	gsbi3_qup_clk.c, "spi_qsd.0"),
 	CLK_LOOKUP("core_clk",	gsbi4_qup_clk.c, ""),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+  CLK_LOOKUP("core_clk",  gsbi4_qup_clk.c, "spi_qsd.4"),
+#endif
 	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, "qup_i2c.0"),
 
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
@@ -1627,6 +1656,14 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 	CLK_LOOKUP("iface_clk",	gsbi3_p_clk.c, "spi_qsd.0"),
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
+/* SWISTART */
+
+#ifdef CONFIG_SIERRA_AR7
+    CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
+#endif /* CONFIG_SIERRA_AR7 */
+#ifdef CONFIG_SIERRA
+	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "spi_qsd.4"),
+#endif
 	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, "qup_i2c.0"),
 
 	CLK_LOOKUP("iface_clk",	     usb_hs1_p_clk.c,		"msm_otg"),
