@@ -89,9 +89,9 @@ static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
 	u8 pon_cntl;
 	struct regmap *regmap;
 
-	regmap = dev_get_regmap(dev->dev.parent, NULL);
+	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap) {
-		dev_err(&pdev->dev, "failed to locate regmap for the device\n");
+		dev_err(dev, "failed to locate regmap for the device\n");
 		return -ENODEV;
 	}
 
@@ -107,7 +107,7 @@ static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
 
 	err = regmap_read(regmap, PON_CNTL_1, &pon_cntl);
 	if (err < 0) {
-		dev_err(&dev->dev, "failed reading PON_CNTL_1 err=%d\n", err);
+		dev_err(dev, "failed reading PON_CNTL_1 err=%d\n", err);
 		return err;
 	}
 
@@ -121,7 +121,7 @@ static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
 
 	err = regmap_write(regmap, PON_CNTL_1, pon_cntl);
 	if (err < 0) {
-		dev_err(&dev->dev, "failed writing PON_CNTL_1 err=%d\n", err);
+		dev_err(dev, "failed writing PON_CNTL_1 err=%d\n", err);
 		return err;
 	}
 
