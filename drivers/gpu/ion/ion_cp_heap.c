@@ -14,6 +14,8 @@
  * GNU General Public License for more details.
  *
  */
+#define NO_R_REGION_MACROS 1
+
 #include <linux/spinlock.h>
 
 #include <linux/err.h>
@@ -453,7 +455,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap,
 
 		} else {
 			if (ION_IS_CACHED(flags))
-				ret_value = ioremap_cached(buffer->priv_phys,
+				ret_value = ioremap_cache(buffer->priv_phys,
 							   buffer->size);
 			else
 				ret_value = ioremap(buffer->priv_phys,

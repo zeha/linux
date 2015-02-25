@@ -171,7 +171,9 @@ static inline unsigned long resource_type(const struct resource *res)
 }
 
 /* Convenience shorthand with allocation */
+#ifndef NO_R_REGION_MACROS
 #define request_region(start,n,name)		__request_region(&ioport_resource, (start), (n), (name), 0)
+#endif
 #define request_muxed_region(start,n,name)	__request_region(&ioport_resource, (start), (n), (name), IORESOURCE_MUXED)
 #define __request_mem_region(start,n,name, excl) __request_region(&iomem_resource, (start), (n), (name), excl)
 #define request_mem_region(start,n,name) __request_region(&iomem_resource, (start), (n), (name), 0)
@@ -185,7 +187,9 @@ extern struct resource * __request_region(struct resource *,
 					const char *name, int flags);
 
 /* Compatibility cruft */
+#ifndef NO_R_REGION_MACROS
 #define release_region(start,n)	__release_region(&ioport_resource, (start), (n))
+#endif
 #define check_mem_region(start,n)	__check_region(&iomem_resource, (start), (n))
 #define release_mem_region(start,n)	__release_region(&iomem_resource, (start), (n))
 

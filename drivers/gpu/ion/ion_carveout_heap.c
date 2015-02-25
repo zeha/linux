@@ -14,8 +14,9 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/spinlock.h>
+#define NO_R_REGION_MACROS 1
 
+#include <linux/spinlock.h>
 #include <linux/err.h>
 #include <linux/genalloc.h>
 #include <linux/io.h>
@@ -174,7 +175,7 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 		return NULL;
 
 	if (ION_IS_CACHED(flags))
-		ret_value = ioremap_cached(buffer->priv_phys, buffer->size);
+		ret_value = ioremap_cache(buffer->priv_phys, buffer->size);
 	else
 		ret_value = ioremap(buffer->priv_phys, buffer->size);
 
