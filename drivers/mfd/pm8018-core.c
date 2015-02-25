@@ -135,7 +135,7 @@ static struct pm8xxx_drvdata pm8018_drvdata = {
 	.pmic_get_revision	= pm8018_get_revision,
 };
 
-static const struct resource gpio_cell_resources[] __devinitconst = {
+static const struct resource gpio_cell_resources[] = {
 	[0] = {
 		.start = PM8018_IRQ_BLOCK_BIT(PM8018_GPIO_BLOCK_START, 0),
 		.end   = PM8018_IRQ_BLOCK_BIT(PM8018_GPIO_BLOCK_START, 0)
@@ -144,27 +144,27 @@ static const struct resource gpio_cell_resources[] __devinitconst = {
 	},
 };
 
-static struct mfd_cell gpio_cell __devinitdata = {
+static struct mfd_cell gpio_cell = {
 	.name		= PM8XXX_GPIO_DEV_NAME,
 	.id		= -1,
 	.resources	= gpio_cell_resources,
 	.num_resources	= ARRAY_SIZE(gpio_cell_resources),
 };
 
-static const struct resource adc_cell_resources[] __devinitconst = {
+static const struct resource adc_cell_resources[]  = {
 	SINGLE_IRQ_RESOURCE(NULL, PM8018_ADC_EOC_USR_IRQ),
 	SINGLE_IRQ_RESOURCE(NULL, PM8018_ADC_BATT_TEMP_WARM_IRQ),
 	SINGLE_IRQ_RESOURCE(NULL, PM8018_ADC_BATT_TEMP_COLD_IRQ),
 };
 
-static struct mfd_cell adc_cell __devinitdata = {
+static struct mfd_cell adc_cell = {
 	.name		= PM8XXX_ADC_DEV_NAME,
 	.id		= -1,
 	.resources	= adc_cell_resources,
 	.num_resources	= ARRAY_SIZE(adc_cell_resources),
 };
 
-static const struct resource mpp_cell_resources[] __devinitconst = {
+static const struct resource mpp_cell_resources[] = {
 	{
 		.start	= PM8018_IRQ_BLOCK_BIT(PM8018_MPP_BLOCK_START, 0),
 		.end	= PM8018_IRQ_BLOCK_BIT(PM8018_MPP_BLOCK_START, 0)
@@ -173,14 +173,14 @@ static const struct resource mpp_cell_resources[] __devinitconst = {
 	},
 };
 
-static struct mfd_cell mpp_cell __devinitdata = {
+static struct mfd_cell mpp_cell = {
 	.name		= PM8XXX_MPP_DEV_NAME,
 	.id		= -1,
 	.resources	= mpp_cell_resources,
 	.num_resources	= ARRAY_SIZE(mpp_cell_resources),
 };
 
-static const struct resource rtc_cell_resources[] __devinitconst = {
+static const struct resource rtc_cell_resources[] = {
 	[0] = SINGLE_IRQ_RESOURCE(NULL, PM8018_RTC_ALARM_IRQ),
 	[1] = {
 		.name   = "pmic_rtc_base",
@@ -190,48 +190,48 @@ static const struct resource rtc_cell_resources[] __devinitconst = {
 	},
 };
 
-static struct mfd_cell rtc_cell __devinitdata = {
+static struct mfd_cell rtc_cell = {
 	.name           = PM8XXX_RTC_DEV_NAME,
 	.id             = -1,
 	.resources      = rtc_cell_resources,
 	.num_resources  = ARRAY_SIZE(rtc_cell_resources),
 };
 
-static const struct resource resources_pwrkey[] __devinitconst = {
+static const struct resource resources_pwrkey[] = {
 	SINGLE_IRQ_RESOURCE(NULL, PM8018_PWRKEY_REL_IRQ),
 	SINGLE_IRQ_RESOURCE(NULL, PM8018_PWRKEY_PRESS_IRQ),
 };
 
-static struct mfd_cell pwrkey_cell __devinitdata = {
+static struct mfd_cell pwrkey_cell = {
 	.name		= PM8XXX_PWRKEY_DEV_NAME,
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(resources_pwrkey),
 	.resources	= resources_pwrkey,
 };
 
-static struct mfd_cell misc_cell __devinitdata = {
+static struct mfd_cell misc_cell = {
 	.name           = PM8XXX_MISC_DEV_NAME,
 	.id             = -1,
 };
 
-static struct mfd_cell debugfs_cell __devinitdata = {
+static struct mfd_cell debugfs_cell = {
 	.name		= "pm8xxx-debug",
 	.id		= -1,
 	.platform_data	= "pm8018-dbg",
 	.pdata_size	= sizeof("pm8018-dbg"),
 };
 
-static struct mfd_cell pwm_cell __devinitdata = {
+static struct mfd_cell pwm_cell = {
 	.name           = PM8XXX_PWM_DEV_NAME,
 	.id             = -1,
 };
 
-static struct mfd_cell leds_cell __devinitdata = {
+static struct mfd_cell leds_cell = {
 	.name		= PM8XXX_LEDS_DEV_NAME,
 	.id		= -1,
 };
 
-static const struct resource thermal_alarm_cell_resources[] __devinitconst = {
+static const struct resource thermal_alarm_cell_resources[] = {
 	SINGLE_IRQ_RESOURCE("pm8018_tempstat_irq", PM8018_TEMPSTAT_IRQ),
 	SINGLE_IRQ_RESOURCE("pm8018_overtemp_irq", PM8018_OVERTEMP_IRQ),
 };
@@ -246,7 +246,7 @@ static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
 	.irq_name_over_temp =		"pm8018_overtemp_irq",
 };
 
-static struct mfd_cell thermal_alarm_cell __devinitdata = {
+static struct mfd_cell thermal_alarm_cell = {
 	.name		= PM8XXX_TM_DEV_NAME,
 	.id		= -1,
 	.resources	= thermal_alarm_cell_resources,
@@ -284,7 +284,7 @@ static struct pm8xxx_vreg regulator_data[] = {
 
 #define MAX_NAME_COMPARISON_LEN 32
 
-static int __devinit match_regulator(
+static int match_regulator(
 	struct pm8xxx_regulator_core_platform_data *core_data, const char *name)
 {
 	int found = 0;
@@ -314,7 +314,7 @@ static int __devinit match_regulator(
 	return found;
 }
 
-static int __devinit
+static int
 pm8018_add_regulators(const struct pm8018_platform_data *pdata,
 		      struct pm8018 *pmic, int irq_base)
 {
@@ -363,7 +363,7 @@ pm8018_add_regulators(const struct pm8018_platform_data *pdata,
 			sizeof(struct pm8xxx_regulator_core_platform_data);
 	}
 	ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
-			pdata->num_regulators, NULL, irq_base);
+			pdata->num_regulators, NULL, irq_base, NULL);
 	if (ret)
 		goto bail;
 
@@ -379,7 +379,7 @@ bail:
 	return ret;
 }
 
-static int __devinit
+static int
 pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		      struct pm8018 *pmic)
 {
@@ -405,7 +405,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		gpio_cell.platform_data = pdata->gpio_pdata;
 		gpio_cell.pdata_size = sizeof(struct pm8xxx_gpio_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &gpio_cell, 1,
-					NULL, irq_base);
+					NULL, irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add  gpio subdevice ret=%d\n", ret);
 			goto bail;
@@ -418,7 +418,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		mpp_cell.platform_data = pdata->mpp_pdata;
 		mpp_cell.pdata_size = sizeof(struct pm8xxx_mpp_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &mpp_cell, 1, NULL,
-					irq_base);
+					irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add mpp subdevice ret=%d\n", ret);
 			goto bail;
@@ -429,7 +429,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		rtc_cell.platform_data = pdata->rtc_pdata;
 		rtc_cell.pdata_size = sizeof(struct pm8xxx_rtc_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &rtc_cell, 1, NULL,
-				irq_base);
+				irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add rtc subdevice ret=%d\n", ret);
 			goto bail;
@@ -441,7 +441,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		pwrkey_cell.pdata_size =
 			sizeof(struct pm8xxx_pwrkey_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &pwrkey_cell, 1, NULL,
-					irq_base);
+					irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add pwrkey subdevice ret=%d\n", ret);
 			goto bail;
@@ -452,7 +452,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		misc_cell.platform_data = pdata->misc_pdata;
 		misc_cell.pdata_size = sizeof(struct pm8xxx_misc_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &misc_cell, 1, NULL,
-				      irq_base);
+				      irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
 			goto bail;
@@ -463,7 +463,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 		adc_cell.platform_data = pdata->adc_pdata;
 		adc_cell.pdata_size = sizeof(struct pm8xxx_adc_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &adc_cell, 1, NULL,
-				      irq_base);
+				      irq_base, NULL);
 		if (ret) {
 			pr_err("Failed to add adc subdevice ret=%d\n", ret);
 		}
@@ -472,20 +472,20 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 	if (pdata->leds_pdata) {
 		leds_cell.platform_data = pdata->leds_pdata;
 		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
-		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
+		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0, NULL);
 		if (ret) {
 			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
 
-	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base);
+	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base, NULL);
 	if (ret) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
 		goto bail;
 	}
 
-	ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
+	ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0, NULL);
 	if (ret) {
 		pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 		goto bail;
@@ -501,7 +501,7 @@ pm8018_add_subdevices(const struct pm8018_platform_data *pdata,
 	}
 
 	ret = mfd_add_devices(pmic->dev, 0, &thermal_alarm_cell, 1, NULL,
-				irq_base);
+				irq_base, NULL);
 	if (ret) {
 		pr_err("Failed to add thermal alarm subdevice, ret=%d\n", ret);
 		goto bail;
@@ -534,7 +534,7 @@ static const char * const pm8018_rev_names[] = {
 	[PM8XXX_REVISION_8018_2p1]	= "2.1",
 };
 
-static int __devinit pm8018_probe(struct platform_device *pdev)
+static int pm8018_probe(struct platform_device *pdev)
 {
 	const struct pm8018_platform_data *pdata = pdev->dev.platform_data;
 	const char *revision_name = "unknown";
@@ -618,7 +618,7 @@ err_read_rev:
 	return rc;
 }
 
-static int __devexit pm8018_remove(struct platform_device *pdev)
+static int pm8018_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_drvdata *drvdata;
 	struct pm8018 *pmic = NULL;
@@ -649,7 +649,7 @@ static int __devexit pm8018_remove(struct platform_device *pdev)
 
 static struct platform_driver pm8018_driver = {
 	.probe		= pm8018_probe,
-	.remove		= __devexit_p(pm8018_remove),
+	.remove		= pm8018_remove,
 	.driver		= {
 		.name	= PM8018_CORE_DEV_NAME,
 		.owner	= THIS_MODULE,

@@ -23,7 +23,83 @@
 #include <linux/err.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/pm8xxx/core.h>
-#include <linux/mfd/pm8xxx/pwm.h>
+//#include <linux/mfd/pm8xxx/pwm.h>
+
+
+//from <linux/mfd/pm8xxx/pwm.h>
+#define PM8XXX_PWM_DEV_NAME	"pm8xxx-pwm"
+
+#define PM8XXX_PWM_PERIOD_MIN	7 /* usec: 19.2M, n=6, m=0, pre=2 */
+#define PM8XXX_PWM_PERIOD_MAX	(384 * USEC_PER_SEC) /* 1K, n=9, m=7, pre=6 */
+#define PM_PWM_LUT_SIZE			64
+#define PM_PWM_LUT_DUTY_TIME_MAX	512	/* ms */
+#define PM_PWM_LUT_PAUSE_MAX		(7000 * PM_PWM_LUT_DUTY_TIME_MAX)
+
+/* Flags for Look Up Table */
+#define PM_PWM_LUT_LOOP		0x01
+#define PM_PWM_LUT_RAMP_UP	0x02
+#define PM_PWM_LUT_REVERSE	0x04
+#define PM_PWM_LUT_PAUSE_HI_EN	0x10
+#define PM_PWM_LUT_PAUSE_LO_EN	0x20
+
+#define PM_PWM_LUT_NO_TABLE	0x100
+
+enum pm_pwm_size {
+	PM_PWM_SIZE_6BIT =	6,
+	PM_PWM_SIZE_9BIT =	9,
+};
+
+enum pm_pwm_clk {
+	PM_PWM_CLK_1KHZ,
+	PM_PWM_CLK_32KHZ,
+	PM_PWM_CLK_19P2MHZ,
+};
+
+enum pm_pwm_pre_div {
+	PM_PWM_PDIV_2,
+	PM_PWM_PDIV_3,
+	PM_PWM_PDIV_5,
+	PM_PWM_PDIV_6,
+};
+
+
+/**
+ * struct pm8xxx_pwm_period - PWM period structure
+ * @pwm_size: enum pm_pwm_size
+ * @clk: enum pm_pwm_clk
+ * @pre_div: enum pm_pwm_pre_div
+ * @pre_div_exp: exponent of 2 as part of pre-divider: 0..7
+ */
+struct pm8xxx_pwm_period {
+	enum pm_pwm_size	pwm_size;
+	enum pm_pwm_clk		clk;
+	enum pm_pwm_pre_div	pre_div;
+	int			pre_div_exp;
+};
+
+/**
+ * struct pm8xxx_pwm_duty_cycles - PWM duty cycle info
+ * duty_pcts - pointer to an array of duty percentage for a pwm period
+ * num_duty_pcts - total entries in duty_pcts array
+ * duty_ms - duty cycle time in ms
+ * start_idx - index in the LUT
+ */
+struct pm8xxx_pwm_duty_cycles {
+	int *duty_pcts;
+	int num_duty_pcts;
+	int duty_ms;
+	int start_idx;
+};
+
+/**
+ * struct pm8xxx_pwm_platform_data - PWM platform data
+ * dtest_channel - Enable LPG DTEST mode for this LPG channel
+ */
+struct pm8xxx_pwm_platform_data {
+	int dtest_channel;
+};
+
+
 
 #define PM8XXX_PWM_CHANNELS		3
 
@@ -1243,7 +1319,7 @@ static int dbg_pwm_period_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(dbg_pwm_period_fops,
 			dbg_pwm_period_get, dbg_pwm_period_set, "%lld\n");
 
-static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
+static int pm8xxx_pwm_dbg_probe(struct device *dev)
 {
 	struct pm8xxx_pwm_dbg_device    *dbgdev;
 	struct dentry		   *dent;
@@ -1336,7 +1412,7 @@ user_error:
 	return rc;
 }
 
-static int __devexit pm8xxx_pwm_dbg_remove(void)
+static int pm8xxx_pwm_dbg_remove(void)
 {
 	if (pmic_dbg_device) {
 		kfree(pmic_dbg_device->user);
@@ -1348,19 +1424,19 @@ static int __devexit pm8xxx_pwm_dbg_remove(void)
 
 #else
 
-static int __devinit pm8xxx_pwm_dbg_probe(struct device *dev)
+static int pm8xxx_pwm_dbg_probe(struct device *dev)
 {
 	return 0;
 }
 
-static int __devexit pm8xxx_pwm_dbg_remove(void)
+static int pm8xxx_pwm_dbg_remove(void)
 {
 	return 0;
 }
 
 #endif
 
-static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
+static int pm8xxx_pwm_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_pwm_platform_data *pdata = pdev->dev.platform_data;
 	struct pm8xxx_pwm_chip	*chip;
@@ -1431,7 +1507,7 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit pm8xxx_pwm_remove(struct platform_device *pdev)
+static int pm8xxx_pwm_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_pwm_chip	*chip = dev_get_drvdata(pdev->dev.parent);
 
@@ -1445,7 +1521,7 @@ static int __devexit pm8xxx_pwm_remove(struct platform_device *pdev)
 
 static struct platform_driver pm8xxx_pwm_driver = {
 	.probe		= pm8xxx_pwm_probe,
-	.remove		= __devexit_p(pm8xxx_pwm_remove),
+	.remove		= pm8xxx_pwm_remove,
 	.driver		= {
 		.name = PM8XXX_PWM_DEV_NAME,
 		.owner = THIS_MODULE,
