@@ -649,7 +649,7 @@ static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 
 	mmc_set_clock(host, (unsigned int) (*freq));
 
-	if (!mmc_host_is_spi(card->host) && mmc_sd_card_uhs(card)
+	if (!mmc_host_is_spi(card->host) && mmc_card_uhs(card)
 			&& card->host->ops->execute_tuning) {
 		/*
 		 * We try to probe host driver for tuning for any

@@ -109,6 +109,8 @@ MODULE_PARM_DESC(
 		spin_unlock(&stats.lock);				\
 	} while (0);
 
+static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
+
 /*
  * Internal function. Schedule delayed work in the MMC work queue.
  */
@@ -381,103 +383,6 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 				   card->bkops_info.delay_ms));
 }
 EXPORT_SYMBOL(mmc_start_delayed_bkops);
-
-/**
- *	mmc_start_bkops - start BKOPS for supported cards
- *	@card: MMC card to start BKOPS
- *	@from_exception: A flag to indicate if this function was
- *			 called due to an exception raised by the card
- *
- *	Start background operations whenever requested.
- *	When the urgent BKOPS bit is set in a R1 command response
- *	then background operations should be started immediately.
-*/
-void mmc_start_bkops(struct mmc_card *card, bool from_exception)
-{
-	int err;
-	int timeout;
-	bool use_busy_signal;
-
-	BUG_ON(!card);
-	if (!card->ext_csd.bkops_en)
-		return;
-
-	mmc_claim_host(card->host);
-
-	if ((card->bkops_info.cancel_delayed_work) && !from_exception) {
-		pr_debug("%s: %s: cancel_delayed_work was set, exit\n",
-			 mmc_hostname(card->host), __func__);
-		card->bkops_info.cancel_delayed_work = false;
-		goto out;
-	}
-
-	if (mmc_card_doing_bkops(card)) {
-		pr_debug("%s: %s: already doing bkops, exit\n",
-			 mmc_hostname(card->host), __func__);
-		goto out;
-	}
-
-	err = mmc_read_bkops_status(card);
-	if (err) {
-		pr_err("%s: %s: Failed to read bkops status: %d\n",
-		       mmc_hostname(card->host), __func__, err);
-		goto out;
-	}
-
-	if (!card->ext_csd.raw_bkops_status)
-		goto out;
-
-	pr_info("%s: %s: card->ext_csd.raw_bkops_status = 0x%x\n",
-		mmc_hostname(card->host), __func__,
-		card->ext_csd.raw_bkops_status);
-
-	/*
-	 * If the function was called due to exception but there is no need
-	 * for urgent BKOPS, BKOPs will be performed by the delayed BKOPs
-	 * work, before going to suspend
-	 */
-	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2 &&
-	    from_exception) {
-		pr_debug("%s: %s: Level 1 from exception, exit",
-			 mmc_hostname(card->host), __func__);
-		goto out;
-	}
-
-	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2) {
-		timeout = MMC_BKOPS_MAX_TIMEOUT;
-		use_busy_signal = true;
-	} else {
-		timeout = 0;
-		use_busy_signal = false;
-	}
-
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			EXT_CSD_BKOPS_START, 1, timeout);
-	if (err) {
-		pr_warn("%s: %s: Error %d when starting bkops\n",
-			mmc_hostname(card->host), __func__, err);
-		goto out;
-	}
-	MMC_UPDATE_STATS_BKOPS_SEVERITY_LEVEL(card->bkops_info.bkops_stats,
-					card->ext_csd.raw_bkops_status);
-
-	/*
-	 * For urgent bkops status (LEVEL_2 and more)
-	 * bkops executed synchronously, otherwise
-	 * the operation is in progress
-	 */
-	if (!use_busy_signal) {
-		mmc_card_set_doing_bkops(card);
-		pr_debug("%s: %s: starting the polling thread\n",
-			 mmc_hostname(card->host), __func__);
-		queue_work(system_nrt_wq,
-			   &card->bkops_info.poll_for_completion);
-	}
-
-out:
-	mmc_release_host(card->host);
-}
-EXPORT_SYMBOL(mmc_start_bkops);
 
 /**
  * mmc_bkops_completion_polling() - Poll on the card status to
@@ -1001,6 +906,32 @@ int mmc_wait_for_cmd(struct mmc_host *host, struct mmc_command *cmd, int retries
 }
 
 EXPORT_SYMBOL(mmc_wait_for_cmd);
+
+
+/**
+ *	mmc_try_claim_host - try exclusively to claim a host
+ *	@host: mmc host to claim
+ *
+ *	Returns %1 if the host is claimed, %0 otherwise.
+ */
+int mmc_try_claim_host(struct mmc_host *host)
+{
+	int claimed_host = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (!host->claimed || host->claimer == current) {
+		host->claimed = 1;
+		host->claimer = current;
+		host->claim_cnt += 1;
+		claimed_host = 1;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+	if (host->ops->enable && claimed_host && host->claim_cnt == 1)
+		host->ops->enable(host);
+	return claimed_host;
+}
+EXPORT_SYMBOL(mmc_try_claim_host);
 
 /**
  *	mmc_stop_bkops - stop ongoing BKOPS
@@ -1984,7 +1915,7 @@ int mmc_resume_bus(struct mmc_host *host)
 
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
-		mmc_power_up(host);
+		mmc_power_up(host,0);
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
 	}
@@ -2981,13 +2912,13 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 		return 0;
 
 	if (!host->ios.vdd)
-		mmc_power_up(host);
+		mmc_power_up(host,0);
 
 	if (!mmc_attach_sd(host))
 		return 0;
 
 	if (!host->ios.vdd)
-		mmc_power_up(host);
+		mmc_power_up(host,0);
 
 	if (!mmc_attach_mmc(host))
 		return 0;

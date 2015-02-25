@@ -418,11 +418,7 @@ struct _mmc_csd {
  * BKOPS status level
  */
 #define EXT_CSD_BKOPS_LEVEL_2		0x2
-#define EXT_CSD_PACKED_EVENT_EN	(1 << 3)
-#define EXT_CSD_PACKED_FAILURE	(1 << 3)
 
-#define EXT_CSD_PACKED_GENERIC_ERROR	(1 << 0)
-#define EXT_CSD_PACKED_INDEXED_ERROR	(1 << 1)
 
 /*
  * MMC_SWITCH access modes
