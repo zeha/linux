@@ -927,7 +927,6 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 			break;
 		}
 	}
-	msm_otg_notify_link_change(motg, !suspend);
 	return 0;
 }
 
@@ -961,6 +960,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
 		!test_bit(ID, &motg->inputs);
 	device_bus_suspend = phy->otg->gadget && test_bit(ID, &motg->inputs) &&
+		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 	dcp = motg->chg_type == USB_DCP_CHARGER;
 
@@ -1141,6 +1141,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	enable_irq(motg->irq);
 
 	dev_info(phy->dev, "USB in low power mode\n");
+	msm_otg_notify_link_change(motg, 0);
 
 	return 0;
 }
@@ -1158,6 +1159,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 	bool bus_is_suspended;
 	bool is_remote_wakeup;
 
+	msm_otg_notify_link_change(motg, 1);
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
 
@@ -2465,6 +2467,8 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	u32 otgsc = readl(USB_OTGSC);
 
+	/* notify that link is up */
+	msm_otg_notify_link_change(motg, 1);
 	switch (pdata->mode) {
 	case USB_OTG:
 		if (pdata->otg_control == OTG_USER_CONTROL) {
