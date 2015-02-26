@@ -355,7 +355,7 @@ static struct usb_descriptor_header *mbim_hs_function[] = {
 #define STRING_CTRL_IDX	0
 #define STRING_DATA_IDX	1
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 #define STRING_IAD_IDX	2
 #endif /* SIERRA and FEATURE_MORPHING */
 /* SWISTOP */
@@ -364,7 +364,7 @@ static struct usb_string mbim_string_defs[] = {
 	[STRING_CTRL_IDX].s = "MBIM Control",
 	[STRING_DATA_IDX].s = "MBIM Data",
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	[STRING_IAD_IDX].s = "MBIM",
 #endif /* SIERRA and FEATURE_MORPHING */
 /* SWISTOP */
@@ -604,7 +604,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 
 /* SWISTART */
 /* Fix the wrong notification response packet length */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	req->length = sizeof *event;
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
@@ -796,7 +796,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
 			return;
 		}
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 		/* Added to avoid wrong formatted notification */
 		event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
 		event->wLength = 0;
@@ -840,7 +840,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
  */
 /* SWISTART*/
 /* To fix the yellow bang error code 10 issue, this function is not called anymore */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 static void mbim_notify(struct f_mbim *mbim)
 {
 	/*
@@ -1244,7 +1244,7 @@ static int mbim_ctrlrequest(struct usb_composite_dev *cdev,
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 static int
 mbim_bind_ep_req(struct usb_function *f)
 {
@@ -1295,7 +1295,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			goto fail;
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 		/* Allocate Request buffer and bind to EP now that config is assigned */
 		if (!mbim->not_port.notify_req)
 			ret = mbim_bind_ep_req(f);
@@ -1384,7 +1384,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		mbim->data_alt_int = alt;
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 /* To work around the yellow bang error code 10 issue when using compositions support identity morphing */
 		spin_lock(&mbim->lock);
 		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
@@ -1485,7 +1485,7 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	mbim->ctrl_id = status;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	mbim->data_alt_int = 0;
 #endif
 /* SWISTOP */
@@ -1541,7 +1541,7 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	status = -ENOMEM;
 
 /* SWISTART */
-#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
+#if !defined(CONFIG_SIERRA_USB_COMP) || !defined(FEATURE_MORPHING)
 	/* allocate notification request and buffer */
 	mbim->not_port.notify_req = mbim_alloc_req(ep, NCM_STATUS_BYTECOUNT);
 	if (!mbim->not_port.notify_req) {
@@ -1664,7 +1664,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 /* SWISTART */
 /* Test code from case 00984853 */
 /* Don't set interface string descriptor to force use strings in device descriptors instead */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 	/* maybe allocate device-global string IDs */
 	if (mbim_string_defs[0].id == 0) {
 
@@ -1684,7 +1684,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 		mbim_data_intf.iInterface = status;
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 		/* IAD label */
 		status = usb_string_id(c->cdev);
 		if (status < 0)
@@ -1694,7 +1694,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 #endif /* SIERRA and FEATURE_MORPHING */
 /* SWISTOP */
 	}
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 	/* allocate and initialize one new instance */

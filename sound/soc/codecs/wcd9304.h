@@ -182,7 +182,7 @@ extern int sitar_hs_detect(struct snd_soc_codec *codec,
 
 #ifndef anc_header_dec
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 struct anc_header {
 #else
 struct sitar_anc_header {

@@ -47,7 +47,7 @@ module_param(audio_playback_buf_size, int, S_IRUGO);
 MODULE_PARM_DESC(audio_playback_buf_size, "Audio buffer size");
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 #define CAPTURE_EP_MAX_PACKET_SIZE	16  /*Wait QCT CR to confirm this chang, but this change can fix problem*/
 #else
 #define CAPTURE_EP_MAX_PACKET_SIZE	32

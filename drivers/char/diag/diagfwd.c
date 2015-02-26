@@ -1494,7 +1494,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	}
 /* SWISTART */
 /* will process 'switch to downloader' command on mpss side */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_DLOAD
 	/* Check for download command */
 	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
 		/* send response back */
@@ -1508,7 +1508,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		/* Not required, represents that command isnt sent to modem */
 		return 0;
 	}
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	/* Check for polling for Apps only DIAG */
 	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&

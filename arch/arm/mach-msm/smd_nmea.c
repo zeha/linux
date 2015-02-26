@@ -29,7 +29,7 @@
 
 #define MAX_BUF_SIZE 200
 /*SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 #define READ_BUF_SIZE 10240
 char smd_buf[READ_BUF_SIZE];
 int smd_use=0;
@@ -74,7 +74,7 @@ static void nmea_work_func(struct work_struct *ws)
 			continue;
 		}
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
         if((smd_use+sz)<READ_BUF_SIZE)
         {
 
@@ -139,7 +139,7 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 	int bytes_read;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	r = wait_event_interruptible(nmea_wait_queue,
 				smd_use);
 #else
@@ -164,7 +164,7 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 
 	mutex_lock(&nmea_rx_buf_lock);
 /*SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	bytes_read = smd_use;
     smd_use=0;
     
@@ -191,7 +191,7 @@ static ssize_t nmea_read(struct file *fp, char __user *buf,
 }
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 /* code reference: smd_pkt_write */
 static int nmea_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
@@ -253,7 +253,7 @@ static const struct file_operations nmea_fops = {
 	.owner = THIS_MODULE,
 	.read = nmea_read,
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	.write = nmea_write,
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */

@@ -25,9 +25,9 @@
 #include <linux/nmi.h>
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_SMEM
 #include <mach/sierra_smem.h>
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 #define PANIC_TIMER_STEP 100
@@ -108,13 +108,13 @@ void panic(const char *fmt, ...)
 	va_end(args);
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_SMEM
 	/* mark the start of Sierra dump */
 	sierra_smem_errdump_save_start();
 
 	/* log error str */
 	sierra_smem_errdump_save_errstr(buf);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 #ifdef CONFIG_DEBUG_BUGVERBOSE

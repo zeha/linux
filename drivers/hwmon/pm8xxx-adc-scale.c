@@ -111,7 +111,7 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{790,	203}
 };
 /*SWISTART*/
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_PA_THERM
 static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
 	{1731,	-30},
 	{1726,	-29},
@@ -446,7 +446,7 @@ static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
 
 static const struct pm8xxx_adc_map_pt adcmap_ntcg_104ef_104fb[] = {
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_XO_THERM
    /* below entries are provided by QCT */
    /* provided that anything below -40C is out of QC published spec ranges */
     { 519569, -51200 },

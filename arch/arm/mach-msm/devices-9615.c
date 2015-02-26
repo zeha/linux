@@ -50,9 +50,9 @@
 #define MSM_GSBI5_PHYS          0x16400000
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_UART
 #define MSM_UART5DM_PHYS  (MSM_GSBI5_PHYS + 0x40000)
-#endif /* CONFIG_SIERRA_AR7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
 
@@ -68,8 +68,15 @@
 #define MSM_PMIC1_SSBI_CMD_PHYS	0x00500000
 #define MSM_PMIC_SSBI_SIZE	SZ_4K
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_I2C_GSBI2
+#define MSM_GPIO_I2C_CLK 4
+#define MSM_GPIO_I2C_SDA 5
+#elif defined CONFIG_SIERRA_I2C_GSBI5 
 #define MSM_GPIO_I2C_CLK 16
 #define MSM_GPIO_I2C_SDA 17
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
@@ -142,7 +149,7 @@ struct platform_device msm_device_otg = {
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_HSUSB_RESUME)
 #define MSM_HSUSB_RESUME_GPIO	82
 #else
 #define MSM_HSUSB_RESUME_GPIO	79
@@ -284,7 +291,7 @@ struct platform_device msm_device_hsic_host = {
 	},
 };
 
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_UART
 static struct resource resources_uart_gsbi5[] = {
   {
     .start  = GSBI5_UARTDM_IRQ,
@@ -311,7 +318,7 @@ struct platform_device msm9615_device_uart_gsbi5 = {
   .num_resources  = ARRAY_SIZE(resources_uart_gsbi5),
   .resource = resources_uart_gsbi5,
 };
-#endif /* CONFIG_SIERRA_AR7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 static struct resource resources_uart_gsbi4[] = {
@@ -342,7 +349,7 @@ struct platform_device msm9615_device_uart_gsbi4 = {
 };
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_EXTERNAL_CODEC
 static struct resource resources_qup_i2c_gsbi2[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -447,7 +454,7 @@ static struct resource resources_qup_spi_gsbi3[] = {
 		.flags  = IORESOURCE_IRQ,
 	},
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#ifdef CONFIG_SIERRA_EXTERNAL_CODEC
 	{
 		.name   = "spi_clk",
 		.start  = 8,

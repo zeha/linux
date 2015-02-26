@@ -46,7 +46,7 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 /* SWIATART */
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_HSIC
 #include <linux/sierra_bsudefs.h>
 #include <linux/sierra_bsuproto.h>
 #define BCBOOTAPPFLAG_HSIC_ENABLE_M        0x00000200
@@ -1465,7 +1465,7 @@ static int __init ehci_hcd_init(void)
 {
 	int i, retval = 0;
 /* SWISTART */
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_HSIC
 	char* hsichostname = "msm_hsic_host";
 #endif
 /* SWISTART */
@@ -1494,7 +1494,7 @@ static int __init ehci_hcd_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++) {
 /* SWISTART */
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_HSIC
 #ifndef HSIC_PLATFORM_DRIVER
 		if(!((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)))
 		{

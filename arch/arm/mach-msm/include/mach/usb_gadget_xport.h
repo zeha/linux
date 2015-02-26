@@ -25,11 +25,11 @@ enum transport_type {
 	USB_GADGET_XPORT_HSIC,
 	USB_GADGET_XPORT_HSUART,
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	USB_GADGET_XPORT_TTYRD,
 	USB_GADGET_XPORT_SMDAT,
 	USB_GADGET_XPORT_SMDOSA,
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	USB_GADGET_XPORT_NONE,
 };
@@ -58,14 +58,14 @@ static char *xport_to_str(enum transport_type t)
 	case USB_GADGET_XPORT_NONE:
 		return "NONE";
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_TTYRD:
 		return "TTYRD";
 	case USB_GADGET_XPORT_SMDAT:
 		return "SMDAT";
 	case USB_GADGET_XPORT_SMDOSA:
 		return "SMDOSA";
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	default:
 		return "UNDEFINED";
@@ -93,14 +93,14 @@ static enum transport_type str_to_xport(const char *name)
 	if (!strncasecmp("", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_NONE;
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if (!strncasecmp("TTYRD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_TTYRD;
 	if (!strncasecmp("SMDAT", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMDAT;
 	if (!strncasecmp("SMDOSA", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMDOSA;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	return USB_GADGET_XPORT_UNDEF;
 }

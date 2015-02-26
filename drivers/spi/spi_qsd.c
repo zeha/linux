@@ -657,7 +657,7 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 		if (dd->rx_bytes_remaining == 0)
 			msm_spi_complete(dd);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_SPI_INF
 		dd->cur_msg->actual_length = dd->read_xfr_cnt;
 #endif
 /* SWISTOP */
@@ -1520,7 +1520,7 @@ err_setup_exit:
 }
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_SPI_INF
 void swi_reg_bit_set(struct spi_device *spi, int reg_addr, int bit_offset,int set_flag)
 {
 	u32 spi_ioc;

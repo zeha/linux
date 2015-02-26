@@ -1029,7 +1029,7 @@ static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	int ret;
 	int num_anc_slots;
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 	struct anc_header *anc_head;
 #else
     struct sitar_anc_header *anc_head;
@@ -1059,7 +1059,7 @@ static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			return -ENODEV;
 		}
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 		if (fw->size < sizeof(struct anc_header)) {
 #else
 		if (fw->size < sizeof(struct sitar_anc_header)) {
@@ -1072,7 +1072,7 @@ static int sitar_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 		/* First number is the number of register writes */
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 		anc_head = (struct anc_header *)(fw->data);
 		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
 		anc_size_remaining = fw->size - sizeof(struct anc_header);

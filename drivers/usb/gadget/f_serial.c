@@ -29,11 +29,11 @@
  * if you can arrange appropriate host side drivers.
  */
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 #define GSERIAL_NO_PORTS 5
 #else
 #define GSERIAL_NO_PORTS 3
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 struct f_gser {
@@ -83,7 +83,7 @@ static struct port_info {
 } gserial_ports[GSERIAL_NO_PORTS];
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 static inline bool is_acm(struct f_gser *gser)
 {
 	if(!(strcmp(gser->port.func.name,"modem") && strcmp(gser->port.func.name,"at")))
@@ -91,7 +91,7 @@ static inline bool is_acm(struct f_gser *gser)
 	else
 		return 0;
 }
-#endif/* SIERRA */
+#endif/* CONFIG_SIERRA */
 /* SWISTOP */
 
 static inline bool is_transport_sdio(enum transport_type t)
@@ -114,7 +114,7 @@ static inline struct f_gser *port_to_gser(struct gserial *p)
 }
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 /* Work around issue where driver needs zero length packet if interrupt packet is at MAX size */
 #define GS_NOTIFY_MAXPACKET		10 + 2	/* notification + 2 bytes + 2 spares */
 #else
@@ -154,7 +154,7 @@ static struct usb_interface_descriptor gser_obex_interface_desc = {
 	.bInterfaceProtocol =	0,
 	/* .iInterface = DYNAMIC */
 };
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 
@@ -230,14 +230,14 @@ static struct usb_descriptor_header *gser_fs_function[] = {
 };
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 static struct usb_descriptor_header *gser_obex_fs_function[] = {
 	(struct usb_descriptor_header *) &gser_obex_interface_desc,
 	(struct usb_descriptor_header *) &gser_fs_in_desc,
 	(struct usb_descriptor_header *) &gser_fs_out_desc,
 	NULL,
 };
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 /* high speed support: */
@@ -337,14 +337,14 @@ static struct usb_descriptor_header *gser_ss_function[] = {
 };
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 static struct usb_descriptor_header *gser_obex_hs_function[] = {
 	(struct usb_descriptor_header *) &gser_obex_interface_desc,
 	(struct usb_descriptor_header *) &gser_hs_in_desc,
 	(struct usb_descriptor_header *) &gser_hs_out_desc,
 	NULL,
 };
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 /* string descriptors: */
@@ -430,9 +430,9 @@ static int gport_connect(struct f_gser *gser)
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_TTY:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_TTYRD:
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		gserial_connect(&gser->port, port_num);
 		break;
@@ -441,7 +441,7 @@ static int gport_connect(struct f_gser *gser)
 		break;
 	case USB_GADGET_XPORT_SMD:
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 		gsmd_connect(&gser->port, port_num);
 		break;
 #else 
@@ -455,7 +455,7 @@ static int gport_connect(struct f_gser *gser)
 			gser_smd->notify_modem(gser_smd, port_num, 0x03);
 		}
 		break;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	case USB_GADGET_XPORT_HSIC:
 		ret = ghsic_ctrl_connect(&gser->port, port_num);
@@ -502,9 +502,9 @@ static int gport_disconnect(struct f_gser *gser)
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_TTY:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_TTYRD:
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		gserial_disconnect(&gser->port);
 		break;
@@ -513,10 +513,10 @@ static int gport_disconnect(struct f_gser *gser)
 		break;
 	case USB_GADGET_XPORT_SMD:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_SMDAT:
 	case USB_GADGET_XPORT_SMDOSA:
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */    
 		gsmd_disconnect(&gser->port, port_num);
 		break;
@@ -642,7 +642,7 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 #ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		if (gser->notify->driver_data) {
@@ -685,7 +685,7 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		return rc;
 	}
 	gser->notify->driver_data = gser;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #endif
 
@@ -720,7 +720,7 @@ static void gser_disable(struct usb_function *f)
 
 #ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		usb_ep_fifo_flush(gser->notify);
@@ -731,7 +731,7 @@ static void gser_disable(struct usb_function *f)
 	usb_ep_fifo_flush(gser->notify);
 	usb_ep_disable(gser->notify);
 	gser->notify->driver_data = NULL;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #endif
 	gser->online = 0;
@@ -930,7 +930,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 	gser->data_id = status;
 /* SWISTART */
-#ifdef CONFIG_SIERRA	
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		gser_interface_desc.bInterfaceNumber = status;
@@ -941,7 +941,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 #else
 	gser_interface_desc.bInterfaceNumber = status;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 
@@ -962,7 +962,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 
 #ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		ep = usb_ep_autoconfig(cdev->gadget, &gser_fs_notify_desc);
@@ -995,7 +995,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 
 	gser->notify_req->complete = gser_notify_complete;
 	gser->notify_req->context = gser;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #endif
 
@@ -1019,11 +1019,11 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 #else
 	gser_hs_notify_desc.bEndpointAddress =
 			gser_fs_notify_desc.bEndpointAddress;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #endif
 +/* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 	status = usb_assign_descriptors(f, gser_fs_function, gser_hs_function,
@@ -1036,7 +1036,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 #else
 	/* copy descriptors, and track endpoint copies */
 	f->hs_descriptors = usb_copy_descriptors(gser_hs_function);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 /* SWISTART */
@@ -1053,7 +1053,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 #else
 	if (status)
 		goto fail;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	DBG(cdev, "generic ttyGS%d: %s speed IN/%s OUT/%s\n",
 			gser->port_num,
@@ -1071,7 +1071,7 @@ fail:
 		usb_free_descriptors(f->descriptors);
 #ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		if (gser->notify_req)
@@ -1089,7 +1089,7 @@ fail:
 	if (gser->notify)
 		gser->notify->driver_data = NULL;
 
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 #endif
 	/* we might as well release our claims on endpoints */
@@ -1198,12 +1198,12 @@ static void gser_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	usb_free_all_descriptors(f);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		gs_free_req(gser->notify, gser->notify_req);
 	}
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 }
 
@@ -1259,9 +1259,9 @@ static int gserial_init_port(int port_num, const char *name)
 	switch (transport) {
 	case USB_GADGET_XPORT_TTY:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_TTYRD:
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		gserial_ports[port_num].client_port_num = no_tty_ports;
 		no_tty_ports++;
@@ -1272,7 +1272,7 @@ static int gserial_init_port(int port_num, const char *name)
 		break;
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 	case USB_GADGET_XPORT_SMD:
 		gserial_ports[port_num].client_port_num = no_smd_ports;
 		no_smd_ports++;
@@ -1290,7 +1290,7 @@ static int gserial_init_port(int port_num, const char *name)
 		gserial_ports[port_num].client_port_num = 2;
 		no_smd_ports++;
 		break;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
     
 	case USB_GADGET_XPORT_HSIC:

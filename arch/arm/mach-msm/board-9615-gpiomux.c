@@ -17,24 +17,37 @@
 #include <mach/gpio.h>
 #include "board-9615.h"
 
+
 static struct gpiomux_setting ps_hold = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 static struct gpiomux_setting slimbus = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_KEEPER,
 };
+#endif /* CONFIG_SIERRA */
 
+#ifdef CONFIG_SIERRA_UART
 static struct gpiomux_setting gsbi4 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+#else
+static struct gpiomux_setting gsbi2 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif /* CONFIG_SIERRA */
 
+#ifdef CONFIG_SIERRA_UART
 static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
@@ -47,20 +60,12 @@ static struct gpiomux_setting gsbi3 = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-#ifndef CONFIG_SIERRA_AR7
-static struct gpiomux_setting gsbi3_cs1_config = {
-	.func = GPIOMUX_FUNC_4,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif /* !CONFIG_SIERRA_AR7 */
-#ifdef CONFIG_SIERRA_AR7
 static struct gpiomux_setting gsbi5_uart = {
     .func = GPIOMUX_FUNC_1,
     .drv = GPIOMUX_DRV_8MA,
     .pull = GPIOMUX_PULL_NONE,
 };
-#endif /* CONFIG_SIERRA_AR7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 #ifdef CONFIG_LTC4088_CHARGER
@@ -71,7 +76,7 @@ static struct gpiomux_setting ltc4088_chg_cfg = {
 };
 #endif
 
-#ifndef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_WIFI_SDCC2
 static struct gpiomux_setting sdcc2_clk_actv_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_16MA,
@@ -91,11 +96,15 @@ static struct gpiomux_setting sdcc2_suspend_cfg = {
 };
 #endif
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC  
 static struct gpiomux_setting cdc_mclk = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 #ifdef CONFIG_FB_MSM_EBI2
 static struct gpiomux_setting ebi2_lcdc_a_d = {
@@ -131,6 +140,8 @@ static struct gpiomux_setting wlan_suspend_config = {
 	.dir = GPIOMUX_IN,
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 	{
 		.gpio = 24,
@@ -139,8 +150,10 @@ static struct msm_gpiomux_config msm9615_audio_codec_configs[] __initdata = {
 		},
 	},
 };
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
-#ifndef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_WIFI_SDCC2
 static struct msm_gpiomux_config msm9615_sdcc2_configs[] __initdata = {
 	{
 		/* SDC2_DATA_0 */
@@ -244,6 +257,24 @@ static struct msm_gpiomux_config
 #endif
 
 struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
+/* SWISTART */
+#ifdef CONFIG_SIERRA_I2C_GSBI2 
+	{
+		.gpio      = 4,	/* GSBI2 I2C QUP SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi2,
+			[GPIOMUX_ACTIVE] = &gsbi2,
+		},
+	},
+	{
+		.gpio      = 5,	/* GSBI2 I2C QUP SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi2,
+		},
+	},
+#endif /* CONFIG_SIERRA */
+
+#ifdef CONFIG_SIERRA_SPI_INF 
 	{
 		.gpio      = 8,		/* GSBI3 QUP SPI_CLK */
 		.settings = {
@@ -268,6 +299,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi3,
 		},
 	},
+#endif
+#ifdef CONFIG_SIERRA_UART
 	{
 		.gpio      = 12,	/* GSBI4 UART */
 		.settings = {
@@ -292,6 +325,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi4,
 		},
 	},
+#endif
+#ifdef CONFIG_SIERRA_I2C_GSBI5
 	{
 		.gpio      = 16,	/* GSBI5 I2C QUP SCL */
 		.settings = {
@@ -305,7 +340,8 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi5,
 		},
 	},
-#ifdef CONFIG_SIERRA_AR7
+#endif
+#ifdef CONFIG_SIERRA_UART
     {
         .gpio      = 18,    /* GSBI5 UART */
         .settings = {
@@ -318,7 +354,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
             [GPIOMUX_SUSPENDED] = &gsbi5_uart,
         },
     },
-#else /* CONFIG_SIERRA_AR7 */
+#else /* CONFIG_SIERRA */
 /* SWISTART */
 #if 0
 	{
@@ -328,11 +364,14 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi3_cs1_config,
 		},
 	},
-#endif
+#endif 
 /* SWISTOP */
-#endif /* CONFIG_SIERRA_AR7 */
-};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
+};
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 static struct msm_gpiomux_config msm9615_slimbus_configs[] __initdata = {
 	{
 		.gpio      = 20,	/* Slimbus data */
@@ -347,6 +386,8 @@ static struct msm_gpiomux_config msm9615_slimbus_configs[] __initdata = {
 		},
 	},
 };
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 #ifdef CONFIG_FB_MSM_EBI2
 static struct msm_gpiomux_config msm9615_ebi2_lcdc_configs[] __initdata = {
@@ -394,23 +435,34 @@ int __init msm9615_init_gpiomux(void)
 	msm_gpiomux_install(msm9615_gsbi_configs,
 			ARRAY_SIZE(msm9615_gsbi_configs));
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 	msm_gpiomux_install(msm9615_slimbus_configs,
 			ARRAY_SIZE(msm9615_slimbus_configs));
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	msm_gpiomux_install(msm9615_ps_hold_config,
 			ARRAY_SIZE(msm9615_ps_hold_config));
+
 	msm_gpiomux_install(sd_card_det_config,
 			ARRAY_SIZE(sd_card_det_config));
-#ifndef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_WIFI_SDCC2 
 	msm_gpiomux_install(msm9615_sdcc2_configs,
 			ARRAY_SIZE(msm9615_sdcc2_configs));
 #endif
+
 #ifdef CONFIG_LTC4088_CHARGER
 	msm_gpiomux_install(msm9615_ltc4088_charger_config,
 			ARRAY_SIZE(msm9615_ltc4088_charger_config));
 #endif
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 	msm_gpiomux_install(msm9615_audio_codec_configs,
 			ARRAY_SIZE(msm9615_audio_codec_configs));
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	msm_gpiomux_install(msm9615_wlan_configs,
 			ARRAY_SIZE(msm9615_wlan_configs));

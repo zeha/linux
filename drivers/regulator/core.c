@@ -33,7 +33,7 @@
 #include <linux/module.h>
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_ANT_DETECTION
 #include "../../arch/arm/mach-msm/include/mach/rpm-regulator-9615.h"
 #endif
 /* SWISTOP */
@@ -65,7 +65,7 @@ static int suppress_info_printing;
 static bool has_full_constraints;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_ANT_DETECTION
 static struct regulator *reg[RPM_VREG_ID_PM8018_MAX_REAL]={0};
 #endif
 /* SWISTOP */
@@ -647,7 +647,7 @@ static DEVICE_ATTR(bypass, 0444,
 
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_ANT_DETECTION
 static ssize_t regulator_enable_set(struct device *dev,
                  struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1360,7 +1360,7 @@ overflow_err:
 }
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_ANT_DETECTION
 int regulator_enable(struct regulator *regulator);
 #endif
 /* SWISTOP */
@@ -3436,7 +3436,7 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 
 	/* constraints need specific supporting methods */
 /* SWISTART*/
-#ifdef CONFIG_SIERRA   
+#ifdef CONFIG_SIERRA_ANT_DETECTION
   if (ops->enable)
   {
     status = device_create_file(dev, &dev_attr_enable);
@@ -3453,7 +3453,7 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 		if (status < 0)
 			return status;
 /* SWISTART*/
-#ifdef CONFIG_SIERRA  
+#ifdef CONFIG_SIERRA_ANT_DETECTION
     status = device_create_file(dev, &dev_attr_voltage);
     if (status < 0)
     return status;

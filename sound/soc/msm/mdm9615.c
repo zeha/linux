@@ -28,7 +28,7 @@
 #include "msm-pcm-routing.h"
 #include "../codecs/wcd9310.h"
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 #include <sound/msm-dai-q6.h>
 #include <linux/sierra_bsudefs.h>
 #include <linux/sierra_bsuproto.h>
@@ -68,7 +68,7 @@
 
 #define TABLA_EXT_CLK_RATE 12288000
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC)
 #ifdef CONFIG_WCD9304_CODEC
 #define SITAR_EXT_CLK_RATE 12288000
 #endif
@@ -209,7 +209,7 @@ static struct msm_gpiomux_config msm9615_audio_sec_i2s_codec_configs[] = {
 		},
 	},
 };
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static struct gpiomux_setting pri_audio_auxpcm[] = {
   /* Suspended state */
   {
@@ -425,7 +425,7 @@ static int mdm9615_btsco_ch = 1;
 static int mdm9615_auxpcm_rate = SAMPLE_RATE_8KHZ;
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 extern struct platform_device msm_cpudai_auxpcm_rx;
 extern struct platform_device msm_cpudai_sec_auxpcm_rx;
 static int mdm9615_auxpcm_mode = AFE_PCM_CFG_MODE_PCM ;
@@ -649,7 +649,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			return -EINVAL;
 		}
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 		clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
 		clk_prepare_enable(codec_clk);
 		tabla_mclk_enable(codec, 1, dapm);
@@ -674,7 +674,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 			tabla_mclk_enable(codec, 0, dapm);
 #else
 #ifdef CONFIG_WCD9310_CODEC
@@ -705,7 +705,7 @@ static int mdm9615_mclk_event(struct snd_soc_dapm_widget *w,
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static int mdm9615_wp7_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
@@ -827,7 +827,7 @@ static const struct snd_soc_dapm_widget mdm9615_dapm_widgets[] = {
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static const struct snd_soc_dapm_widget mdm9615_wp7_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
@@ -838,7 +838,7 @@ static const struct snd_soc_dapm_widget mdm9615_wp7_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route common_audio_map[] = {
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	{"RX_BIAS", NULL, "MCLK"},
 	{"LDO_H", NULL, "MCLK"},
 
@@ -1077,7 +1077,7 @@ static const struct soc_enum mdm9615_btsco_enum[] = {
 
 static const char *auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static const char *auxpcm_mode_text[] = {"PCM", "AUX"};
 static const char *auxpcm_sync_text[] = {"EXT", "INT"};
 static const char *auxpcm_quant_text[] = {"ALAW_NOPAD", "MULAW_NOPAD", "LINER_NOPAD", "ALAW_PAD", "MULAW_PAD", "LINER_PAD"};
@@ -1191,7 +1191,7 @@ static int mdm9615_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static int mdm9615_auxpcm_mode_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1346,7 +1346,7 @@ static const struct snd_kcontrol_new tabla_mdm9615_controls[] = {
 		mdm9615_slim_0_tx_ch_get, mdm9615_slim_0_tx_ch_put),
 };
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC)
 #ifdef CONFIG_WCD9304_CODEC
 static const struct snd_kcontrol_new sitar_mdm9615_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", mdm9615_enum[0], mdm9615_get_spk,
@@ -1370,7 +1370,7 @@ static const struct snd_kcontrol_new auxpcm_rate_mixer_controls[] = {
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static const struct snd_kcontrol_new auxpcm_mixer_controls[] = {
 	SOC_ENUM_EXT("AUX PCM SampleRate", mdm9615_auxpcm_enum[0],
 		mdm9615_auxpcm_rate_get, mdm9615_auxpcm_rate_put),
@@ -1418,7 +1418,7 @@ static int mdm9615_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static int mdm9615_ar7_sec_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
 {
   int err = 0;
@@ -1445,7 +1445,7 @@ static int mdm9615_ar7_sec_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
 
 #endif
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static void *def_tabla_mbhc_cal(void)
 {
 	void *tabla_cal;
@@ -1700,7 +1700,7 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static const struct snd_kcontrol_new mdm9615_ar7_i2s_controls[] = {
 	SOC_ENUM_EXT("PRI_RX Channels", mdm9615_enum[0],
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
@@ -2268,7 +2268,7 @@ static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
 	if (wcd9xxx_get_intf_type() < 0)
 		ret = -ENODEV;
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 #endif
 		mdm9615_install_codec_i2s_gpio(substream);
@@ -2290,7 +2290,7 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	struct pm_gpio jack_gpio_cfg = {
 		.direction = PM_GPIO_DIR_IN,
 		.pull = PM_GPIO_PULL_NO,
@@ -2304,7 +2304,7 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	rtd->pmdown_time = 0;
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 	err = snd_soc_add_codec_controls(codec, tabla_mdm9615_controls,
 				ARRAY_SIZE(tabla_mdm9615_controls));
 	if (err < 0)
@@ -2352,7 +2352,7 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	if (hs_detect_use_gpio) {
 		pr_debug("%s: GPIO Headset detection enabled\n", __func__);
 		mbhc_cfg.gpio = PM8018_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
@@ -2692,7 +2692,7 @@ static int mdm9615_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static int mdm9615_ar7_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -2760,7 +2760,7 @@ static struct snd_soc_ops mdm9615_auxpcm_be_ops = {
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 static struct snd_soc_ops mdm9615_ar7_sec_auxpcm_be_ops = {
 	.startup = mdm9615_ar7_sec_auxpcm_startup,
 	.shutdown = mdm9615_ar7_sec_auxpcm_shutdown,
@@ -3128,7 +3128,7 @@ static struct snd_soc_dai_link mdm9615_dai_slimbus_tabla[] = {
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 	/* FrontEnd DAI Links */
@@ -3618,7 +3618,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 
 	/* Backend SlimBus DAI Links */
 /* SWISTART */
-#ifdef CONFIG_WCD9310_CODEC
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 {
 		.name = LPASS_BE_SLIMBUS_0_RX,
 		.stream_name = "Slimbus Playback",
@@ -3685,7 +3685,7 @@ static struct snd_soc_dai_link mdm9615_slimbus_dai[
 					 ARRAY_SIZE(mdm9615_dai_slimbus_tabla)];
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 static struct snd_soc_card snd_soc_card_mdm9615 = {
 		.name		= "mdm9615-tabla-snd-card",
 };
@@ -3710,6 +3710,11 @@ void  __init install_codec_i2s_gpio(void)
 static int __init mdm9615_audio_init(void)
 {
 	int ret;
+/* SWISTART */
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+	enum bshwtype hwtype;
+#endif
+/* SWISTOP */
 
 	/* Set GPIO headset detection by default */
 	hs_detect_use_gpio = true;
@@ -3719,7 +3724,7 @@ static int __init mdm9615_audio_init(void)
 		return -ENODEV ;
 	}
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
@@ -3738,44 +3743,42 @@ static int __init mdm9615_audio_init(void)
 			wcd9xxx_get_intf_type());
 			
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	pr_info("%s(): Interface Type = %d\n", __func__, wcd9xxx_get_intf_type());
 
-	#ifdef CONFIG_SIERRA_AR7
-	if (1)
-	#else
-	if (0)
-	#endif
+	hwtype = bsgethwtype();
+
+	switch (hwtype)
 	{
-		enum bshwtype hwtype;
-		hwtype = bsgethwtype();
+		case BSAR7550:
+		case BSAR7552:
+		case BSAR7554: 
+		case BSAR7550_LARGER_MEMORY:
+		case BSAR7552_LARGER_MEMORY:
+		case BSAR7554_LARGER_MEMORY:
+			pr_info("%s - AR7 configuration", __func__);
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar7;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar7);
+			break;
 
-		switch (hwtype)
-		{
-  		  case BSAR7550:
-  		  case BSAR7552:
-  		  case BSAR7554: 
-  		  case BSAR7550_LARGER_MEMORY:
-  		  case BSAR7552_LARGER_MEMORY:
-  		  case BSAR7554_LARGER_MEMORY:
-		    pr_info("%s - AR7 configuration", __func__);
-		    snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar7;
-		    snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar7);
-  		  break;
-
-  		  case BSWP7100_NEW:
-  		  case BSWP7102_NEW:
-  		  case BSWP7104_NEW:
-		  default:
-		    pr_info("%s - WP7 configuration", __func__);
-		    snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
-		    snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
-  		  break;
-		}
-	} 
+		case BSWP7100_NEW:
+		case BSWP7102_NEW:
+		case BSWP7104_NEW:
+			pr_info("%s - WP7 configuration", __func__);
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
+			break;
+  		  
+		case BSMC7304:
+		case BSMC7802:
+		case BSMC7350:
+		case BSMC7350L:
+		default:
+			pr_info("%s - MC7 configuration", __func__);
+	}
 	if (0)
 	{
-#endif /* CONFIG_SIERRA */
+#endif
 /* SWISTOP */
   	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
   		memcpy(mdm9615_slimbus_dai, mdm9615_dai_common,
@@ -3801,7 +3804,7 @@ static int __init mdm9615_audio_init(void)
   				ARRAY_SIZE(mdm9615_dai_common);
    }
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
  }
 #endif
 /* SWISTOP */
@@ -3825,7 +3828,7 @@ static int __init mdm9615_audio_init(void)
 	secpcm_portslc_virt_addr = ioremap(SEC_PCM_PORT_SLC_ADDR, 4);
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	hs_detect_use_gpio = true;
 #endif
 /* SWISTOP */

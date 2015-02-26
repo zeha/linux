@@ -31,7 +31,7 @@
 
 /* SWISTART */
 /* SWI AFE PCM deveice is pcmC0D4p/pcmC0D5p */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 #define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D5p"
 #define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D6c"
 #else

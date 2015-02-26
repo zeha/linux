@@ -510,7 +510,7 @@ static void grmnet_ctrl_smd_port_free(int portno)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 void gsmd_ctrl_smd_port_reg(void)
 {
 	int i;
@@ -526,7 +526,7 @@ void gsmd_ctrl_smd_port_reg(void)
 		}
 	}
 }
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 static int grmnet_ctrl_smd_port_alloc(int portno)
@@ -561,9 +561,9 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	pdrv->driver.owner = THIS_MODULE;
 
 /* SWISTART */
-#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
+#if !defined(CONFIG_SIERRA_USB_COMP) || !defined(FEATURE_MORPHING)
 	platform_driver_register(pdrv);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);

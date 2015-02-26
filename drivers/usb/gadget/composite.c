@@ -22,9 +22,9 @@
 #include <asm/unaligned.h>
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 #include <linux/usb/sierra_ududefs.h>
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 
@@ -42,7 +42,7 @@ static struct usb_gadget_strings **get_containers_gs(
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 #define MSOS_STRING_SIGNATURE_SIZE 14
 #define MSOS_STRING_DESCRIPTOR_SIZE 18
 #define MSOS_SIGNATURE "MSFT100"
@@ -415,7 +415,7 @@ int usb_interface_id(struct usb_configuration *config,
 
 	if (id < MAX_CONFIG_INTERFACES) {
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 		/* Obtain Interface Number Desired 
 			 Allow existing next_interface_id to continue counting
 			 That is used elsewhere for total number of interfaces in configuration */
@@ -428,7 +428,7 @@ int usb_interface_id(struct usb_configuration *config,
 		config->interface[id] = function;
 		config->next_interface_id = id + 1;
 		return id;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	}
 	return -ENODEV;
@@ -738,14 +738,14 @@ static int set_config(struct usb_composite_dev *cdev,
 		struct usb_function	*f = c->interface[tmp];
 		struct usb_descriptor_header **descriptors;
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 		/* Our Interface numbers are not sequential, allow continuing when one is not used */
 		if (!f)
 			continue;
 #else
 		if (!f)
 			break;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		/*
 		 * Record which endpoints are used by the function. This is used
@@ -1331,6 +1331,11 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	struct usb_function		*f = NULL;
 	u8				endp;
 	struct usb_configuration *c;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	int intf_cnt  = 0;
+ #endif /*SIERRA*/
+ /* SWISTOP */
 
 
 	if (w_length > USB_COMP_EP0_BUFSIZ)
@@ -1344,7 +1349,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	req->length = 0;
 	gadget->ep0->driver_data = cdev;
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	switch(ctrl->bRequestType & USB_TYPE_MASK) {
     
 	case USB_TYPE_VENDOR:
@@ -1482,7 +1487,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			break;
 		case USB_DT_STRING:
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 			if ( (cdev->desc.bNumConfigurations > 1) &&
 					((w_value & 0xff) == MSOS_STRING_INDEX) )
 			{
@@ -1491,7 +1496,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				memcpy(req->buf, (const void *)&android_msos_decriptor, value);
 				break;
 			}
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
@@ -1686,7 +1691,7 @@ unknown:
 		goto done;
 	}
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
     } /*bRequestType & USB_TYPE_MASK*/
 #endif /*SIERRA*/
 /* SWISTOP */

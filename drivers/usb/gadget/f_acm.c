@@ -182,7 +182,7 @@ static int acm_port_disconnect(struct f_acm *acm)
 
 #define GS_NOTIFY_INTERVAL_MS		32
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 /* Work around issue where driver needs zero length packet if interrupt packet is at MAX size */
 #define GS_NOTIFY_MAXPACKET		10 + 2	/* notification + 2 bytes + 2 spares */
 #else

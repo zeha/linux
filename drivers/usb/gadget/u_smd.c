@@ -39,11 +39,11 @@
 static struct workqueue_struct *gsmd_wq;
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 #define SMD_N_PORTS	2
 #else
 #define SMD_N_PORTS	3
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 #define CH_OPENED	0
@@ -59,7 +59,7 @@ struct smd_port_info smd_pi[SMD_N_PORTS] = {
 		.name = "DS",
 	},
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 	{
 		.name = "UNUSED",
 	},
@@ -71,7 +71,7 @@ struct smd_port_info smd_pi[SMD_N_PORTS] = {
 	{
 		.name = "DATA11",
 	},
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 };
 
@@ -780,11 +780,11 @@ static int gsmd_ch_probe(struct platform_device *pdev)
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	for (i = 0; i < 3; i++) {
 #else
 	for (i = 0; i < n_smd_ports; i++) {
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		port = smd_ports[i].port;
 		pi = port->pi;
@@ -992,11 +992,11 @@ int gsmd_setup(struct usb_gadget *g, unsigned count)
 	}
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	for (i = 0; i < 3; i++) {
 #else
 	for (i = 0; i < count; i++) {
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		mutex_init(&smd_ports[i].lock);
 		n_smd_ports++;
@@ -1013,11 +1013,11 @@ int gsmd_setup(struct usb_gadget *g, unsigned count)
 	return 0;
 free_smd_ports:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	for (i = 0; i < 3; i++)
 #else
 	for (i = 0; i < n_smd_ports; i++)
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		gsmd_port_free(i);
 

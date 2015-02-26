@@ -24,7 +24,7 @@
 
 #define RMNET_NOTIFY_INTERVAL	5
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 /* Work around issue where driver needs zero length packet if interrupt packet is at MAX size */
 #define RMNET_MAX_NOTIFY_SIZE	( sizeof(struct usb_cdc_notification) + 2 )
 #else
@@ -56,16 +56,16 @@ struct f_rmnet {
 	atomic_t			notify_count;
 	unsigned long			cpkts_len;
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	struct work_struct  ctrl_reg_w;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 };
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 static struct workqueue_struct  *frmnet_wq;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 #define NR_RMNET_PORTS	3
@@ -561,7 +561,7 @@ static void frmnet_suspend(struct usb_function *f)
 
 /* SWISTART */
 /* QCT case 01085205 */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_USB_COMP)
 	struct rmnet_ctrl_pkt   *cpkt;
 	unsigned long		 flags;
 #endif /* CONFIG_SIERRA */
@@ -595,7 +595,7 @@ static void frmnet_suspend(struct usb_function *f)
  * modem enters suspend state, the queue counter and the queue will be out of sync. Drop any pending packets in the 
  * queue to resolve this issue, otherwise RmNet interface can't work properly after resume.
  */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_USB_COMP)
 	/* Drop any pending packets */
 	spin_lock_irqsave(&dev->lock, flags);
 	while(!list_empty(&dev->cpkt_resp_q)) {
@@ -671,7 +671,7 @@ static void frmnet_disable(struct usb_function *f)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 extern void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req);
 
 static int
@@ -729,7 +729,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
   /* Allocate Request buffer and bind to EP now that config is assigned */
 	if (!dev->notify_req)
 		ret = frmnet_bind_ep_req(f);
@@ -950,7 +950,7 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 #else
 static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
@@ -1133,7 +1133,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 /* 
  Bind EP with Request Allocation after configuration selected
 */
-#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
+#if !defined(CONFIG_SIERRA_USB_COMP) || !defined(FEATURE_MORPHING)
 	dev->notify_req = frmnet_alloc_req(ep,
 				sizeof(struct usb_cdc_notification),
 				GFP_KERNEL);
@@ -1202,7 +1202,7 @@ fail:
 	if (dev->notify_req)
 		frmnet_free_req(dev->notify, dev->notify_req);
 /* SWISTART */
-#if !defined(CONFIG_SIERRA) || !defined(FEATURE_MORPHING)
+#if !defined(CONFIG_SIERRA_USB_COMP) || !defined(FEATURE_MORPHING)
 ep_notify_alloc_fail:
 #endif /* SIERRA and FEATURE_MORPHING */
 /* SWISTOP */
@@ -1297,14 +1297,14 @@ static void frmnet_cleanup(void)
 	no_data_hsuart_ports = 0;
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	destroy_workqueue(frmnet_wq);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 /* 
 	Need to register the SMD ports but it cannot be done in the context
 	of the frmnet_set_alt function (interrupt handler)
@@ -1314,7 +1314,7 @@ static void frmnet_port_reg_work(struct work_struct *w)
 {
 	gsmd_ctrl_smd_port_reg();
 }
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 static int frmnet_init_port(const char *ctrl_name, const char *data_name)
@@ -1399,7 +1399,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 	nr_rmnet_ports++;
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(FEATURE_MORPHING)
+#if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	/* 
 		Need to establish a work queue to support registering rmnet QMI ports
 		over SMD after configuration selected to prevent collision with use by MBIM 
@@ -1410,7 +1410,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		return -ENOMEM;
 	}
 	INIT_WORK(&dev->ctrl_reg_w, frmnet_port_reg_work);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 	return 0;

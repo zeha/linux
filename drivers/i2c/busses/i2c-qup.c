@@ -198,7 +198,7 @@ static inline void qup_print_status(struct qup_i2c_dev *dev)
 #endif
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_I2C_INF
 int swi_set_i2c_freq(struct i2c_adapter *adap,int freq)
 {
 	struct qup_i2c_dev *dev = i2c_get_adapdata(adap);

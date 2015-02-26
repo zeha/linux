@@ -20,7 +20,7 @@
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
 /* SWISTART */
-#if defined(CONFIG_SIERRA) && defined(CONFIG_WCD9304_CODEC)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) && defined(CONFIG_WCD9304_CODEC)
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
@@ -63,7 +63,7 @@
 #include "ci13xxx_udc.h"
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 #include <mach/rpm-regulator.h>
 #include <linux/sierra_bsudefs.h>
 #include <linux/sierra_bsuproto.h>
@@ -212,7 +212,7 @@ struct pm8xxx_mpp_init {
 
 /* Initial PM8018 GPIO configurations */
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_GPIO
 static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 	PM8018_GPIO_OUTPUT(2,	0,	HIGH), /* EXT_LDO_EN_WLAN */
 	PM8018_GPIO_OUTPUT(6,	0,	LOW), /* WLAN_CLK_PWR_REQ */
@@ -270,8 +270,10 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	{"batt_id", CHANNEL_BATT_ID_THERM, CHAN_PATH_SCALING1,
 		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 /* SWISTART */
+#ifdef CONFIG_SIERRA_BATTERY_SENSOR
 	{"mpp_05", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1,
 		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+#endif
 /* SWISTOP */
 	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
@@ -281,8 +283,12 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+/* SWISTART */
+#ifdef CONFIG_SIERRA_XO_THERM
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+#endif
+/* SWISTOP */
 };
 
 static struct pm8xxx_adc_properties pm8018_adc_data = {
@@ -312,7 +318,7 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata = {
 };
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_RTC7
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
 	.rtc_write_enable	= false,
 	.rtc_alarm_powerup	= true,
@@ -328,7 +334,7 @@ static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
 
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_PWRKEY
 static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.pull_up		= 1,
 	.kpd_trigger_delay_us	= 31250,   /* 1/32 Second */
@@ -357,7 +363,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
  */
 #define PM8XXX_PWM_CHANNEL_NONE		-1
 
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_LED_PIN
 static struct led_info pm8018_led_info[] = {
 	[0] = {
 		.name	= "led:kb",
@@ -394,7 +400,7 @@ static struct ltc4088_charger_platform_data ltc4088_chg_pdata = {
 };
 #endif
 
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_LED_PIN
 static struct pm8018_platform_data pm8018_platform_data = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
 	.gpio_pdata		= &pm8xxx_gpio_pdata,
@@ -470,13 +476,15 @@ static void __init msm9615_init_buses(void)
  */
 static struct wcd9xxx_pdata wcd9xxx_i2c_platform_data = {
 /* SWISTART */
-#ifndef CONFIG_SIERRA_AR7
+#if !defined (CONFIG_SIERRA_DR) && defined (CONFIG_SIERRA_INTERNAL_CODEC)
 	.irq = MSM_GPIO_TO_INT(85),
 #endif
 /* SWISTOP */
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 	.reset_gpio = 84,
+#endif /* CONFIG_SIERRA */
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
@@ -629,7 +637,7 @@ static struct slim_device msm_slim_tabla20 = {
 #endif
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 
 #define SITAR_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + 256/*NR_PM8921_IRQS*/)
@@ -798,7 +806,7 @@ static struct slim_boardinfo msm_slim_devices[] = {
 	},
 #endif
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 	{
 		.bus_num = 1,
@@ -817,13 +825,21 @@ static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
 	.max_clock_speed = 24000000,
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_I2C_GSBI2
+static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi2_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+#elif defined CONFIG_SIERRA_I2C_GSBI5
 static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
+#endif /* CONFIG_SIERRA */
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_OTG
 #define USB_5V_EN		3
 #else
 #define USB_5V_EN   4
@@ -999,14 +1015,9 @@ static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 #define MSM_MPM_PIN_USB1_OTGSESSVLD    40
-
-#if defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7)
 #define PM8018_MPP_VDDMIN 1
-#else /* defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7) */
-#define PM8018_MPP_VDDMIN 2
-#endif /* defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7) */
 #define PM8018_VDDMIN_IO  PM8018_MPP_PM_TO_SYS(PM8018_MPP_VDDMIN)
 /*
  * init MPP Pin for Vddmin
@@ -1030,7 +1041,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.delay_lpm_on_disconnect = true,
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	.vdd_min_enable     = PM8018_VDDMIN_IO,
 	.mpm_otgsessvld_int = MSM_MPM_PIN_USB1_OTGSESSVLD,
 #endif
@@ -1039,7 +1050,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 void msm9615_pm8xxx_gpio_mpp_init_vddmin(void)
 {
 	int rc;
@@ -1184,21 +1195,19 @@ static struct platform_device *common_devices[] = {
 #endif
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA_MC7
+#ifdef CONFIG_SIERRA_UART
 	&msm9615_device_uart_gsbi4,
-#endif /* !CONFIG_SIERRA_MC7 */
-#ifdef CONFIG_SIERRA_AR7
-    &msm9615_device_uart_gsbi5,
-#endif /* CONFIG_SIERRA_AR7 */
+    	&msm9615_device_uart_gsbi5,
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
 /* SWISTART */
-#ifdef CONFIG_SIERRA_MC7
+#ifdef CONFIG_SIERRA_I2C_GSBI2
 	&msm9615_device_qup_i2c_gsbi2,
-#else /* !CONFIG_SIERRA_MC7 */
+#elif defined CONFIG_SIERRA_I2C_GSBI5
 	&msm9615_device_qup_i2c_gsbi5,
-#endif /* CONFIG_SIERRA_MC7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	&msm9615_device_qup_spi_gsbi3,
 	&msm_device_sps,
@@ -1277,13 +1286,13 @@ static void __init msm9615_i2c_init(void)
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 /* SWISTART */
-#ifdef CONFIG_SIERRA_MC7
+#ifdef CONFIG_SIERRA_I2C_GSBI2
 	msm9615_device_qup_i2c_gsbi2.dev.platform_data =
 					&msm9615_i2c_qup_gsbi2_pdata;
-#else /* !CONFIG_SIERRA_MC7 */
+#elif defined CONFIG_SIERRA_I2C_GSBI5
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
-#endif /* CONFIG_SIERRA_MC7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
 		if (msm9615_i2c_devices[i].machs & mach_mask) {

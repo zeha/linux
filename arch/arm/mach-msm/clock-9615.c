@@ -697,7 +697,7 @@ static struct rcg_clk usb_hs1_xcvr_clk = {
 		.ops = &clk_ops_rcg,
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 		VDD_DIG_FMAX_MAP1(NONE, 60000000),
 #else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
@@ -729,7 +729,7 @@ static struct rcg_clk usb_hs1_sys_clk = {
 		.ops = &clk_ops_rcg,
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 		VDD_DIG_FMAX_MAP1(NONE, 60000000),
 #else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
@@ -1633,9 +1633,9 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 	CLK_LOOKUP("core_clk", gsbi3_uart_clk.c, ""),
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_UART
     CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
-#endif /* CONFIG_SIERRA_AR7 */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, ""),
 
@@ -1645,8 +1645,12 @@ static struct clk_lookup msm_clocks_9615[] = {
 #ifdef CONFIG_SIERRA
   CLK_LOOKUP("core_clk",  gsbi4_qup_clk.c, "spi_qsd.4"),
 #endif
+#ifdef CONFIG_SIERRA_I2C_GSBI2
+	CLK_LOOKUP("core_clk",	gsbi2_qup_clk.c, "qup_i2c.0"),
+#elif defined CONFIG_SIERRA_I2C_GSBI5
 	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, "qup_i2c.0"),
-
+#endif
+/* SWISTOP */
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
 	CLK_LOOKUP("mem_clk",		pmem_clk.c,		"msm_sps"),
 	CLK_LOOKUP("core_clk",		prng_clk.c,		"msm_rng.0"),
@@ -1657,15 +1661,15 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("iface_clk",	gsbi3_p_clk.c, "spi_qsd.0"),
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
 /* SWISTART */
-
-#ifdef CONFIG_SIERRA_AR7
-    CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
-#endif /* CONFIG_SIERRA_AR7 */
-#ifdef CONFIG_SIERRA
-	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "spi_qsd.4"),
-#endif
+#ifdef CONFIG_SIERRA_UART
+    	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
+#endif /* CONFIG_SIERRA */
+#ifdef CONFIG_SIERRA_I2C_GSBI2
+	CLK_LOOKUP("iface_clk",	gsbi2_p_clk.c, "qup_i2c.0"),
+#elif defined CONFIG_SIERRA_I2C_GSBI5
 	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, "qup_i2c.0"),
-
+#endif
+/* SWISTOP */
 	CLK_LOOKUP("iface_clk",	     usb_hs1_p_clk.c,		"msm_otg"),
 	CLK_LOOKUP("core_clk",       usb_hs1_sys_clk.c,		"msm_otg"),
 	CLK_LOOKUP("alt_core_clk",   usb_hs1_xcvr_clk.c,	"msm_otg"),

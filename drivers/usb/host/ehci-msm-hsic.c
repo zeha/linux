@@ -561,7 +561,7 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 #define HSIC_DATA_GPIO_PAD_CTL		(MSM_TLMM_BASE+0x20C4)
 #define HSIC_CAL_PAD_CTL       (MSM_TLMM_BASE+0x20C8)
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_HSIC
 #define HSIC_STROBE_PAD_CTL	(MSM_TLMM_BASE+0x20CC)
 #define HSIC_DATA_PAD_CTL	(MSM_TLMM_BASE+0x20C8)
 #endif
@@ -618,7 +618,7 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 		via dedicated I/O */
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_HSIC
 	/* Decrease the ROUT from 0x05(default) to 0x03 */
 	writel_relaxed(0x034A4E10, HSIC_STROBE_PAD_CTL);
 	writel_relaxed(0x034A4E10, HSIC_DATA_PAD_CTL);

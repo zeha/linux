@@ -176,7 +176,7 @@ int config_ep_by_speed(struct usb_gadget *g, struct usb_function *f,
 			struct usb_ep *_ep);
 
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_USB_COMP
 #define	MAX_CONFIG_INTERFACES		16	/* arbitrary; max 255 */
 #else
 #define	MAX_CONFIG_INTERFACES		32	/* arbitrary; max 255 */

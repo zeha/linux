@@ -81,7 +81,7 @@ VREG_CONSUMERS(S2) = {
 	REGULATOR_SUPPLY("VDDD_CDC_D",		"tabla top level"),
 	REGULATOR_SUPPLY("CDC_VDDA_A_1P2V",	"tabla top level"),
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 	REGULATOR_SUPPLY("VDDD_CDC_D",		"sitar-slim"),
 	REGULATOR_SUPPLY("VDDD_CDC_D",		"sitar1p1-slim"),
@@ -111,7 +111,7 @@ VREG_CONSUMERS(S3) = {
 	REGULATOR_SUPPLY("CDC_VDDA_TX",		"0-000d"),
 	REGULATOR_SUPPLY("CDC_VDDA_RX",		"0-000d"),
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar-slim"),
 	REGULATOR_SUPPLY("CDC_VDD_CP",		"sitar1p1-slim"),
@@ -354,7 +354,7 @@ msm_rpm_regulator_init_data[] = {
 	RPM_LDO(L2,      1, 1, 0, 1800000, 1800000, NULL,      0, 10000),
 	RPM_LDO(L3,      1, 1, 0, 1800000, 1800000, NULL,      0, 0),
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_VDDMIN)
 	/* Increase the VREG_L4 from 3.075V to 3.3V */
     RPM_LDO(L4,      0, 1, 0, 3300000, 3300000, NULL,      0, 0),
 #else
