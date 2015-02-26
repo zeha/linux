@@ -1681,7 +1681,7 @@ static int msm_slim_rx_msgq_thread(void *data)
 	return 0;
 }
 
-static int __devinit msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev)
+static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev)
 {
 	int i, ret;
 	u32 pipe_offset;
@@ -1810,7 +1810,7 @@ sps_init_endpoint_failed:
 }
 
 /* Registers BAM h/w resource with SPS driver and initializes msgq endpoints */
-static int __devinit
+static int
 msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem)
 {
 	int i, ret;
@@ -1931,7 +1931,7 @@ static void msm_slim_prg_slew(struct platform_device *pdev,
 	iounmap(slew_reg);
 }
 
-static int __devinit msm_slim_probe(struct platform_device *pdev)
+static int msm_slim_probe(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev;
 	int ret;
@@ -2181,7 +2181,7 @@ err_get_res_bam_failed:
 	return ret;
 }
 
-static int __devexit msm_slim_remove(struct platform_device *pdev)
+static int msm_slim_remove(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 	struct resource *bam_mem;

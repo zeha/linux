@@ -96,7 +96,7 @@ static int pmic8xxx_set_pon1(struct device *dev, u32 debounce_us, bool pull_up)
 {
 	int err;
 	u32 delay;
-	u8 pon_cntl;
+	unsigned pon_cntl;
 	struct regmap *regmap;
 
 	regmap = dev_get_regmap(dev->parent, NULL);

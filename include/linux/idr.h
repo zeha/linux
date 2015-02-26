@@ -27,6 +27,10 @@
 #define IDR_SIZE (1 << IDR_BITS)
 #define IDR_MASK ((1 << IDR_BITS)-1)
 
+#define MAX_ID_SHIFT (sizeof(int)*8 - 1)
+#define MAX_ID_BIT (1U << MAX_ID_SHIFT)
+#define MAX_ID_MASK (MAX_ID_BIT - 1)
+
 struct idr_layer {
 	int			prefix;	/* the ID prefix of this idr_layer */
 	DECLARE_BITMAP(bitmap, IDR_SIZE); /* A zero bit means "space here" */
