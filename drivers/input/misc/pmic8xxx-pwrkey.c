@@ -20,6 +20,7 @@
 #include <linux/regmap.h>
 #include <linux/log2.h>
 
+#include <linux/mfd/pm8xxx/core.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 
 #define PON_CNTL_1 0x1C
@@ -34,9 +35,6 @@
 struct pmic8xxx_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
-	const struct pm8xxx_pwrkey_platform_data *pdata;
-};
-
 /* SWISTART */
 #if defined(CONFIG_SIERRA_PWRKEY)
 	int key_release_irq; 
@@ -44,6 +42,8 @@ struct pmic8xxx_pwrkey {
 	struct device *dev;
 #endif
 /* SWISTOP */
+	const struct pm8xxx_pwrkey_platform_data *pdata;
+};
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwr)
 {

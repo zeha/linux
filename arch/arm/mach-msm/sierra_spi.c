@@ -592,7 +592,7 @@ static struct miscdevice sierra_spi_misc = {
     .fops = &swi_spidev_fops,
 };
 
-static int __devinit swi_spidev_probe(struct spi_device *spi)
+static int swi_spidev_probe(struct spi_device *spi)
 {
 
   /* Allocate driver data */

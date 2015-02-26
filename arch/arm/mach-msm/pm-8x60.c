@@ -648,7 +648,6 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 		struct cpuidle_state_usage *st_usage = &dev->states_usage[i];
 		enum msm_pm_sleep_mode mode;
 		bool allow;
-		void *rs_limits = NULL;
 		uint32_t power;
 		int idx;
 		struct msm_rpmrs_limits *rs_limits = NULL;

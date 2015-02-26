@@ -413,7 +413,7 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		break;
 
 	case AURORA_CACHE_ID:
-		sync_reg_offset = AURORA_SYNC_REG;
+		//sync_reg_offset = AURORA_SYNC_REG;
 		ways = (aux >> 13) & 0xf;
 		ways = 2 << ((ways + 1) >> 2);
 		way_size_shift = AURORA_WAY_SIZE_SHIFT;
@@ -906,6 +906,7 @@ static void __init aurora_broadcast_l2_commands(void)
 	isb();
 }
 
+#ifdef CONFIG_OF
 static void __init aurora_of_setup(const struct device_node *np,
 				u32 *aux_val, u32 *aux_mask)
 {
@@ -927,7 +928,7 @@ static void __init aurora_of_setup(const struct device_node *np,
 	*aux_val |= val;
 	*aux_mask &= ~mask;
 }
-#ifdef CONFIG_OF
+
 static const struct l2x0_of_data pl310_data = {
 	.setup = pl310_of_setup,
 	.save  = pl310_save,
