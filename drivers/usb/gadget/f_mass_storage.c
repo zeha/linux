@@ -3375,7 +3375,7 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 		     ? "File-CD Gadget"
 		     : "File-Stor Gadget"),
 		 i);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP  */
 /* SWISTOP */
 }
 EXPORT_SYMBOL_GPL(fsg_common_set_inquiry_string);
