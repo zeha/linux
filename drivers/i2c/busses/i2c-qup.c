@@ -197,6 +197,23 @@ static inline void qup_print_status(struct qup_i2c_dev *dev)
 }
 #endif
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int swi_set_i2c_freq(struct i2c_adapter *adap,int freq)
+{
+	struct qup_i2c_dev *dev = i2c_get_adapdata(adap);
+	/* We support frequencies upto FAST Mode(400KHz) */
+	if (freq <= 0 || freq > 400000) {
+		pr_err("clock frequency not supported\n");
+		return -EIO;
+	}
+	dev->pdata->clk_freq = freq;
+	dev->clk_ctl = 0;
+	return 0;
+}
+#endif
+/* SWISTOP */
+
 static irqreturn_t
 qup_i2c_interrupt(int irq, void *devid)
 {

@@ -217,8 +217,7 @@ static char serial_string[256];
 static char pri_number_string[256];
 static char pri_revision_string[256];
 static char imei_string[256];
-static int usb_det = 0;
-#endif /* SIERRA */
+#endif
 /* SWISTOP */
 
 /* String Table */
@@ -2246,36 +2245,6 @@ static ssize_t usr_pid_store(struct device *pdev,
     }
 	return size;
 }
-static ssize_t usb_det_show(struct device *pdev,
-		struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%d\n",usb_det);
-}
-
-static ssize_t usb_det_store(struct device *pdev,
-		struct device_attribute *attr, const char *buff, size_t size)
-{
-	int usbdetect = 0;
-
-	sscanf(buff, "%d", &usbdetect);
-
-	pr_info("android_usb: USB_DET = %d\n",
-			usbdetect);
-	usb_det = usbdetect;
-
-	/* Changes based on 80-N5423-14 */
-	if (usb_det == 2)
-	{
-		msm9615_pm8xxx_gpio_mpp_init_swi();	
-		msm_otg_vddmin_init();
-	}
- 	return size;
-}
-
-int msm_get_usb_det(void)
-{
-	return usb_det;
-}
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -2585,8 +2554,6 @@ static DEVICE_ATTR(sd_en, S_IRUGO | S_IWUSR,
         sd_en_show, sd_en_store);
 static DEVICE_ATTR(usr_pid, S_IRUGO | S_IWUSR,
         usr_pid_show, usr_pid_store);
-static DEVICE_ATTR(usb_det, S_IRUGO | S_IWUSR,
-		usb_det_show, usb_det_store);
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -2609,7 +2576,6 @@ static struct device_attribute *android_usb_attributes[] = {
     &dev_attr_swoc_en,
     &dev_attr_sd_en,
     &dev_attr_usr_pid,
-    &dev_attr_usb_det,
 #endif
 /* SWISTOP */
 	&dev_attr_functions,

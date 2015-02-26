@@ -54,6 +54,28 @@ static ssize_t bsreadhwconfig(void)
 }
 /************
  *
+ * Name:     bsreadboottoappflag
+ *
+ * Purpose:  To get the boot to app flags from SMD
+ *
+ * Parms:    none
+ *
+ * Return:   uint32 bitmask of flags
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint32_t bsreadboottoappflag(void)
+{
+  struct bcboottoappmsg *mp = (struct bcboottoappmsg *)BS_BOOT_APP_MSG_START;
+  return mp->flags;
+}
+EXPORT_SYMBOL(bsreadboottoappflag);
+
+/************
+ *
  * Name:     bsgethwtype
  *
  * Purpose:  Returns hardware type read from QFPROM /GPIO

@@ -20,5 +20,6 @@ extern enum bshwtype bsgethwtype(void);
 extern uint8_t bsgethwrev(void);
 extern uint32_t bsgetmanufacturingcode(void);
 extern bool bssupport(enum bsfeature feature);
+extern uint32_t bsreadboottoappflag(void);
 
 #endif

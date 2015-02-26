@@ -43,12 +43,15 @@
 #include <asm/byteorder.h>
 #include <asm/io.h>
 #include <asm/irq.h>
+#include <asm/system.h>
 #include <asm/unaligned.h>
-
-#if defined(CONFIG_PPC_PS3)
-#include <asm/firmware.h>
+/* SWIATART */
+#ifdef CONFIG_SIERRA_AR7
+#include <linux/sierra_bsudefs.h>
+#include <linux/sierra_bsuproto.h>
+#define BCBOOTAPPFLAG_HSIC_ENABLE_M        0x00000200
 #endif
-
+/* SWISTOP */
 /*-------------------------------------------------------------------------*/
 
 /*
@@ -98,7 +101,7 @@ module_param (park, uint, S_IRUGO);
 MODULE_PARM_DESC (park, "park setting; 1-3 back-to-back async packets");
 
 /* for flakey hardware, ignore overcurrent indicators */
-static bool ignore_oc = 0;
+static int ignore_oc = 0;
 module_param (ignore_oc, bool, S_IRUGO);
 MODULE_PARM_DESC (ignore_oc, "ignore bogus hardware overcurrent indications");
 
@@ -252,7 +255,7 @@ static int ehci_reset (struct ehci_hcd *ehci)
 	command |= CMD_RESET;
 	dbg_cmd (ehci, "reset", command);
 	ehci_writel(ehci, command, &ehci->regs->command);
-	ehci->rh_state = EHCI_RH_HALTED;
+	ehci_to_hcd(ehci)->state = HC_STATE_HALT;
 	ehci->next_statechange = jiffies;
 	retval = ehci_handshake(ehci, &ehci->regs->command,
 			    CMD_RESET, 0, 250 * 1000);
@@ -435,7 +438,21 @@ static void ehci_stop (struct usb_hcd *hcd)
 
 	/* root hub is shut down separately (first, when possible) */
 	spin_lock_irq (&ehci->lock);
+	if (ehci->async) {
+		/*
+		 * TODO: Observed that ehci->async next ptr is not
+		 * NULL sometimes which leads to crash in mem_cleanup.
+		 * Root cause is not yet known why this messup is
+		 * happenning.
+		 * The follwing workaround fixes the crash caused
+		 * by this temporarily.
+		 * check if async next ptr is not NULL and unlink
+		 * explictly.
+		 */
+		if (ehci->async->qh_next.ptr != NULL)
+			start_unlink_async(ehci, ehci->async->qh_next.qh);
 	end_free_itds(ehci);
+	}
 	spin_unlock_irq (&ehci->lock);
 	ehci_mem_cleanup (ehci);
 
@@ -564,16 +581,25 @@ static int ehci_init(struct usb_hcd *hcd)
 }
 
 /* start HC running; it's halted, ehci_init() has been run (once) */
-static int ehci_run (struct usb_hcd *hcd)
+static int __maybe_unused ehci_run (struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
+	int			retval;
 	u32			temp;
 	u32			hcc_params;
 
 	hcd->uses_new_polling = 1;
 
 	/* EHCI spec section 4.1 */
-
+	/*
+	 * TDI driver does the ehci_reset in their reset callback.
+	 * Don't reset here, because configuration settings will
+	 * vanish.
+	 */
+	if (!ehci_is_TDI(ehci) && (retval = ehci_reset(ehci)) != 0) {
+		ehci_mem_cleanup(ehci);
+		return retval;
+	}
 	ehci_writel(ehci, ehci->periodic_dma, &ehci->regs->frame_list);
 	ehci_writel(ehci, (u32)ehci->async->qh_dma, &ehci->regs->async_next);
 
@@ -778,6 +804,12 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 				continue;
 			pstatus = ehci_readl(ehci,
 					 &ehci->regs->port_status[i]);
+
+			/*set RS bit in case of remote wakeup*/
+			if (ehci_is_TDI(ehci) && !(cmd & CMD_RUN) &&
+					(pstatus & PORT_SUSPEND))
+				ehci_writel(ehci, cmd | CMD_RUN,
+						&ehci->regs->command);
 
 			if (pstatus & PORT_OWNER)
 				continue;
@@ -1008,7 +1040,7 @@ idle_timeout:
 	spin_unlock_irqrestore (&ehci->lock, flags);
 }
 
-static void
+static void __maybe_unused
 ehci_endpoint_reset(struct usb_hcd *hcd, struct usb_host_endpoint *ep)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
@@ -1247,25 +1279,45 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_AUTHOR (DRIVER_AUTHOR);
 MODULE_LICENSE ("GPL");
 
+#ifdef CONFIG_PPC_PS3
+#include "ehci-ps3.c"
+#define	PS3_SYSTEM_BUS_DRIVER	ps3_ehci_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_HCD_PPC_OF
+#include "ehci-ppc-of.c"
+#define OF_PLATFORM_DRIVER	ehci_hcd_ppc_of_driver
+#endif
+
+#ifdef CONFIG_XPS_USB_HCD_XILINX
+#include "ehci-xilinx-of.c"
+#define XILINX_OF_PLATFORM_DRIVER	ehci_hcd_xilinx_of_driver
+#endif
+
+
 #ifdef CONFIG_USB_EHCI_FSL
 #include "ehci-fsl.c"
 #define	PLATFORM_DRIVER		ehci_fsl_driver
+#define PLATFORM_DRIVER_PRESENT
 #endif
 
-#ifdef CONFIG_USB_EHCI_MSM_HSIC
-#include "ehci-msm-hsic.c"
-#define HSIC_PLATFORM_DRIVER		ehci_msm_hsic_driver
+#ifdef CONFIG_USB_EHCI_MSM
+#include "ehci-msm.c"
+#include "ehci-msm2.c"
+#define PLATFORM_DRIVER_PRESENT
 #endif
 
 
 #ifdef CONFIG_USB_EHCI_SH
 #include "ehci-sh.c"
 #define PLATFORM_DRIVER		ehci_hcd_sh_driver
+#define PLATFORM_DRIVER_PRESENT
 #endif
 
 #ifdef CONFIG_PPC_PS3
 #include "ehci-ps3.c"
 #define	PS3_SYSTEM_BUS_DRIVER	ps3_ehci_driver
+#define PLATFORM_DRIVER_PRESENT
 #endif
 
 #ifdef CONFIG_USB_EHCI_HCD_PPC_OF
@@ -1296,6 +1348,7 @@ MODULE_LICENSE ("GPL");
 #ifdef CONFIG_SPARC_LEON
 #include "ehci-grlib.c"
 #define PLATFORM_DRIVER		ehci_grlib_driver
+#define PLATFORM_DRIVER_PRESENT
 #endif
 
 #ifdef CONFIG_USB_EHCI_MV
@@ -1308,10 +1361,114 @@ MODULE_LICENSE ("GPL");
 #define	PLATFORM_DRIVER		ehci_hcd_sead3_driver
 #endif
 
+#ifdef CONFIG_USB_EHCI_MSM_72K
+#include "ehci-msm72k.c"
+#define PLATFORM_DRIVER_PRESENT
+#endif
+
+#ifdef CONFIG_USB_EHCI_ATH79
+#include "ehci-ath79.c"
+#define PLATFORM_DRIVER_PRESENT
+#endif
+
+
+static struct platform_driver *plat_drivers[]  = {
+#ifdef CONFIG_USB_EHCI_FSL
+	&ehci_fsl_driver,
+#endif
+
+#ifdef CONFIG_USB_EHCI_MXC
+	&ehci_mxc_driver,
+#endif
+
+#ifdef CONFIG_CPU_SUBTYPE_SH7786
+	&ehci_hcd_sh_driver,
+#endif
+
+#ifdef CONFIG_SOC_AU1200
+	&ehci_hcd_au1xxx_driver,
+#endif
+
+#ifdef CONFIG_USB_EHCI_HCD_OMAP
+	&ehci_hcd_omap_driver,
+#endif
+
+#ifdef CONFIG_PLAT_ORION
+	&ehci_orion_driver,
+#endif
+
+#ifdef CONFIG_ARCH_IXP4XX
+	&ixp4xx_ehci_driver,
+#endif
+
+#ifdef CONFIG_USB_W90X900_EHCI
+	&ehci_hcd_w90x900_driver,
+#endif
+
+#ifdef CONFIG_ARCH_AT91
+	&ehci_atmel_driver,
+#endif
+
+#ifdef CONFIG_USB_OCTEON_EHCI
+	&ehci_octeon_driver,
+#endif
+
+#ifdef CONFIG_USB_CNS3XXX_EHCI
+	&cns3xxx_ehci_driver,
+#endif
+
+#ifdef CONFIG_ARCH_VT8500
+	&vt8500_ehci_driver,
+#endif
+
+#ifdef CONFIG_PLAT_SPEAR
+	&spear_ehci_hcd_driver,
+#endif
+
+#ifdef CONFIG_USB_EHCI_HCD_PMC_MSP
+	&ehci_hcd_msp_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_TEGRA
+	&tegra_ehci_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_S5P
+	&s5p_ehci_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_ATH79
+	&ehci_ath79_driver
+#endif
+
+#ifdef CONFIG_SPARC_LEON
+	&ehci_grlib_driver
+#endif
+
+#if defined(CONFIG_USB_EHCI_MSM_72K) || defined(CONFIG_USB_EHCI_MSM)
+	&ehci_msm_driver,
+#endif
+
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+	&ehci_msm_hsic_driver,
+#endif
+
+#ifdef CONFIG_USB_EHCI_MSM
+	&ehci_msm2_driver,
+#endif
+
+};
+
+
+
 static int __init ehci_hcd_init(void)
 {
-	int retval = 0;
-
+	int i, retval = 0;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AR7
+	char* hsichostname = "msm_hsic_host";
+#endif
+/* SWISTART */
 	if (usb_disabled())
 		return -ENODEV;
 
@@ -1335,11 +1492,26 @@ static int __init ehci_hcd_init(void)
 	}
 #endif
 
-#ifdef PLATFORM_DRIVER
-	retval = platform_driver_register(&PLATFORM_DRIVER);
-	if (retval < 0)
-		goto clean0;
-#endif
+	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AR7
+		if(!((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)))
+		{
+			pr_info("%s():HSIC host is disabe", __func__ );
+			if(strcmp(plat_drivers[i]->driver.name, hsichostname )== 0)
+			{
+				continue;
+			}
+		}
+endif
+/* SWISTOP */
+		retval = platform_driver_register(plat_drivers[i]);
+		if (retval) {
+			while (--i >= 0)
+				platform_driver_unregister(plat_drivers[i]);
+			goto clean0;
+		}
+	}
 
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	retval = ps3_ehci_driver_register(&PS3_SYSTEM_BUS_DRIVER);
@@ -1382,10 +1554,10 @@ clean3:
 	ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
 clean2:
 #endif
-#ifdef PLATFORM_DRIVER
-	platform_driver_unregister(&PLATFORM_DRIVER);
+	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++)
+		platform_driver_unregister(plat_drivers[i]);
 clean0:
-#endif
+
 #ifdef CONFIG_DYNAMIC_DEBUG
 	debugfs_remove(ehci_debug_root);
 	ehci_debug_root = NULL;
@@ -1404,12 +1576,10 @@ static void __exit ehci_hcd_cleanup(void)
 #ifdef OF_PLATFORM_DRIVER
 	platform_driver_unregister(&OF_PLATFORM_DRIVER);
 #endif
-#ifdef HSIC_PLATFORM_DRIVER
-	platform_driver_unregister(&HSIC_PLATFORM_DRIVER);
-#endif
-#ifdef PLATFORM_DRIVER
-	platform_driver_unregister(&PLATFORM_DRIVER);
-#endif
+
+	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++)
+		platform_driver_unregister(plat_drivers[i]);
+
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
 #endif

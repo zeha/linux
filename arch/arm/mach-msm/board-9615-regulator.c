@@ -360,12 +360,9 @@ msm_rpm_regulator_init_data[] = {
 #else
 	RPM_LDO(L4,      0, 1, 0, 3075000, 3075000, NULL,      0, 0),
 #endif
-#if defined(CONFIG_SIERRA)
-/* set ss so can turn on it later - on HotSpot it powers LCD controller */
-	RPM_LDO(L5,      0, 1, 1, 2850000, 2850000, NULL,      0, 0),
-#else
+
 	RPM_LDO(L5,      0, 1, 0, 2850000, 2850000, NULL,      0, 0),
-#endif
+
 /* SWISTOP */
 	RPM_LDO(L6,      0, 1, 0, 1800000, 2850000, NULL,      0, 0),
 	RPM_LDO(L7,      0, 1, 0, 1850000, 1900000, "8018_s4", 0, 0),

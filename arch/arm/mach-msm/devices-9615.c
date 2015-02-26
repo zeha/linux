@@ -477,40 +477,6 @@ struct platform_device msm9615_device_qup_spi_gsbi3 = {
 	.resource	= resources_qup_spi_gsbi3,
 };
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-static struct resource resources_qup_spi_gsbi4[] = {
-	{
-		.name   = "spi_base",
-		.start  = MSM_GSBI4_QUP_PHYS,
-		.end    = MSM_GSBI4_QUP_PHYS + SZ_4K - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.name   = "gsbi_base",
-		.start  = MSM_GSBI4_PHYS,
-		.end    = MSM_GSBI4_PHYS + 4 - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.name   = "spi_irq_in",
-		.start  = GSBI4_QUP_IRQ,
-		.end    = GSBI4_QUP_IRQ,
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-struct platform_device msm9615_device_qup_spi_gsbi4 = {
-	.name	= "spi_qsd",
-	.id	= 4,
-	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi4),
-	.resource	= resources_qup_spi_gsbi4,
-};
-/* Exporting this symbol so this struct can be access / used by a module */
-EXPORT_SYMBOL_GPL(msm9615_device_qup_spi_gsbi4);
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
-
 #define LPASS_SLIMBUS_PHYS	0x28080000
 #define LPASS_SLIMBUS_BAM_PHYS	0x28084000
 #define LPASS_SLIMBUS_SLEW	(MSM9615_TLMM_PHYS + 0x207C)

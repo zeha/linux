@@ -5,8 +5,8 @@
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
- *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *			Author: Michal Nazarewicz (m.nazarewicz@samsung.com)
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -85,6 +85,7 @@ struct f_rndis_qc {
 	u8				ethaddr[ETH_ALEN];
 	u32				vendorID;
 	u8				max_pkt_per_xfer;
+	u32				max_pkt_size;
 	const char			*manufacturer;
 	int				config;
 	atomic_t		ioctl_excl;
@@ -104,12 +105,10 @@ static inline struct f_rndis_qc *func_to_rndis_qc(struct usb_function *f)
 /* peak (theoretical) bulk transfer rate in bits-per-second */
 static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 {
-	if (gadget_is_superspeed(g) && g->speed == USB_SPEED_SUPER)
-		return 13 * 1024 * 8 * 1000 * 8;
-	else if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
+	if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
 		return 13 * 512 * 8 * 1000 * 8;
 	else
-		return 19 * 64 * 1 * 1000 * 8;
+		return 19 *  64 * 1 * 1000 * 8;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -129,6 +128,7 @@ static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 
 #define RNDIS_QC_IOCTL_MAGIC		'i'
 #define RNDIS_QC_GET_MAX_PKT_PER_XFER   _IOR(RNDIS_QC_IOCTL_MAGIC, 1, u8)
+#define RNDIS_QC_GET_MAX_PKT_SIZE	_IOR(RNDIS_QC_IOCTL_MAGIC, 2, u32)
 
 
 /* interface descriptor: */
@@ -202,7 +202,7 @@ rndis_qc_iad_descriptor = {
 	.bInterfaceCount =	2, /* control + data */
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
-	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+	.bFunctionProtocol =	USB_CDC_ACM_PROTO_VENDOR,
 	/* .iFunction = DYNAMIC */
 };
 
@@ -421,6 +421,7 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	int ret;
 
 	dev->bam_port.cdev = dev->port.func.config->cdev;
+	dev->bam_port.func = &dev->port.func;
 	dev->bam_port.in = dev->port.in_ep;
 	dev->bam_port.out = dev->port.out_ep;
 
@@ -439,7 +440,8 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 
 static int rndis_qc_bam_disconnect(struct f_rndis_qc *dev)
 {
- 	pr_debug("dev:%p. %s Disconnect BAM.\n", dev, __func__);
+	pr_debug("dev:%p. %s Disconnect BAM.\n", dev, __func__);
+
 	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
@@ -515,7 +517,7 @@ static void rndis_qc_response_available(void *_rndis)
 static void rndis_qc_response_complete(struct usb_ep *ep,
 						struct usb_request *req)
 {
-	struct f_rndis_qc		*rndis = req->context;
+	struct f_rndis_qc			*rndis = req->context;
 	int				status = req->status;
 	struct usb_composite_dev	*cdev = rndis->port.func.config->cdev;
 
@@ -555,14 +557,22 @@ static void rndis_qc_response_complete(struct usb_ep *ep,
 static void rndis_qc_command_complete(struct usb_ep *ep,
 							struct usb_request *req)
 {
-	struct f_rndis_qc			*rndis = req->context;
+	struct f_rndis_qc		*rndis = req->context;
 	int				status;
+	rndis_init_msg_type		*buf;
 
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 	status = rndis_msg_parser(rndis->config, (u8 *) req->buf);
 	if (status < 0)
 		pr_err("RNDIS command error %d, %d/%d\n",
 			status, req->actual, req->length);
+
+	buf = (rndis_init_msg_type *)req->buf;
+
+	if (buf->MessageType == REMOTE_NDIS_INITIALIZE_MSG) {
+		rndis->max_pkt_size = buf->MaxTransferSize;
+		pr_debug("MaxTransferSize: %d\n", buf->MaxTransferSize);
+	}
 }
 
 static int
@@ -664,8 +674,12 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (rndis->port.in_ep->driver_data) {
 			DBG(cdev, "reset rndis\n");
-			gether_qc_disconnect_name(&rndis->port, "rndis0");
+			/* rndis->port is needed for disconnecting the BAM data
+			 * path. Only after the BAM data path is disconnected,
+			 * we can disconnect the port from the network layer.
+			 */
 			rndis_qc_bam_disconnect(rndis);
+			gether_qc_disconnect_name(&rndis->port, "rndis0");
 		}
 
 		if (!rndis->port.in_ep->desc || !rndis->port.out_ep->desc) {
@@ -697,13 +711,13 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		 */
 		rndis->port.cdc_filter = 0;
 
+		if (rndis_qc_bam_connect(rndis))
+			goto fail;
+
 		DBG(cdev, "RNDIS RX/TX early activation ...\n");
 		net = gether_qc_connect_name(&rndis->port, "rndis0", false);
 		if (IS_ERR(net))
 			return PTR_ERR(net);
-
-		if (rndis_qc_bam_connect(rndis))
-			goto fail;
 
 		rndis_set_param_dev(rndis->config, net,
 				&rndis->port.cdc_filter);
@@ -725,8 +739,8 @@ static void rndis_qc_disable(struct usb_function *f)
 	pr_info("rndis deactivated\n");
 
 	rndis_uninit(rndis->config);
-	gether_qc_disconnect_name(&rndis->port, "rndis0");
 	rndis_qc_bam_disconnect(rndis);
+	gether_qc_disconnect_name(&rndis->port, "rndis0");
 
 	usb_ep_disable(rndis->notify);
 	rndis->notify->driver_data = NULL;
@@ -948,6 +962,8 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
 
+	pr_debug("rndis_qc_unbind: free");
+	bam_data_destroy(0);
 	rndis_deregister(rndis->config);
 	rndis_exit();
 
@@ -1128,6 +1144,17 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		}
 		pr_info("Sent max packets per xfer %d",
 				rndis->max_pkt_per_xfer);
+		break;
+	case RNDIS_QC_GET_MAX_PKT_SIZE:
+		ret = copy_to_user((void __user *)arg,
+					&rndis->max_pkt_size,
+					sizeof(rndis->max_pkt_size));
+		if (ret) {
+			pr_err("copying to user space failed");
+			ret = -EFAULT;
+		}
+		pr_debug("Sent max packet size %d",
+				rndis->max_pkt_size);
 		break;
 	default:
 		pr_err("Unsupported IOCTL");

@@ -106,11 +106,6 @@ extern struct platform_device msm9615_device_qup_i2c_gsbi2;
 /* SWISTOP */
 extern struct platform_device msm9615_device_qup_i2c_gsbi5;
 extern struct platform_device msm9615_device_qup_spi_gsbi3;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-extern struct platform_device msm9615_device_qup_spi_gsbi4;
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 extern struct platform_device msm9615_slim_ctrl;
 extern struct platform_device msm9615_device_ssbi_pmic1;
 extern struct platform_device msm9615_device_tsens;

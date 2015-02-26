@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@ struct f_ecm_qc {
 	struct usb_request		*notify_req;
 	u8				notify_state;
 	bool				is_open;
+	struct data_port		bam_port;
 };
 
 static inline struct f_ecm_qc *func_to_ecm_qc(struct usb_function *f)
@@ -101,8 +102,9 @@ static inline unsigned ecm_qc_bitrate(struct usb_gadget *g)
 #define ECM_QC_LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
 #define ECM_QC_STATUS_BYTECOUNT		16	/* 8 byte header + data */
 
-/* currently only one std ecm instance is supported */
+/* Currently only one std ecm instance is supported - port index 0. */
 #define ECM_QC_NO_PORTS						1
+#define ECM_QC_ACTIVE_PORT					0
 
 /* interface descriptor: */
 
@@ -286,8 +288,6 @@ static struct usb_gadget_strings *ecm_qc_strings[] = {
 	NULL,
 };
 
-static struct data_port ecm_qc_bam_port;
-
 static int ecm_qc_bam_setup(void)
 {
 	int ret;
@@ -304,13 +304,15 @@ static int ecm_qc_bam_setup(void)
 static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 {
 	int ret;
+	struct usb_composite_dev *cdev = dev->port.func.config->cdev;
 
-	ecm_qc_bam_port.cdev = dev->port.func.config->cdev;
-	ecm_qc_bam_port.in = dev->port.in_ep;
-	ecm_qc_bam_port.out = dev->port.out_ep;
+	dev->bam_port.cdev = cdev;
+	dev->bam_port.func = &dev->port.func;
+	dev->bam_port.in = dev->port.in_ep;
+	dev->bam_port.out = dev->port.out_ep;
 
 	/* currently we use the first connection */
-	ret = bam_data_connect(&ecm_qc_bam_port, 0, 0);
+	ret = bam_data_connect(&dev->bam_port, 0, 0);
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n",
 				ret);
@@ -324,8 +326,9 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 
 static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 {
-	pr_debug("dev:%p. %s Do nothing.\n",
-			 dev, __func__);
+	pr_debug("dev:%p. %s Disconnect BAM.\n", dev, __func__);
+
+	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
 }
@@ -402,10 +405,10 @@ static void ecm_qc_notify(struct f_ecm_qc *ecm)
 
 static void ecm_qc_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_ecm_qc			*ecm = req->context;
+	struct f_ecm_qc			*ecm = req->context;	
+	struct usb_cdc_notification	*event;
 	struct usb_composite_dev	*cdev = ecm->port.func.config->cdev;
-	struct usb_cdc_notification	*event = req->buf;
-
+	
 	switch (req->status) {
 	case 0:
 		/* no fault */
@@ -518,8 +521,12 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (ecm->port.in_ep->driver_data) {
 			DBG(cdev, "reset ecm\n");
-			gether_qc_disconnect_name(&ecm->port, "ecm0");
+			/* ecm->port is needed for disconnecting the BAM data
+			 * path. Only after the BAM data path is disconnected,
+			 * we can disconnect the port from the network layer.
+			 */
 			ecm_qc_bam_disconnect(ecm);
+			gether_qc_disconnect_name(&ecm->port, "ecm0");
 		}
 
 		if (!ecm->port.in_ep->desc ||
@@ -586,13 +593,13 @@ static int ecm_qc_get_alt(struct usb_function *f, unsigned intf)
 static void ecm_qc_disable(struct usb_function *f)
 {
 	struct f_ecm_qc		*ecm = func_to_ecm_qc(f);
-	struct usb_composite_dev	*cdev = ecm->port.func.config->cdev;
-
+    struct usb_composite_dev	*cdev = ecm->port.func.config->cdev;
+    
 	DBG(cdev, "ecm deactivated\n");
 
 	if (ecm->port.in_ep->driver_data) {
-		gether_qc_disconnect_name(&ecm->port, "ecm0");
 		ecm_qc_bam_disconnect(ecm);
+		gether_qc_disconnect_name(&ecm->port, "ecm0");
 	}
 
 	if (ecm->notify->driver_data) {
@@ -600,6 +607,20 @@ static void ecm_qc_disable(struct usb_function *f)
 		ecm->notify->driver_data = NULL;
 		ecm->notify->desc = NULL;
 	}
+}
+
+static void ecm_qc_suspend(struct usb_function *f)
+{
+	pr_debug("ecm suspended\n");
+
+	bam_data_suspend(ECM_QC_ACTIVE_PORT);
+}
+
+static void ecm_qc_resume(struct usb_function *f)
+{
+	pr_debug("ecm resumed\n");
+
+	bam_data_resume(ECM_QC_ACTIVE_PORT);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -776,6 +797,7 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	DBG(c->cdev, "ecm unbind\n");
 
+	bam_data_destroy(0);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
 	usb_free_descriptors(f->descriptors);
@@ -862,6 +884,8 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 	ecm->port.func.get_alt = ecm_qc_get_alt;
 	ecm->port.func.setup = ecm_qc_setup;
 	ecm->port.func.disable = ecm_qc_disable;
+	ecm->port.func.suspend = ecm_qc_suspend;
+	ecm->port.func.resume = ecm_qc_resume;
 
 	status = usb_add_function(c, &ecm->port.func);
 	if (status) {

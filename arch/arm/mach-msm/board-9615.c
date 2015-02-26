@@ -65,6 +65,8 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <mach/rpm-regulator.h>
+#include <linux/sierra_bsudefs.h>
+#include <linux/sierra_bsuproto.h>
 #endif
 /* SWISTOP */
 
@@ -217,26 +219,9 @@ static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 };
 #else
 static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
-	PM8018_GPIO_INPUT(2,PM_GPIO_PULL_NO), /* EXT_LDO_EN_WLAN */
-	PM8018_GPIO_INPUT(6,PM_GPIO_PULL_NO), /* WLAN_CLK_PWR_REQ */
+	PM8018_GPIO_OUTPUT(4,0,LOW), /* USB_VBUS_EN */
+	PM8018_GPIO_INPUT(6,PM_GPIO_PULL_DN), /* XO_OUT_A1_EN, pulled down so XO_OUT_A1 is OFF by default */
 };
-#endif
-/* SWISTOP */
-
-/* SWISTART */
-/* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
-static struct pm8xxx_mpp_init pm8018_mpp_swi =
-	PM8018_MPP_INIT(1, D_INPUT, PM8018_MPP_DIG_LEVEL_L4, DOUT_CTRL_LOW);
-	
-void msm9615_pm8xxx_gpio_mpp_init_swi(void)
-{
-	int rc;
-	rc = pm8xxx_mpp_config(pm8018_mpp_swi.mpp, &pm8018_mpp_swi.config);
-	if (rc) {
-	pr_err("%s: pm8018_mpp_config_swi: rc=%d\n", __func__, rc);
-	}
-} 
 #endif
 /* SWISTOP */
 
@@ -1016,6 +1001,21 @@ static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA
 #define MSM_MPM_PIN_USB1_OTGSESSVLD    40
+
+#if defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7)
+#define PM8018_MPP_VDDMIN 1
+#else /* defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7) */
+#define PM8018_MPP_VDDMIN 2
+#endif /* defined(CONFIG_SIERRA_AR7) || defined(CONFIG_SIERRA_MC7) */
+#define PM8018_VDDMIN_IO  PM8018_MPP_PM_TO_SYS(PM8018_MPP_VDDMIN)
+/*
+ * init MPP Pin for Vddmin
+ * Direction - input
+ * Voltage - VREG_L4 (3.3V, refer to msm_rpm_regulator_init_data)
+ * Default output - low
+ */
+static struct pm8xxx_mpp_init pm8018_mpp_vddmin =
+	PM8018_MPP_INIT(PM8018_MPP_VDDMIN, D_INPUT, PM8018_MPP_DIG_LEVEL_L4, DOUT_CTRL_LOW);
 #endif
 /* SWISTOP */
 
@@ -1031,12 +1031,42 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 /* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA
-    .vdd_min_enable     = PM8018_MPP_PM_TO_SYS(1),
-    .mpm_otgsessvld_int = MSM_MPM_PIN_USB1_OTGSESSVLD, 
+	.vdd_min_enable     = PM8018_VDDMIN_IO,
+	.mpm_otgsessvld_int = MSM_MPM_PIN_USB1_OTGSESSVLD,
 #endif
 /* SWISTOP */
 };
 
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+void msm9615_pm8xxx_gpio_mpp_init_vddmin(void)
+{
+	int rc;
+	int vdd_min_enable = PM8018_VDDMIN_IO;
+
+	enum bshwtype hwtype = bsgethwtype();
+	unsigned int hwrev = bsgethwrev();
+
+  /* MC7304 DV2 and onward reuses MC7305 HW, which define MPP_02 as Ref Volt of
+USB_DP, while MC7304 DV1 and other products all use MPP_01 for this purpose */
+	if ((hwtype == BSMC7804) && (hwrev != BSHWDV1))
+	{
+		msm_otg_pdata.vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);
+		vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);
+		pm8018_mpp_vddmin.mpp = PM8018_MPP_PM_TO_SYS(2);
+	}
+
+	rc = pm8xxx_mpp_config(pm8018_mpp_vddmin.mpp, &pm8018_mpp_vddmin.config);
+	gpio_request(vdd_min_enable, "VDD_MIN_GPIO");
+	gpio_direction_input(vdd_min_enable);
+
+	if (rc) {
+		pr_err("%s: pm8018_mpp_init_vddmin: rc=%d\n", __func__, rc);
+	}
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static struct ci13xxx_platform_data msm_peripheral_pdata = {
 	.usb_core_id = 0,
@@ -1152,14 +1182,24 @@ static struct platform_device *common_devices[] = {
 #ifdef CONFIG_USB_CI13XXX_MSM_HSIC
 	&msm_android_usb_hsic_device,
 #endif
+
+/* SWISTART */
+#ifndef CONFIG_SIERRA_MC7
 	&msm9615_device_uart_gsbi4,
+#endif /* !CONFIG_SIERRA_MC7 */
 #ifdef CONFIG_SIERRA_AR7
     &msm9615_device_uart_gsbi5,
 #endif /* CONFIG_SIERRA_AR7 */
 /* SWISTOP */
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
+/* SWISTART */
+#ifdef CONFIG_SIERRA_MC7
+	&msm9615_device_qup_i2c_gsbi2,
+#else /* !CONFIG_SIERRA_MC7 */
 	&msm9615_device_qup_i2c_gsbi5,
+#endif /* CONFIG_SIERRA_MC7 */
+/* SWISTOP */
 	&msm9615_device_qup_spi_gsbi3,
 	&msm_device_sps,
 	&msm9615_slim_ctrl,
@@ -1236,8 +1276,15 @@ static void __init msm9615_i2c_init(void)
 		mach_mask = I2C_FFA;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
+/* SWISTART */
+#ifdef CONFIG_SIERRA_MC7
+	msm9615_device_qup_i2c_gsbi2.dev.platform_data =
+					&msm9615_i2c_qup_gsbi2_pdata;
+#else /* !CONFIG_SIERRA_MC7 */
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
+#endif /* CONFIG_SIERRA_MC7 */
+/* SWISTOP */
 	for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
 		if (msm9615_i2c_devices[i].machs & mach_mask) {
 			i2c_register_board_info(msm9615_i2c_devices[i].bus,
@@ -1254,42 +1301,6 @@ static void __init msm9615_reserve(void)
 	msm_reserve();
 #endif
 }
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-/* 
- * We need to have LDO5 turned on to keep LCD on MHS powered. Other
- * products want to keep it off - we provide a param to turn it off
- * at runtime (or keep it off from command line).
- * (There  should be a better way!)
- */
-typedef bool ldo5_t;
-static ldo5_t ldo5 = 1;
-#define param_check_ldo5_t(name, p) __param_check(name, p, ldo5_t);
-
-int param_set_ldo5(const char *val, const struct kernel_param *kp)
-{
-	int voltage = 0;
-	int rv = param_set_bool( val, kp );
-	if( !rv )
-	{
-		printk( KERN_INFO "Setting LDO5 to %d\n", ldo5 );
-
-		if( ldo5 )
-			voltage = 2850000;
-
-		rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L5, RPM_VREG_VOTER3,
-							 voltage, voltage, 1);
-	}
-	return rv;
-}
-static const struct kernel_param_ops param_ops_ldo5_t = {
-	.set = param_set_ldo5,
-	.get = param_get_bool,
-	.free = NULL,
-};
-core_param(ldo5, ldo5, ldo5_t, 0644);
-#endif
-/* SWISTOP */
 
 static void __init msm9615_common_init(void)
 {
@@ -1303,14 +1314,6 @@ static void __init msm9615_common_init(void)
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
 	platform_device_register(&msm9615_device_rpm_regulator);
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	if( ldo5 )
-			/* LDO5 always on - on HotSpot it powers LCD controller */
-			rpm_vreg_set_voltage(RPM_VREG_ID_PM8018_L5, RPM_VREG_VOTER3,
-							2850000, 2850000, 1);  
-#endif
-/* SWISTOP */
 	msm_xo_init();
 	msm_clock_init(&msm9615_clock_init_data);
 	msm9615_init_buses();
