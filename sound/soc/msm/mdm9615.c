@@ -3830,6 +3830,7 @@ static int __init mdm9615_audio_init(void)
 		case BSAR7550_LARGER_MEMORY:
 		case BSAR7552_LARGER_MEMORY:
 		case BSAR7554_LARGER_MEMORY:
+		case BSAR7558_LARGER_MEMORY:
 			pr_info("%s - AR7 configuration", __func__);
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar7;
 			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar7);

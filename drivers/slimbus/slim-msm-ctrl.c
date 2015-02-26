@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_slimbus.h>
 #include <mach/sps.h>
+#include <mach/msm_iomap.h>
 
 /* Per spec.max 40 bytes per received message */
 #define SLIM_RX_MSGQ_BUF_LEN	40
@@ -1931,6 +1932,19 @@ static void msm_slim_prg_slew(struct platform_device *pdev,
 	iounmap(slew_reg);
 }
 
+static bool slim_check_gpio_state(int gpio_num)
+{
+	unsigned int slim_gpio_cfg = 0;
+	unsigned int pull_config = 0;
+
+	slim_gpio_cfg = __raw_readl(MSM_TLMM_BASE + 0x1000 + (0x10 * gpio_num));
+	pull_config = slim_gpio_cfg & 0x0002;
+	if (pull_config == 2)
+		return true;
+	else
+		return false;
+}
+
 static int msm_slim_probe(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev;
@@ -1938,6 +1952,7 @@ static int msm_slim_probe(struct platform_device *pdev)
 	struct resource		*bam_mem, *bam_io;
 	struct resource		*slim_mem, *slim_io;
 	struct resource		*irq, *bam_irq;
+	bool			is_slimbus_mode;
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
 	if (!slim_mem) {
@@ -1979,6 +1994,14 @@ static int msm_slim_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no slimbus BAM IRQ resource\n");
 		ret = -ENODEV;
 		goto err_get_res_failed;
+	}
+	is_slimbus_mode = slim_check_gpio_state(20);
+	if (!is_slimbus_mode) {
+		pr_info("GPIOs are not in Slimbus mode\n");
+		return -EIO;
+	} else {
+		pr_info("GPIOs are in Slimbus mode. Going ahead ...\n");
+ 
 	}
 
 	dev = kzalloc(sizeof(struct msm_slim_ctrl), GFP_KERNEL);

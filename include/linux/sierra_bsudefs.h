@@ -57,6 +57,7 @@
  *           BSAR7550_LARGER_MEMORY    - Automotive 7550 (with Larger Memory Design) 
  *           BSAR7552_LARGER_MEMORY    - Automotive 7552 (with Larger Memory Design) 
  *           BSAR7554_LARGER_MEMORY    - Automotive 7554 (with Larger Memory Design) 
+ *           BSAR7558_LARGER_MEMORY    - Automotive 7558 (with Larger Memory Design)
  *           BSWP7100_NEW    - WP7100 with large memory and share same PCB with BSAR7550_LARGER_MEMORY
  *           BSWP7102_NEW    - WP7100 with large memory and share same PCB with BSAR7552_LARGER_MEMORY 
  *           BSWP7104_NEW    - WP7100 with large memory and share same PCB with BSAR7554_LARGER_MEMORY
@@ -112,6 +113,7 @@ enum bshwtype
   BSWP7102_NEW,
   BSWP7104_NEW,  
   BSMC7354,                 /* MiniCard 7354 */
+  BSAR7558_LARGER_MEMORY,
   BSHWUNKNOWN,
   BSHWINVALID = 0xFF
 };
