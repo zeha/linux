@@ -946,7 +946,7 @@ void __init setup_arch(char **cmdline_p)
 	conswitchp = &dummy_con;
 #endif
 #endif
-
+	early_trap_init();
 	if (mdesc->init_early)
 		mdesc->init_early();
 }

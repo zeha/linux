@@ -827,15 +827,18 @@ static inline void __init kuser_init(void *vectors)
 }
 #endif
 
-void __init early_trap_init(void *vectors_base)
+void __init early_trap_init(void)
 {
 #ifndef CONFIG_CPU_V7M
-	unsigned long vectors = (unsigned long)vectors_base;
+#if defined(CONFIG_CPU_USE_DOMAINS)
+		unsigned long vectors = CONFIG_VECTORS_BASE;
+#else
+		unsigned long vectors = (unsigned long)vectors_page;
+#endif
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
 	unsigned i;
 
-	vectors_page = vectors_base;
 
 	/*
 	 * Poison the vectors page with an undefined instruction.  This
