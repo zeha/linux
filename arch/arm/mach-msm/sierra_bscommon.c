@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/sierra_smem.c
+/* arch/arm/mach-msm/sierra_bscommon.c
  *
  * Copyright (C) 2013 Sierra Wireless, Inc
  * Author: Alex Tan <atan@sierrawireless.com>

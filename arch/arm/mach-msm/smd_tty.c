@@ -88,6 +88,7 @@ static struct smd_config smd_configs[] = {
 /* SWISTART */
 #ifndef CONFIG_SIERRA_USB_COMP
 	{7, "DATA1", NULL, SMD_APPS_MODEM},
+	{8, "DATA4", NULL, SMD_APPS_MODEM},
 	{11, "DATA11", NULL, SMD_APPS_MODEM},
 #endif/* CONFIG_SIERRA */
 /* SWISTOP */

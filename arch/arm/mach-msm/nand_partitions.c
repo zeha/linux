@@ -51,9 +51,9 @@ struct msm_ptbl_entry {
 /* SWISTART */
 #ifndef CONFIG_SIERRA_NAND_PARTITION
 #define MSM_MAX_PARTITIONS 18
-#else /* CONFIG_SIERRA */
+#else
 #define MSM_MAX_PARTITIONS 32
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_NAND_PARTITION */
 /* SWISTOP */
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];

@@ -81,7 +81,6 @@ struct f_mbim {
 	atomic_t	write_excl;
 
 	wait_queue_head_t read_wq;
-	wait_queue_head_t write_wq;
 
 	u8				port_num;
 	struct data_port		bam_port;
@@ -223,7 +222,7 @@ static struct usb_cdc_mbb_desc mbb_desc = {
 	.bmNetworkCapabilities = 0x20,
 };
 
-#if 0
+
 static struct usb_cdc_ext_mbb_desc ext_mbb_desc = {
 	.bLength =	sizeof ext_mbb_desc,
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
@@ -233,7 +232,6 @@ static struct usb_cdc_ext_mbb_desc ext_mbb_desc = {
 	.bMaxOutstandingCmdMsges =	64,
 	.wMTU =	1500,
 };
-#endif
 
 /* the default data interface has no endpoints ... */
 static struct usb_interface_descriptor mbim_data_nop_intf = {
@@ -296,7 +294,9 @@ static struct usb_descriptor_header *mbim_fs_function[] = {
 	/* MBIM control descriptors */
 	(struct usb_descriptor_header *) &mbim_control_intf,
 	(struct usb_descriptor_header *) &mbim_header_desc,
+    (struct usb_descriptor_header *) &mbim_union_desc,
 	(struct usb_descriptor_header *) &mbb_desc,
+    (struct usb_descriptor_header *) &ext_mbb_desc,
 	(struct usb_descriptor_header *) &fs_mbim_notify_desc,
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &mbim_data_nop_intf,
@@ -357,7 +357,7 @@ static struct usb_descriptor_header *mbim_hs_function[] = {
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 #define STRING_IAD_IDX	2
-#endif /* SIERRA and FEATURE_MORPHING */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 static struct usb_string mbim_string_defs[] = {
@@ -366,7 +366,7 @@ static struct usb_string mbim_string_defs[] = {
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	[STRING_IAD_IDX].s = "MBIM",
-#endif /* SIERRA and FEATURE_MORPHING */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	{  } /* end of list */
 };
@@ -611,13 +611,12 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 /* Fix the wrong notification response packet length */
 #ifdef CONFIG_SIERRA_USB_COMP
 	req->length = sizeof *event;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	ret = usb_ep_queue(dev->not_port.notify,
-			   req, GFP_ATOMIC);
+	ret = usb_ep_queue(dev->not_port.notify, req, GFP_ATOMIC);
 	if (ret) {
 		atomic_dec(&dev->not_port.notify_count);
 		pr_err("ep enqueue error %d\n", ret);
@@ -703,7 +702,7 @@ static int mbim_bam_disconnect(struct f_mbim *dev)
 	pr_info("dev:%p port:%d. Do nothing.\n",
 			dev, dev->port_num);
 
-	/* bam_data_disconnect(&dev->bam_port, dev->port_num); */
+	bam_data_disconnect(&dev->bam_port, dev->port_num);
 
 	return 0;
 }
@@ -806,7 +805,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
 		event->wLength = 0;
 		req->length = sizeof *event;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 		spin_unlock(&mbim->lock);
@@ -855,10 +854,10 @@ static void mbim_notify(struct f_mbim *mbim)
 	 */
 	pr_debug("dev:%p\n", mbim);
 
-	mbim->not_port.notify_state = NCM_NOTIFY_SPEED;
+	mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 	mbim_do_notify(mbim);
 }
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
@@ -1339,8 +1338,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (mbim->bam_port.in->driver_data) {
 			pr_info("reset mbim\n");
-			mbim_reset_values(mbim);
-			mbim_bam_disconnect(mbim);
+			mbim_reset_values(mbim);			
 		}
 
 		/*
@@ -1394,7 +1392,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		spin_lock(&mbim->lock);
 		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 		spin_unlock(&mbim->lock);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	} else {
 		goto fail;
@@ -1402,11 +1400,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	atomic_set(&mbim->online, 1);
 
-	pr_info("SET DEVICE ONLINE");
-
-	/* wakeup file threads */
-	wake_up(&mbim->read_wq);
-	wake_up(&mbim->write_wq);
+	pr_info("SET DEVICE ONLINE");	
 
 	return 0;
 
@@ -1699,6 +1693,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 		mbim_data_intf.iInterface = status;
 
 /* SWISTART */
+/* DM, FIXME: This code will never execute, what was the intention here? */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 		/* IAD label */
 		status = usb_string_id(c->cdev);
@@ -1706,7 +1701,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 			return status;
 		mbim_string_defs[STRING_IAD_IDX].id = status;
 		mbim_iad_desc.iFunction = status;
-#endif /* SIERRA and FEATURE_MORPHING */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	}
 #endif /* CONFIG_SIERRA */
@@ -1745,7 +1740,9 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 }
 
 /* ------------ MBIM DRIVER File Operations API for USER SPACE ------------ */
-
+/* DM, FIXME: Use of spinlocks in this method is very, very dangerous, and it
+   needs to be rewritten. This implementation is copied from QTI Linux and
+   it's currently in both Yocto and QTI kernels. */
 static ssize_t
 mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 {
@@ -2017,7 +2014,6 @@ static int mbim_init(int instances)
 		mbim_ports[i].port_num = i;
 
 		init_waitqueue_head(&dev->read_wq);
-		init_waitqueue_head(&dev->write_wq);
 
 		atomic_set(&dev->open_excl, 0);
 		atomic_set(&dev->ioctl_excl, 0);

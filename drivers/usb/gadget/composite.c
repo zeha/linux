@@ -24,7 +24,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 #include <linux/usb/sierra_ududefs.h>
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 
@@ -428,7 +428,7 @@ int usb_interface_id(struct usb_configuration *config,
 		config->interface[id] = function;
 		config->next_interface_id = id + 1;
 		return id;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	}
 	return -ENODEV;
@@ -745,7 +745,7 @@ static int set_config(struct usb_composite_dev *cdev,
 #else
 		if (!f)
 			break;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 		/*
 		 * Record which endpoints are used by the function. This is used
@@ -1334,7 +1334,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 	int intf_cnt  = 0;
- #endif /*SIERRA*/
+ #endif /*CONFIG_SIERRA_USB_COMP */
  /* SWISTOP */
 
 
@@ -1426,7 +1426,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	case USB_TYPE_STANDARD:
 	case USB_TYPE_CLASS:
 	default:
-#endif /*SIERRA*/
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	switch (ctrl->bRequest) {
 
@@ -1496,7 +1496,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				memcpy(req->buf, (const void *)&android_msos_decriptor, value);
 				break;
 			}
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
@@ -1693,7 +1693,7 @@ unknown:
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
     } /*bRequestType & USB_TYPE_MASK*/
-#endif /*SIERRA*/
+#endif /*CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	/* respond with data transfer before status phase? */
 	if (value >= 0 && value != USB_GADGET_DELAYED_STATUS) {

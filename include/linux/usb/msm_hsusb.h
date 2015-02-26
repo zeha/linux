@@ -203,6 +203,9 @@ enum usb_vdd_value {
  * @delay_lpm_on_disconnect: Use a delay before entering LPM
  *              upon USB cable disconnection.
  * @bus_scale_table: parameters for bus bandwidth requirements
+ * @rw_during_lpm_workaround: Determines whether remote-wakeup
+ *		during low-power mode workaround will be
+ *		applied.
  * @mhl_dev_name: MHL device name used to register with MHL driver.
  */
 struct msm_otg_platform_data {
@@ -223,6 +226,7 @@ struct msm_otg_platform_data {
 	bool core_clk_always_on_workaround;
 	bool delay_lpm_on_disconnect;
 	struct msm_bus_scale_pdata *bus_scale_table;
+	bool rw_during_lpm_workaround;
 	const char *mhl_dev_name;
 	int (*link_clk_reset)(struct clk *link_clk, bool assert);
 	int (*phy_clk_reset)(struct clk *phy_clk);
@@ -344,6 +348,7 @@ struct msm_otg {
 	atomic_t pm_suspended;
 	atomic_t in_lpm;
 	atomic_t suspend_work_pending;
+	atomic_t set_fpr_with_lpm_exit;
 	int async_int;
 	unsigned cur_power;
 	struct delayed_work chg_work;
@@ -360,6 +365,7 @@ struct msm_otg {
 	struct msm_xo_voter *xo_handle;
 	uint32_t bus_perf_client;
 	bool mhl_enabled;
+	
 	struct timer_list chg_check_timer;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v

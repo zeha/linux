@@ -187,7 +187,7 @@ static int acm_port_disconnect(struct f_acm *acm)
 #define GS_NOTIFY_MAXPACKET		10 + 2	/* notification + 2 bytes + 2 spares */
 #else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
-#endif
+#endif /* CONFIG_SIERRA_USB_COMP  */
 /* SWISTOP */
  
 /* interface and class descriptors: */

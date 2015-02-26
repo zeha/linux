@@ -794,8 +794,6 @@ int GobiSerialSuspend(
 }
 #endif /* CONFIG_PM*/
 
-#ifdef CONFIG_PM
-#endif /* CONFIG_PM*/
 /*===========================================================================
 METHOD:
    GobiInit (Free Method)

@@ -225,7 +225,7 @@
 #ifdef CONFIG_SIERRA_USB_COMP
  #include <linux/usb/sierra_ududefs.h>
  #include "usb_netlink_base.h"
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
  /* SWISTOP */
 
 
@@ -273,7 +273,7 @@ static int switch_sig = 0;
 
 /*SCSI commands we recognize */
 #define SC_GET_CONFIG<>0x46
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP*/
 /* SWISTOP */
 
 struct fsg_dev;
@@ -617,7 +617,7 @@ value );
 		 }
         return value;
 }
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 static int fsg_setup(struct usb_function *f,
 		     const struct usb_ctrlrequest *ctrl)
@@ -640,7 +640,7 @@ static int fsg_setup(struct usb_function *f,
 #ifdef CONFIG_SIERRA_USB_COMP
     if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR)
         return vendor_setup_req(fsg, ctrl);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	switch (ctrl->bRequest) {
@@ -750,7 +750,7 @@ static int do_get_config( struct fsg_common *common, struct fsg_buffhd *bh)
     start_transfer(common->fsg,common->fsg->bulk_in,bh->inreq,&bh->inreq_busy,&bh->state);
     return 0;
 }
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
  
 
@@ -1496,7 +1496,7 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[14] = 0xAA;			/* Lead-out track number */
 	store_cdrom_address(&buf[16], msf, curlun->num_sectors);
 	return 20;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 }
 
@@ -1640,7 +1640,7 @@ static int do_start_stop(struct fsg_common *common)
         switch_sig = 0;
     sendnlmsg((char*)&switch_cmd,sizeof(switch_cmd),usr_pid);
     pr_info("\n%s: SWI__TRU-Install_TBD switch to network mode", __func__ );
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	return 0;
 }
@@ -2146,7 +2146,7 @@ static int do_scsi_command(struct fsg_common *common)
 				"GET CONFIG");
             if (reply == 0)
                 reply = do_get_config(common, bh);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	case INQUIRY:
 		common->data_size_from_cmnd = common->cmnd[4];

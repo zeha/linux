@@ -1737,7 +1737,14 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
 	if (!dev->suspend_count++) {
 		spin_lock_irq(&dev->txq.lock);
 		/* don't autosuspend while transmitting */
+/* SWISTART */
+/* SR#01445093: M9615ACETWMLZD4731 doesn't compile with HSIC switches enabled */
+#ifdef CONFIG_SIERRA_HSIC
+		if (dev->txq.qlen && ((message.event & PM_EVENT_AUTO) != 0)) {
+#else
 		if (dev->txq.qlen && PMSG_IS_AUTO(message)) {
+#endif
+/* SWISTOP */
 			dev->suspend_count--;
 			spin_unlock_irq(&dev->txq.lock);
 			return -EBUSY;

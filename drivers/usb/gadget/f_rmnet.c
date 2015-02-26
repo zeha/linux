@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 
 #include <mach/usb_gadget_xport.h>
+#include <mach/usb_bam.h>
 
 #include "u_rmnet.h"
 #include "gadget_chips.h"
@@ -53,19 +54,19 @@ struct f_rmnet {
 
 	/* control info */
 	struct list_head		cpkt_resp_q;
-	atomic_t			notify_count;
+	unsigned long			notify_count;
 	unsigned long			cpkts_len;
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	struct work_struct  ctrl_reg_w;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 };
 
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 static struct workqueue_struct  *frmnet_wq;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 #define NR_RMNET_PORTS	3
@@ -317,6 +318,7 @@ static int rmnet_gport_setup(void)
 	int	ret;
 	int	port_idx;
 	int	i;
+	u8 base;
 
 	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
 		" smd ports: %u ctrl hsic ports: %u ctrl hsuart ports: %u"
@@ -333,9 +335,16 @@ static int rmnet_gport_setup(void)
 	}
 
 	if (no_ctrl_smd_ports) {
-		ret = gsmd_ctrl_setup(no_ctrl_smd_ports);
-		if (ret)
+		ret = gsmd_ctrl_setup(FRMNET_CTRL_CLIENT,
+							  no_ctrl_smd_ports, &base);
+		if (ret) {
 			return ret;
+		}
+		for (i = 0; i < nr_rmnet_ports; i++) {
+			if (rmnet_ports[i].port) {
+				rmnet_ports[i].port->port_num += base;
+			}
+		}
 	}
 
 	if (no_data_hsic_ports) {
@@ -446,6 +455,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
+    case USB_GADGET_XPORT_BAM2BAM_IPA:
 		ret = gbam_connect(&dev->port, port_num,
 						   dxport, port_num);
 		if (ret) {
@@ -517,6 +527,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_disconnect(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -553,6 +564,24 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(f->name);
 }
 
+static void frmnet_purge_responses(struct f_rmnet *dev)
+{
+	unsigned long flags;
+	struct rmnet_ctrl_pkt *cpkt;
+
+	pr_debug("%s: port#%d\n", __func__, dev->port_num);
+
+	spin_lock_irqsave(&dev->lock, flags);
+	while (!list_empty(&dev->cpkt_resp_q)) {
+		cpkt = list_first_entry(&dev->cpkt_resp_q, struct rmnet_ctrl_pkt, list);
+
+		list_del(&cpkt->list);
+		rmnet_free_ctrl_pkt(cpkt);
+	}
+	dev->notify_count = 0;
+	spin_unlock_irqrestore(&dev->lock, flags);
+}
+
 static void frmnet_suspend(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
@@ -564,18 +593,22 @@ static void frmnet_suspend(struct usb_function *f)
 #if defined(CONFIG_SIERRA_USB_COMP)
 	struct rmnet_ctrl_pkt   *cpkt;
 	unsigned long		 flags;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num);
 
+    usb_ep_fifo_flush(dev->notify);
+	frmnet_purge_responses(dev);
+
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+    case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_suspend(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -606,11 +639,13 @@ static void frmnet_suspend(struct usb_function *f)
 		list_del(&cpkt->list);
 		rmnet_free_ctrl_pkt(cpkt);
 	}
-	atomic_set(&dev->notify_count, 0);
+	spin_lock_irqsave(&dev->lock, flags);
+	dev->notify_count = 0;
+	spin_unlock_irqrestore(&dev->lock, flags);
 	pr_debug("%s: dev: %p port#%d Cleared Counts\n", __func__,
 			 dev, dev->port_num);
 	spin_unlock_irqrestore(&dev->lock, flags);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 }
 
@@ -629,6 +664,7 @@ static void frmnet_resume(struct usb_function *f)
 	case USB_GADGET_XPORT_BAM:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+    case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_resume(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -646,8 +682,6 @@ static void frmnet_resume(struct usb_function *f)
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
-	unsigned long flags;
-	struct rmnet_ctrl_pkt *cpkt;
 
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
@@ -656,16 +690,7 @@ static void frmnet_disable(struct usb_function *f)
 
 	atomic_set(&dev->online, 0);
 
-	spin_lock_irqsave(&dev->lock, flags);
-	while (!list_empty(&dev->cpkt_resp_q)) {
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
-				struct rmnet_ctrl_pkt, list);
-
-		list_del(&cpkt->list);
-		rmnet_free_ctrl_pkt(cpkt);
-	}
-	atomic_set(&dev->notify_count, 0);
-	spin_unlock_irqrestore(&dev->lock, flags);
+	frmnet_purge_responses(dev);
 
 	gport_rmnet_disconnect(dev);
 }
@@ -733,7 +758,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
   /* Allocate Request buffer and bind to EP now that config is assigned */
 	if (!dev->notify_req)
 		ret = frmnet_bind_ep_req(f);
-#endif /* SIERRA and FEATURE_MORPHING */
+#endif /* CONFIG_SIERRA_USB_COMP and FEATURE_MORPHING */
 /* SWISTOP */
 
 	if (dev->notify->driver_data) {
@@ -809,11 +834,17 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 
 	ret = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
 	if (ret) {
-		atomic_dec(&dev->notify_count);
 		spin_lock_irqsave(&dev->lock, flags);
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
-					struct rmnet_ctrl_pkt, list);
-		if (cpkt) {
+		if (!list_empty(&dev->cpkt_resp_q)) {
+			if (dev->notify_count > 0) {
+				dev->notify_count--;
+			} else {
+				pr_debug("%s: Invalid notify_count=%lu to decrement\n",
+					 __func__, dev->notify_count);
+				spin_unlock_irqrestore(&dev->lock, flags);
+				return;
+			}
+			cpkt = list_first_entry(&dev->cpkt_resp_q, struct rmnet_ctrl_pkt, list);		
 			list_del(&cpkt->list);
 			rmnet_free_ctrl_pkt(cpkt);
 		}
@@ -838,11 +869,9 @@ static void frmnet_connect(struct grmnet *gr)
 
 static void frmnet_disconnect(struct grmnet *gr)
 {
-	struct f_rmnet			*dev;
-	unsigned long			flags;
+	struct f_rmnet			*dev;	
 	struct usb_cdc_notification	*event;
-	int				status;
-	struct rmnet_ctrl_pkt		*cpkt;
+	int				status;	
 
 	if (!gr) {
 		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
@@ -876,17 +905,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 				__func__, status);
 	}
 
-	spin_lock_irqsave(&dev->lock, flags);
-	while (!list_empty(&dev->cpkt_resp_q)) {
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
-				struct rmnet_ctrl_pkt, list);
-
-		list_del(&cpkt->list);
-		rmnet_free_ctrl_pkt(cpkt);
-	}
-	atomic_set(&dev->notify_count, 0);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
+	frmnet_purge_responses(dev);
 }
 
 static int
@@ -968,7 +987,9 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ECONNRESET:
 	case -ESHUTDOWN:
 		/* connection gone */
-		atomic_set(&dev->notify_count, 0);
+	   spin_lock_irqsave(&dev->lock, flags);
+	   dev->notify_count = 0;
+	   spin_unlock_irqrestore(&dev->lock, flags);
 		break;
 	default:
 		pr_err("rmnet notify ep error %d\n", status);
@@ -976,17 +997,36 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	case 0:
 		if (!atomic_read(&dev->ctrl_online))
 			break;
-
-		if (atomic_dec_and_test(&dev->notify_count))
+		
+		spin_lock_irqsave(&dev->lock, flags);
+		if (dev->notify_count > 0) {
+			dev->notify_count--;
+			if (dev->notify_count == 0) {
+				spin_unlock_irqrestore(&dev->lock, flags);
+				break;
+			}
+		} else {
+			pr_debug("%s: Invalid notify_count=%lu to decrement\n",
+					__func__, dev->notify_count);
+			spin_unlock_irqrestore(&dev->lock, flags);
 			break;
+		}
+		spin_unlock_irqrestore(&dev->lock, flags);
 
 		status = usb_ep_queue(dev->notify, req, GFP_ATOMIC);
 		if (status) {
-			atomic_dec(&dev->notify_count);
 			spin_lock_irqsave(&dev->lock, flags);
-			cpkt = list_first_entry(&dev->cpkt_resp_q,
-						struct rmnet_ctrl_pkt, list);
-			if (cpkt) {
+			if (!list_empty(&dev->cpkt_resp_q)) {
+				if (dev->notify_count > 0) {
+					dev->notify_count--;
+				}
+				else {
+					pr_err("%s: Invalid notify_count=%lu to decrement\n",
+						__func__, dev->notify_count);
+					spin_unlock_irqrestore(&dev->lock, flags);
+					break;
+				}
+				cpkt = list_first_entry(&dev->cpkt_resp_q, struct rmnet_ctrl_pkt, list);			
 				list_del(&cpkt->list);
 				rmnet_free_ctrl_pkt(cpkt);
 			}
@@ -1299,7 +1339,7 @@ static void frmnet_cleanup(void)
 /* SWISTART */
 #if defined(CONFIG_SIERRA_USB_COMP) && defined(FEATURE_MORPHING)
 	destroy_workqueue(frmnet_wq);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 }
 
@@ -1314,7 +1354,7 @@ static void frmnet_port_reg_work(struct work_struct *w)
 {
 	gsmd_ctrl_smd_port_reg();
 }
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 static int frmnet_init_port(const char *ctrl_name, const char *data_name)
@@ -1377,6 +1417,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_data_bam_ports++;
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+    case USB_GADGET_XPORT_BAM2BAM_IPA:
 		rmnet_port->data_xport_num = no_data_bam2bam_ports;
 		no_data_bam2bam_ports++;
 		break;
@@ -1410,7 +1451,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		return -ENOMEM;
 	}
 	INIT_WORK(&dev->ctrl_reg_w, frmnet_port_reg_work);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	return 0;

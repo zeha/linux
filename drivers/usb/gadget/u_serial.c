@@ -1585,7 +1585,7 @@ static int userial_init(void)
 	 *But here should be modified for customer.
 	 */
 	gs_tty_driver->init_termios.c_oflag &= (~ONLCR);
-#endif /* CONFIG_SIERRA*/
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	tty_set_operations(gs_tty_driver, &gs_tty_ops);

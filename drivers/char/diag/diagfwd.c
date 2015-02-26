@@ -95,7 +95,7 @@ do {									\
 } while (0)
 
 #define CHK_OVERFLOW(bufStart, start, end, length) \
-((bufStart <= start) && (end - start >= length)) ? 1 : 0
+((bufStart <= start) && (end - start >= length) && (length > 0)) ? 1 : 0
 
 /* Determine if this device uses a device tree */
 #ifdef CONFIG_OF
@@ -813,9 +813,14 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					 int len, int type)
 {
 	driver->pkt_length = len;
-	if (entry.process_id != NON_APPS_PROC && type != MODEM_DATA) {
-		diag_update_pkt_buffer(buf);
-		diag_update_sleeping_process(entry.process_id, PKT_TYPE);
+	/* If the process_id corresponds to an apps process */
+	if (entry.process_id != NON_APPS_PROC) {
+		/* If the message is to be sent to the apps process */
+		if (type != MODEM_DATA) {
+			diag_update_pkt_buffer(buf);
+			diag_update_sleeping_process(entry.process_id,
+							PKT_TYPE);
+		}
 	} else {
 		if (len > 0) {
 			if (entry.client_id == MODEM_PROC && driver->ch) {
@@ -1048,6 +1053,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			*(int *)(driver->apps_rsp_buf + 4) = 0x3; /* op. ID */
 			*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success */
 			payload_length = 8 + ((*(int *)(buf + 4)) + 7)/8;
+			if (payload_length > APPS_BUF_SIZE - 12) {
+				pr_err("diag: log masks: buffer overflow\n");
+				return -EIO;
+			}
 			for (i = 0; i < payload_length; i++)
 				*(int *)(driver->apps_rsp_buf+12+i) = *(buf+i);
 			if (driver->ch_cntl)
@@ -1076,6 +1085,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			driver->apps_rsp_buf[2] = 0x0;
 			driver->apps_rsp_buf[3] = 0x0;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x0;
+			*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* status */
 			if (driver->ch_cntl)
 				diag_send_log_mask_update(driver->ch_cntl,
 								 ALL_EQUIP_ID);
@@ -1085,7 +1095,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			if (driver->ch_wcnss_cntl)
 				diag_send_log_mask_update(driver->ch_wcnss_cntl,
 								 ALL_EQUIP_ID);
-			ENCODE_RSP_AND_SEND(7);
+			ENCODE_RSP_AND_SEND(11);
 			return 0;
 		}
 #endif
@@ -1111,6 +1121,10 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 								 rt_last_ssid) {
 					rt_mask_size = 4 * (rt_last_ssid -
 							 rt_first_ssid + 1);
+					if (rt_mask_size > APPS_BUF_SIZE - 8) {
+						pr_err("diag: rt masks: buffer overflow\n");
+						return -EIO;
+					}
 					memcpy(driver->apps_rsp_buf+8,
 						 rt_mask_ptr, rt_mask_size);
 					ENCODE_RSP_AND_SEND(8+rt_mask_size-1);
@@ -1125,7 +1139,17 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if ((*buf == 0x7d) && (*(buf+1) == 0x4)) {
 		ssid_first = *(uint16_t *)(buf + 2);
 		ssid_last = *(uint16_t *)(buf + 4);
+		if (ssid_last < ssid_first) {
+			pr_err("diag: Invalid msg mask ssid values, first: %d, last: %d\n",
+				ssid_first, ssid_last);
+			return -EIO;
+		}
 		ssid_range = 4 * (ssid_last - ssid_first + 1);
+		if (ssid_range > APPS_BUF_SIZE - 8) {
+			pr_err("diag: Not enough space for message mask, ssid_range: %d\n",
+				ssid_range);
+			return -EIO;
+		}
 		pr_debug("diag: received mask update for ssid_first = %d,"
 				" ssid_last = %d", ssid_first, ssid_last);
 		diag_update_msg_mask(ssid_first, ssid_last , buf + 8);
@@ -1508,7 +1532,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		/* Not required, represents that command isnt sent to modem */
 		return 0;
 	}
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_DLOAD */
 /* SWISTOP */
 	/* Check for polling for Apps only DIAG */
 	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
@@ -1589,10 +1613,26 @@ void diag_process_hdlc(void *data, unsigned len)
 
 	ret = diag_hdlc_decode(&hdlc);
 
-	if (ret)
+	/*
+	 * If the message is 3 bytes or less in length then the message is
+	 * too short. A message will need 4 bytes minimum, since there are
+	 * 2 bytes for the CRC and 1 byte for the ending 0x7e for the hdlc
+	 * encoding
+	 */
+	if (hdlc.dest_idx < 4) {
+		pr_err_ratelimited("diag: In %s, message is too short, len: %d,"
+			" dest len: %d\n", __func__, len, hdlc.dest_idx);
+		mutex_unlock(&driver->diag_hdlc_mutex);
+		return;
+	}
+	if (ret) {
 		type = diag_process_apps_pkt(driver->hdlc_buf,
 							  hdlc.dest_idx - 3);
-	else if (driver->debug_flag) {
+		if (type < 0) {
+			mutex_unlock(&driver->diag_hdlc_mutex);
+			return;
+		}
+	} else if (driver->debug_flag) {
 		printk(KERN_ERR "Packet dropped due to bad HDLC coding/CRC"
 				" errors or partial packet received, packet"
 				" length = %d\n", len);

@@ -318,6 +318,7 @@ static void android_work(struct work_struct *data)
 	char *disconnected[2] = { "USB_STATE=DISCONNECTED", NULL };
 	char *connected[2]    = { "USB_STATE=CONNECTED", NULL };
 	char *configured[2]   = { "USB_STATE=CONFIGURED", NULL };
+	char *resumed[2]	  = { "USB_STATE=RESUMED", NULL };
 	char **uevent_envp = NULL;
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP

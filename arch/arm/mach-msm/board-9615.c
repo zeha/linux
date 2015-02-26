@@ -272,7 +272,7 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 /* SWISTART */
 #ifdef CONFIG_SIERRA_BATTERY_SENSOR
 	{"mpp_05", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1,
-		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 #endif
 /* SWISTOP */
 	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
@@ -484,7 +484,7 @@ static struct wcd9xxx_pdata wcd9xxx_i2c_platform_data = {
 	.num_irqs = NR_TABLA_IRQS,
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
 	.reset_gpio = 84,
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_INTERNAL_CODEC */
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
@@ -836,7 +836,8 @@ static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_I2C_GSBI2 */
+/* SWISTOP */
 
 /* SWISTART */
 #ifndef CONFIG_SIERRA_USB_OTG
@@ -1212,7 +1213,7 @@ static struct platform_device *common_devices[] = {
 	&msm9615_device_qup_i2c_gsbi2,
 #elif defined CONFIG_SIERRA_I2C_GSBI5
 	&msm9615_device_qup_i2c_gsbi5,
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_I2C_GSBI2 */
 /* SWISTOP */
 	&msm9615_device_qup_spi_gsbi3,
 	&msm_device_sps,
@@ -1297,7 +1298,7 @@ static void __init msm9615_i2c_init(void)
 #elif defined CONFIG_SIERRA_I2C_GSBI5
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_I2C_GSBI2 */
 /* SWISTOP */
 	for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
 		if (msm9615_i2c_devices[i].machs & mach_mask) {

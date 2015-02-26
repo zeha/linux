@@ -172,10 +172,13 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 	uint8_t src_byte;
 
 	int pkt_bnd = 0;
+	int msg_start;
 
 	if (hdlc && hdlc->src_ptr && hdlc->dest_ptr &&
 	    (hdlc->src_size - hdlc->src_idx > 0) &&
 	    (hdlc->dest_size - hdlc->dest_idx > 0)) {
+
+		msg_start = (hdlc->src_idx == 0) ? 1 : 0;
 
 		src_ptr = hdlc->src_ptr;
 		src_ptr = &src_ptr[hdlc->src_idx];
@@ -202,9 +205,14 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 							  ^ ESC_MASK;
 				}
 			} else if (src_byte == CONTROL_CHAR) {
+				if (msg_start && i == 0 && src_length > 1)
+					continue;
+				/* Byte 0x7E will be considered as the
+				 * end of the packet.
+				 */
 				dest_ptr[len++] = src_byte;
-				pkt_bnd = 1;
 				i++;
+				pkt_bnd = 1;
 				break;
 			} else {
 				dest_ptr[len++] = src_byte;

@@ -1666,7 +1666,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 /* SWISTART */
 #ifdef CONFIG_SIERRA_UART
     	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_UART */
 #ifdef CONFIG_SIERRA_I2C_GSBI2
 	CLK_LOOKUP("iface_clk",	gsbi2_p_clk.c, "qup_i2c.0"),
 #elif defined CONFIG_SIERRA_I2C_GSBI5

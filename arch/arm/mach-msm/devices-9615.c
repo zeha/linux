@@ -52,7 +52,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA_UART
 #define MSM_UART5DM_PHYS  (MSM_GSBI5_PHYS + 0x40000)
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_UART */
 /* SWISTOP */
 #define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
 
@@ -75,7 +75,7 @@
 #elif defined CONFIG_SIERRA_I2C_GSBI5 
 #define MSM_GPIO_I2C_CLK 16
 #define MSM_GPIO_I2C_SDA 17
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_I2C_GSBI2 */
 /* SWISTOP */
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
@@ -327,7 +327,7 @@ struct platform_device msm9615_device_uart_gsbi5 = {
   .num_resources  = ARRAY_SIZE(resources_uart_gsbi5),
   .resource = resources_uart_gsbi5,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_UART */
 /* SWISTOP */
 
 static struct resource resources_uart_gsbi4[] = {
@@ -399,7 +399,7 @@ struct platform_device msm9615_device_qup_i2c_gsbi2 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi2),
 	.resource	= resources_qup_i2c_gsbi2,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_EXTERNAL_CODEC */
 /* SWISTOP */
 
 static struct resource resources_qup_i2c_gsbi5[] = {

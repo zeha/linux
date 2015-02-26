@@ -77,12 +77,15 @@ struct msm_hsic_hcd {
 	struct clk		*phy_clk;
 	struct clk		*cal_clk;
 	struct regulator	*hsic_vddcx;
-	bool			async_int;
+	struct regulator	*hsic_gdsc;
+	atomic_t			async_int;
 	atomic_t                in_lpm;
 	struct wake_lock	wlock;
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
+	int			async_irq;
+	uint32_t		async_int_cnt;
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
 	uint32_t		wakeup_int_cnt;
@@ -737,10 +740,14 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		enable_irq(mehci->wakeup_irq);
 	}
 
+/* SWISTART */
+/* SR#01445093: M9615ACETWMLZD4731 doesn't compile with HSIC switches enabled */
+#ifndef CONFIG_SIERRA_HSIC
 	if (pdata && pdata->standalone_latency)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
 			PM_QOS_DEFAULT_VALUE);
-
+#endif
+/* SWISTOP */
 	wake_unlock(&mehci->wlock);
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
@@ -762,17 +769,27 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		return 0;
 	}
 
+	/* Handles race with Async interrupt */
+	disable_irq(hcd->irq);
+
+/* SWISTART */
+/* SR#01445093: M9615ACETWMLZD4731 doesn't compile with HSIC switches enabled */
+#ifndef CONFIG_SIERRA_HSIC
 	if (pdata && pdata->standalone_latency)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
 			pdata->standalone_latency + 1);
+#endif
+/* SWISTOP */
 
-	spin_lock_irqsave(&mehci->wakeup_lock, flags);
-	if (mehci->wakeup_irq && mehci->wakeup_irq_enabled) {
-		disable_irq_wake(mehci->wakeup_irq);
-		disable_irq_nosync(mehci->wakeup_irq);
-		mehci->wakeup_irq_enabled = 0;
+	if (mehci->wakeup_irq) {
+	   spin_lock_irqsave(&mehci->wakeup_lock, flags);
+	   if (mehci->wakeup_irq_enabled) {
+		   disable_irq_wake(mehci->wakeup_irq);
+		   disable_irq_nosync(mehci->wakeup_irq);
+		   mehci->wakeup_irq_enabled = 0;
+	   }
+	   spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 	}
-	spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 
 	wake_lock(&mehci->wlock);
 
@@ -828,8 +845,8 @@ skip_phy_resume:
 
 	atomic_set(&mehci->in_lpm, 0);
 
-	if (mehci->async_int) {
-		mehci->async_int = false;
+	if (atomic_read(&mehci->async_int)) {
+		atomic_set(&mehci->async_int, 0);
 		pm_runtime_put_noidle(mehci->dev);
 		enable_irq(hcd->irq);
 	}
@@ -839,6 +856,8 @@ skip_phy_resume:
 		pm_runtime_put_noidle(mehci->dev);
 	}
 
+	/* DM, FIXME: enable_irq code duplication. */
+	enable_irq(hcd->irq);
 	dev_info(mehci->dev, "HSIC-USB exited from low power mode\n");
 
 	return 0;
@@ -864,12 +883,19 @@ static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	u32			status;
+	int			ret;
 
-	if (atomic_read(&mehci->in_lpm)) {
-		disable_irq_nosync(hcd->irq);
+	if (atomic_read(&mehci->in_lpm)) {		
 		dev_dbg(mehci->dev, "phy async intr\n");
-		mehci->async_int = true;
-		pm_runtime_get(mehci->dev);
+		dbg_log_event(NULL, "Async IRQ", 0);
+		ret = pm_runtime_get(mehci->dev);
+		if ((ret == 1) || (ret == -EINPROGRESS)) {
+			pm_runtime_put_noidle(mehci->dev);
+		} else {
+			disable_irq_nosync(hcd->irq);
+			atomic_set(&mehci->async_int, 1);
+		}
+
 		return IRQ_HANDLED;
 	}
 
@@ -1316,19 +1342,25 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	int ret;
 
 	mehci->wakeup_int_cnt++;
-	dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
-	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt cnt: %u\n",
-			__func__, mehci->wakeup_int_cnt);
+	if (irq == mehci->async_irq) {
+		dbg_log_event(NULL, "Remote Wakeup (ASYNC) IRQ", mehci->async_int_cnt);
+	} else {
+		dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
+	}
+	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt %d cnt: %u, %u\n",
+		    __func__, irq, mehci->wakeup_int_cnt, mehci->async_int_cnt);
 
 	wake_lock(&mehci->wlock);
 
-	spin_lock(&mehci->wakeup_lock);
-	if (mehci->wakeup_irq_enabled) {
-		mehci->wakeup_irq_enabled = 0;
-		disable_irq_wake(irq);
-		disable_irq_nosync(irq);
-	}
-	spin_unlock(&mehci->wakeup_lock);
+	if (mehci->wakeup_irq) {
+		spin_lock(&mehci->wakeup_lock);
+		if (mehci->wakeup_irq_enabled) {
+			mehci->wakeup_irq_enabled = 0;
+			disable_irq_wake(irq);
+			disable_irq_nosync(irq);
+		}
+		spin_unlock(&mehci->wakeup_lock);
+	}	
 
 	if (!atomic_read(&mehci->pm_usage_cnt)) {
 		ret = pm_runtime_get(mehci->dev);
@@ -1687,6 +1719,21 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	mehci->async_irq = platform_get_irq_byname(pdev, "async_irq");
+	if (mehci->async_irq < 0) {
+		dev_dbg(&pdev->dev, "platform_get_irq for async_int failed\n");
+		mehci->async_irq = 0;
+	} else {
+		ret = request_irq(mehci->async_irq, msm_hsic_wakeup_irq,
+				IRQF_TRIGGER_RISING, "msm_hsic_async", mehci);
+		if (ret) {
+			dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
+			mehci->async_irq = 0;
+		} else {
+			enable_irq_wake(mehci->async_irq);
+		}
+	}
+
 	ret = ehci_hsic_msm_debugfs_init(mehci);
 	if (ret)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
@@ -1760,13 +1807,26 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 		free_irq(mehci->wakeup_irq, mehci);
 	}
 
+	if (mehci->async_irq) {
+		disable_irq_wake(mehci->async_irq);
+		free_irq(mehci->async_irq, mehci);
+	}
+
 	/*
 	 * If the update request is called after unregister, the request will
 	 * fail. Results are undefined if unregister is called in the middle of
 	 * update request.
 	 */
+/* SWISTART */
+/* SR#01445093: M9615ACETWMLZD4731 doesn't compile with HSIC switches enabled */
+/* DM, FIXME: This conditional compilation was taken from QTI kernel and may not
+   be needed here (e.g. we may be able to just remove CONFIG_SIERRA_HSIC */
+#ifndef CONFIG_SIERRA_HSIC
 	mehci->bus_vote = false;
 	cancel_work_sync(&mehci->bus_vote_w);
+#endif
+/* SWISTOP */
+
 
 	if (mehci->bus_perf_client)
 		msm_bus_scale_unregister_client(mehci->bus_perf_client);
@@ -1791,8 +1851,7 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_hsic_pm_suspend(struct device *dev)
-{
-	int ret;
+{	
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
@@ -1800,29 +1859,37 @@ static int msm_hsic_pm_suspend(struct device *dev)
 
 	dbg_log_event(NULL, "PM Suspend", 0);
 
+	if (!atomic_read(&mehci->in_lpm)) {
+		dev_info(dev, "abort suspend\n");
+		dbg_log_event(NULL, "PM Suspend abort", 0);
+		return -EBUSY;
+	}
+
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hcd->irq);
 
-	ret = msm_hsic_suspend(mehci);
-
-	if (ret && device_may_wakeup(dev))
-		disable_irq_wake(hcd->irq);
-
-	return ret;
+	return 0;
 }
 
+/* SWISTART */
+/* SR#01445093: M9615ACETWMLZD4731 doesn't compile with HSIC switches enabled */
+/* DM, FIXME: We may be able to get away without conditional compilation here.
+   Guard was blindly taken from QTI kernel. */
+/* #ifndef CONFIG_SIERRA_HSIC */
 static int msm_hsic_pm_suspend_noirq(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
-	if (mehci->async_int) {
+	if (atomic_read(&mehci->async_int)) {
 		dev_dbg(dev, "suspend_noirq: Aborting due to pending interrupt\n");
 		return -EBUSY;
 	}
 
 	return 0;
 }
+/* #endif */
+/* SWISTOP */
 
 static int msm_hsic_pm_resume(struct device *dev)
 {
@@ -1842,8 +1909,11 @@ static int msm_hsic_pm_resume(struct device *dev)
 	 * when remote wakeup is received or interface driver
 	 * start I/O.
 	 */
-	if (!atomic_read(&mehci->pm_usage_cnt))
+	if (!atomic_read(&mehci->pm_usage_cnt) &&
+					 !atomic_read(&mehci->async_int) &&
+					 pm_runtime_suspended(dev)) {
 		return 0;
+	}
 
 	ret = msm_hsic_resume(mehci);
 	if (ret)

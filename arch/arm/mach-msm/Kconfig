@@ -2506,6 +2506,18 @@ config SIERRA_AR7
 	  this config used for features only valid in AR7 products
 	default n
 
+config SIERRA_WP7
+	bool "MDM9615 SIERRA WP7 FEATURES"
+	help
+	   this config used for features only valid in WP7 products
+	default n   
+   
+config SIERRA_MC7
+	bool "MDM9615 SIERRA MC7 FEATURES"
+	help
+ 	   this config used for features only valid in MC7 products
+	default n
+
 config SIERRA_SMEM
 	depends on ARCH_MSM9615 && SIERRA
 	bool "MSM9615 SIERRA"
@@ -2856,17 +2868,23 @@ config SIERRA_ANT_DETECTION
 	help
 	  Sierra antenna detection
 
+config SIERRA_GPIO_WAKEN
+	tristate "Sierra WAKE_N pin support"
+	depends on USB_CI13XXX_MSM
+
 config SIERRA_I2C_INF 
 	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	tristate "MSM9615 SIERRA"
+    default m
 	help
-	  Sierra i2c inf 
+	  Sierra i2c driver for application interface.
 
 config SIERRA_SPI_INF 
 	depends on ARCH_MSM9615
-	bool "MSM9615 SIERRA"
+	tristate "MSM9615 SIERRA"
+	default m
 	help
-	  Sierra spi inf 
+	  Sierra spi driver for application interface.
 #SWISTOP
 
 config MSM_CACHE_DUMP_ON_PANIC

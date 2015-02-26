@@ -1389,6 +1389,24 @@ static int mdm9615_ar7_sec_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
   return 0;
 }
 
+static int mdm9615_mc7_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
+{
+   int err = 0;
+   struct snd_soc_platform *platform = rtd->platform;
+   pr_info("%s()\n", __func__);
+  
+   err = snd_soc_add_platform_controls(platform,
+           auxpcm_mixer_controls,
+           ARRAY_SIZE(auxpcm_mixer_controls));
+   if (err < 0)
+       return err;
+
+   msm_gpiomux_install(msm9615_audio_pri_pcm_codec_configs,
+         ARRAY_SIZE(msm9615_audio_pri_pcm_codec_configs));
+       
+   return 0;
+}
+
 #endif
 /* SWISTART */
 #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
@@ -1685,6 +1703,30 @@ static int mdm9615_ar7_sec_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	codec_clk = clk_get(cpu_dai->dev, "sec_osr_clk");
 
 	return 0;
+}
+
+static int mdm9615_mc7_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
+{
+   int err;
+   struct snd_soc_codec *codec = rtd->codec;
+
+   struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+#if 0 /* DM, FIXME: Compilation error. */
+   err = snd_soc_add_controls(codec, mdm9615_ar7_i2s_controls,
+       ARRAY_SIZE(mdm9615_ar7_i2s_controls));
+#else
+   err = 0;
+#endif
+   if (err < 0) {
+       pr_err("returning loc 1 err = %d\n", err);
+       return err;
+   }
+   msm_gpiomux_install(msm9615_audio_prim_i2s_codec_configs,
+               ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
+
+   codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+   return 0;
 }
 
 #endif
@@ -2393,7 +2435,73 @@ static int mdm9615_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 }
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+static int mdm9615_ext_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+                   struct snd_pcm_hw_params *params)
+{
+   struct msm_dai_auxpcm_pdata *auxpcm_pdata = (struct msm_dai_auxpcm_pdata *)msm_cpudai_auxpcm_rx.dev.platform_data;
+
+   struct snd_interval *rate = hw_param_interval(params,
+                   SNDRV_PCM_HW_PARAM_RATE);
+
+   struct snd_interval *channels = hw_param_interval(params,
+                   SNDRV_PCM_HW_PARAM_CHANNELS);
+
+   rate->min = rate->max = mdm9615_auxpcm_rate;
+   /* PCM only supports mono output */
+   channels->min = channels->max = 1;
+
+   auxpcm_pdata->mode_8k.frame  = mdm9615_auxpcm_frame;
+   auxpcm_pdata->mode_16k.frame = mdm9615_auxpcm_frame;
+   auxpcm_pdata->mode_8k.quant  = mdm9615_auxpcm_quant;
+   auxpcm_pdata->mode_16k.quant = mdm9615_auxpcm_quant;
+   auxpcm_pdata->mode_8k.sync   = mdm9615_auxpcm_sync;
+   auxpcm_pdata->mode_16k.sync  = mdm9615_auxpcm_sync;
+   
+   if( mdm9615_auxpcm_sync == AFE_PCM_CFG_SYNC_INT)
+   {
+       auxpcm_pdata->mode_8k.mode  = mdm9615_auxpcm_mode;
+       auxpcm_pdata->mode_16k.mode = mdm9615_auxpcm_mode;
+
+       /* Pleae note that the less PCM clk supported is 512kHz, clk_tbl_pcm[] */
+   if (mdm9615_auxpcm_mode == AFE_PCM_CFG_MODE_PCM)
+       {  
+           auxpcm_pdata->mode_8k.pcm_clk_rate = (int) (8000 * 8 * (0x0001 << mdm9615_auxpcm_frame));
+           auxpcm_pdata->mode_16k.pcm_clk_rate = (int) (16000 * 8 * (0x0001 << mdm9615_auxpcm_frame));
+           if( auxpcm_pdata->mode_8k.pcm_clk_rate < 64000)
+           {
+               auxpcm_pdata->mode_8k.pcm_clk_rate = 64000;
+           }
+           if( auxpcm_pdata->mode_16k.pcm_clk_rate < 128000)
+           {
+               auxpcm_pdata->mode_16k.pcm_clk_rate = 128000;
+           }
+       }
+       else
+       {
+           auxpcm_pdata->mode_8k.pcm_clk_rate = 128000;
+           auxpcm_pdata->mode_8k.frame= AFE_PCM_CFG_FRM_16BPF;
+       }
+     
+   }
+   else
+   {
+       /* AUX mode can't work at slave mode  */
+       auxpcm_pdata->mode_8k.mode  = AFE_PCM_CFG_MODE_PCM;
+       auxpcm_pdata->mode_16k.mode = AFE_PCM_CFG_MODE_PCM;
+       auxpcm_pdata->mode_8k.pcm_clk_rate  = 0;
+       auxpcm_pdata->mode_16k.pcm_clk_rate = 0;
+
+   }
+
+   pr_debug("%s() Pdata 8kHz: Mode=%d  Sync =%d  Frame =%d Clock=%d \n", __func__,auxpcm_pdata->mode_8k.mode,
+           auxpcm_pdata->mode_8k.sync,auxpcm_pdata->mode_8k.frame,auxpcm_pdata->mode_8k.pcm_clk_rate);
+   pr_debug("%s() Pdata 16kHz: Mode=%d  Sync =%d  Frame =%d Clock=%d \n", __func__,auxpcm_pdata->mode_16k.mode,
+           auxpcm_pdata->mode_16k.sync,auxpcm_pdata->mode_16k.frame,auxpcm_pdata->mode_16k.pcm_clk_rate);
+
+   return 0;
+}
+
 static int mdm9615_ar7_sec_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -2619,6 +2727,26 @@ static int mdm9615_auxpcm_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+/* SWISTART */
+#if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+static int mdm9615_mc7_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+   int ret = 0;
+
+   pr_info("%s(): substream = %s\n", __func__, substream->name);
+
+   if (atomic_inc_return(&msm9615_auxpcm_ref) == 1) {
+       ret = mdm9615_aux_pcm_get_gpios();
+       if (ret < 0) {
+           pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+           return -EINVAL;
+       }
+   }
+   return 0;
+}
+#endif
+/* SWISTOP */
+
 static void mdm9615_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
 
@@ -2718,6 +2846,11 @@ static struct snd_soc_ops mdm9615_auxpcm_be_ops = {
 static struct snd_soc_ops mdm9615_ar7_sec_auxpcm_be_ops = {
 	.startup = mdm9615_ar7_sec_auxpcm_startup,
 	.shutdown = mdm9615_ar7_sec_auxpcm_shutdown,
+};
+
+static struct snd_soc_ops mdm9615_mc7_auxpcm_be_ops = {
+   .startup = mdm9615_mc7_auxpcm_startup,
+   .shutdown = mdm9615_auxpcm_shutdown,
 };
 #endif
 /* SWISTOP */
@@ -3173,7 +3306,7 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_VOIP,
 	},
 	{
@@ -3202,7 +3335,7 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.dynamic = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},		
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 		/* .be_id = do not care */
@@ -3242,9 +3375,10 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = "DTMF TX",
@@ -3325,7 +3459,7 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
+		.no_pcm = 1,        
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 	},
@@ -3337,7 +3471,8 @@ static struct snd_soc_dai_link mdm9615_dai_wp7_new[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
+		.no_pcm = 1,        
+        .be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 	},
@@ -3419,7 +3554,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
 	},
 	{
@@ -3431,7 +3566,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
 	},
 	{
@@ -3443,7 +3578,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_CS_VOICE,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
@@ -3457,7 +3592,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
+		.ignore_suspend = 1,		
 		.be_id = MSM_FRONTEND_DAI_VOIP,
 	},
 	{
@@ -3499,7 +3634,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.dynamic = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},		
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 	},
@@ -3511,7 +3646,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.dynamic = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},		
 		.be_id = MSM_FRONTEND_DAI_VOLTE,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
@@ -3529,6 +3664,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.ignore_suspend = 1,
 		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = "DTMF TX",
@@ -3587,7 +3723,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.cpu_dai_name = "msm-dai-q6.224",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
+		.codec_dai_name = "msm-stub-rx",        
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_RX,
 	},
@@ -3597,7 +3733,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.cpu_dai_name = "msm-dai-q6.225",
 		.platform_name = "msm-pcm-routing",
 		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
+		.codec_dai_name = "msm-stub-tx",        
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 	},
@@ -3609,7 +3745,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
+		.no_pcm = 1,        
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 	},
@@ -3621,7 +3757,8 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
+		.no_pcm = 1,        
+        .be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 	},
@@ -3633,7 +3770,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
+		.no_pcm = 1,        
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 		.ignore_pmdown_time = 1, /* this dailink has playback support */
@@ -3718,6 +3855,33 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.be_hw_params_fixup = mdm9615_slim_0_tx_be_hw_params_fixup,
 		.ops = &mdm9615_be_ops,
 	},
+#else
+#ifdef CONFIG_WCD9310_CODEC
+{
+       .name = LPASS_BE_SLIMBUS_0_RX,
+       .stream_name = "Slimbus Playback",
+       .cpu_dai_name = "msm-dai-q6.16384",
+       .platform_name = "msm-pcm-routing",
+       .codec_name     = "tabla_codec",
+       .codec_dai_name = "tabla_rx1",
+       .no_pcm = 1,
+       .be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+       .init = &mdm9615_audrx_init,
+       .be_hw_params_fixup = mdm9615_slim_0_rx_be_hw_params_fixup,
+       .ops = &mdm9615_be_ops,
+   },
+   {
+       .name = LPASS_BE_SLIMBUS_0_TX,
+       .stream_name = "Slimbus Capture",
+       .cpu_dai_name = "msm-dai-q6.16385",
+       .platform_name = "msm-pcm-routing",
+       .codec_name     = "tabla_codec",
+       .codec_dai_name = "tabla_tx1",
+       .no_pcm = 1,
+       .be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+       .be_hw_params_fixup = mdm9615_slim_0_tx_be_hw_params_fixup,
+       .ops = &mdm9615_be_ops,
+   },
 #elif defined(CONFIG_WCD9304_CODEC)
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -3745,8 +3909,216 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 		.ops = &mdm9615_be_ops,
 	},
 #endif
+#endif
 /* SWISTOP */
 };
+
+/* Digital audio interface glue - connects codec <---> CPU */
+static struct snd_soc_dai_link mdm9615_dai_mc7[] = {
+    /* FrontEnd DAI Links */
+    {
+        .name = "MDM9615 Media1",
+        .stream_name = "MultiMedia1",
+        .cpu_dai_name   = "MultiMedia1",
+        .platform_name  = "msm-pcm-dsp",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
+    },
+    {
+        .name = "MDM9615 Media2",
+        .stream_name = "MultiMedia2",
+        .cpu_dai_name   = "MultiMedia2",
+        .platform_name  = "msm-pcm-dsp",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
+    },
+    {
+        .name = "Circuit-Switch Voice",
+        .stream_name = "CS-Voice",
+        .cpu_dai_name   = "CS-VOICE",
+        .platform_name  = "msm-pcm-voice",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_CS_VOICE,
+        .no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "MSM VoIP",
+        .stream_name = "VoIP",
+        .cpu_dai_name   = "VoIP",
+        .platform_name  = "msm-voip-dsp",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_VOIP,
+    },
+    {
+        .name = "MSM AFE-PCM RX",
+        .stream_name = "AFE-PROXY RX",
+        .cpu_dai_name = "msm-dai-q6.241",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-rx",
+        .platform_name  = "msm-pcm-afe",
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "MSM AFE-PCM TX",
+        .stream_name = "AFE-PROXY TX",
+        .cpu_dai_name = "msm-dai-q6.240",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .platform_name  = "msm-pcm-afe",
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "AUXPCM Hostless",
+        .stream_name = "AUXPCM Hostless",
+        .cpu_dai_name   = "AUXPCM_HOSTLESS",
+        .platform_name  = "msm-pcm-hostless",
+        .dynamic = 1,
+        .no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "VoLTE",
+        .stream_name = "VoLTE",
+        .cpu_dai_name   = "VoLTE",
+        .platform_name  = "msm-pcm-voice",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_VOLTE,
+        .no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "DTMF RX Hostless",
+        .stream_name = "DTMF RX Hostless",
+        .cpu_dai_name   = "DTMF_RX_HOSTLESS",
+        .platform_name  = "msm-pcm-dtmf",
+        .dynamic = 1,
+        .be_id = MSM_FRONTEND_DAI_DTMF_RX,
+        .no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+        .ignore_suspend = 1,
+    },
+    {
+        .name = "DTMF TX",
+        .stream_name = "DTMF TX",
+        .cpu_dai_name = "msm-dai-stub",
+        .platform_name  = "msm-pcm-dtmf",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .ignore_suspend = 1,
+    },
+
+    /* Backend AFE DAI Links */
+    {
+        .name = LPASS_BE_AFE_PCM_RX,
+        .stream_name = "AFE Playback",
+        .cpu_dai_name = "msm-dai-q6.224",
+        .platform_name = "msm-pcm-routing",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-rx",        
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_AFE_PCM_RX,
+    },
+    {
+        .name = LPASS_BE_AFE_PCM_TX,
+        .stream_name = "AFE Capture",
+        .cpu_dai_name = "msm-dai-q6.225",
+        .platform_name = "msm-pcm-routing",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",        
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
+    },
+    /* Incall Music BACK END DAI Link */
+    {
+        .name = LPASS_BE_VOICE_PLAYBACK_TX,
+        .stream_name = "Voice Farend Playback",
+        .cpu_dai_name = "msm-dai-q6.32773",
+        .platform_name = "msm-pcm-routing",
+        .codec_name     = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-rx",
+        .no_pcm = 1,        
+        .be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+        .be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+    },
+    /* Incall Record Uplink BACK END DAI Link */
+    {
+        .name = LPASS_BE_INCALL_RECORD_TX,
+        .stream_name = "Voice Uplink Capture",
+        .cpu_dai_name = "msm-dai-q6.32772",
+        .platform_name = "msm-pcm-routing",
+        .codec_name     = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .no_pcm = 1,        
+        .be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+        .be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
+        .be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+    },
+    /* Incall Record Downlink BACK END DAI Link */
+    {
+        .name = LPASS_BE_INCALL_RECORD_RX,
+        .stream_name = "Voice Downlink Capture",
+        .cpu_dai_name = "msm-dai-q6.32771",
+        .platform_name = "msm-pcm-routing",
+        .codec_name     = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .no_pcm = 1,        
+        .be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
+        .be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+    },
+    /* AUX PCM Backend DAI Links */
+    {
+        .name = LPASS_BE_AUXPCM_RX,
+        .stream_name = "AUX PCM Playback",
+        .cpu_dai_name = "msm-dai-q6.2",
+        .platform_name = "msm-pcm-routing",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-rx",
+        .init = &mdm9615_mc7_auxpcm_init,
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+        .be_hw_params_fixup = mdm9615_ext_auxpcm_be_params_fixup,
+        .ops = &mdm9615_mc7_auxpcm_be_ops,
+    },
+    {
+        .name = LPASS_BE_AUXPCM_TX,
+        .stream_name = "AUX PCM Capture",
+        .cpu_dai_name = "msm-dai-q6.3",
+        .platform_name = "msm-pcm-routing",
+        .codec_name = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+        .be_hw_params_fixup = mdm9615_ext_auxpcm_be_params_fixup,
+        .ops = &mdm9615_mc7_auxpcm_be_ops,
+    },
+    /* Backend I2S DAI Links */
+    {
+        .name = LPASS_BE_PRI_I2S_RX,
+        .stream_name = "Primary I2S Playback",
+        .cpu_dai_name = "msm-dai-q6.0",
+        .platform_name = "msm-pcm-routing",
+        .codec_name     = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-rx",
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_PRI_I2S_RX,
+        .init = &mdm9615_mc7_i2s_audrx_init,
+        .be_hw_params_fixup = msm9615_i2s_rx_be_hw_params_fixup,
+        .ops = &msm9615_i2s_be_ops,
+    },
+    {
+        .name = LPASS_BE_PRI_I2S_TX,
+        .stream_name = "Primary I2S Capture",
+        .cpu_dai_name = "msm-dai-q6.1",
+        .platform_name = "msm-pcm-routing",
+        .codec_name     = "msm-stub-codec.1",
+        .codec_dai_name = "msm-stub-tx",
+        .no_pcm = 1,
+        .be_id = MSM_BACKEND_DAI_PRI_I2S_TX,
+        .be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
+        .ops = &msm9615_i2s_be_ops,
+    },
+};
+
 #endif
 /* SWISTOP */
 
@@ -3850,6 +4222,8 @@ static int __init mdm9615_audio_init(void)
 		case BSMC7350L:
 		default:
 			pr_info("%s - MC7 configuration", __func__);
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_mc7;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_mc7); 
 	}
 	if (0)
 	{

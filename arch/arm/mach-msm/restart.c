@@ -38,7 +38,7 @@
 
 #ifdef CONFIG_SIERRA_DLOAD
 #include <mach/sierra_smem.h>
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_DLOAD */
 /* SWISTOP */
 
 #define WDT0_RST	0x38
@@ -201,7 +201,7 @@ static void msm_restart_prepare(const char *cmd)
 	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_DLOAD */
 /* SWISTOP */
 
 	/* Kill download mode if master-kill switch is set */
@@ -213,7 +213,7 @@ static void msm_restart_prepare(const char *cmd)
 	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_DLOAD */
 /* SWISTOP */
 #endif
 
@@ -286,7 +286,7 @@ static int __init msm_restart_init(void)
 /* SWISTART */
 #ifdef CONFIG_SIERRA_DLOAD
 	download_mode = sierra_smem_get_download_mode();
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_DLOAD */
 /* SWISTOP */
 
 	set_dload_mode(download_mode);

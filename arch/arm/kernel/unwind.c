@@ -52,7 +52,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA_SMEM
 #include <mach/sierra_smem.h>
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_SMEM */
 /* SWISTOP */
 
 /* Dummy functions to avoid linker complaints */
@@ -449,7 +449,7 @@ void unwind_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 #ifdef CONFIG_SIERRA_SMEM
 	/* log error str */
 	sierra_smem_errdump_save_frame(tsk, &frame);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_SMEM */
 /* SWISTOP */
 
 	while (1) {

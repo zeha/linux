@@ -31,7 +31,7 @@ static struct gpiomux_setting slimbus = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_KEEPER,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_INTERNAL_CODEC */
 
 #ifdef CONFIG_SIERRA_UART
 static struct gpiomux_setting gsbi4 = {
@@ -45,7 +45,7 @@ static struct gpiomux_setting gsbi2 = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRAi_UART */
 
 #ifdef CONFIG_SIERRA_UART
 static struct gpiomux_setting gsbi5 = {
@@ -103,7 +103,7 @@ static struct gpiomux_setting cdc_mclk = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_INTERNAL_CODEC */
 /* SWISTOP */
 
 #ifdef CONFIG_FB_MSM_EBI2
@@ -272,7 +272,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi2,
 		},
 	},
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_I2C_GSBI2 */
 
 #ifdef CONFIG_SIERRA_SPI_INF 
 	{
@@ -354,7 +354,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
             [GPIOMUX_SUSPENDED] = &gsbi5_uart,
         },
     },
-#else /* CONFIG_SIERRA */
+#else /* CONFIG_SIERRA_UART */
 /* SWISTART */
 #if 0
 	{

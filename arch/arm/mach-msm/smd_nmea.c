@@ -221,7 +221,7 @@ static int nmea_write(struct file *file, const char __user *buf,
 
 	return count;
 }
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 static int nmea_open(struct inode *ip, struct file *fp)
 {
@@ -255,7 +255,7 @@ static const struct file_operations nmea_fops = {
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 	.write = nmea_write,
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	.open = nmea_open,
 	.release = nmea_release,
