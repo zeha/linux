@@ -2,6 +2,7 @@
  * arch/arm/mm/cache-l2x0.c - L210/L220 cache controller support
  *
  * Copyright (C) 2007 ARM Limited
+ * Copyright (c) 2009, 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,9 +33,20 @@
 
 static void __iomem *l2x0_base;
 static DEFINE_RAW_SPINLOCK(l2x0_lock);
-static u32 l2x0_way_mask;	/* Bitmask of active ways */
-static u32 l2x0_size;
-static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
+
+static uint32_t l2x0_way_mask;	/* Bitmask of active ways */
+static uint32_t l2x0_size;
+static u32 l2x0_cache_id;
+static unsigned int l2x0_sets;
+static unsigned int l2x0_ways;
+static void pl310_save(void);
+
+static inline bool is_pl310_rev(int rev)
+{
+	return (l2x0_cache_id &
+		(L2X0_CACHE_ID_PART_MASK | L2X0_CACHE_ID_REV_MASK)) ==
+			(L2X0_CACHE_ID_PART_L310 | rev);
+};
 
 /* Aurora don't have the cache ID register available, so we have to
  * pass it though the device tree */
@@ -70,7 +82,12 @@ static inline void cache_sync(void)
 {
 	void __iomem *base = l2x0_base;
 
-	writel_relaxed(0, base + sync_reg_offset);
+#ifdef CONFIG_PL310_ERRATA_753970
+	/* write to an unmmapped register */
+	writel_relaxed(0, base + L2X0_DUMMY_REG);
+#else
+	writel_relaxed(0, base + L2X0_CACHE_SYNC);
+#endif
 	cache_wait(base + L2X0_CACHE_SYNC, 1);
 }
 
@@ -89,13 +106,10 @@ static inline void l2x0_inv_line(unsigned long addr)
 }
 
 #if defined(CONFIG_PL310_ERRATA_588369) || defined(CONFIG_PL310_ERRATA_727915)
-static inline void debug_writel(unsigned long val)
-{
-	if (outer_cache.set_debug)
-		outer_cache.set_debug(val);
-}
 
-static void pl310_set_debug(unsigned long val)
+#define debug_writel(val)	outer_cache.set_debug(val)
+
+static void l2x0_set_debug(unsigned long val)
 {
 	writel_relaxed(val, l2x0_base + L2X0_DEBUG_CTRL);
 }
@@ -105,7 +119,7 @@ static inline void debug_writel(unsigned long val)
 {
 }
 
-#define pl310_set_debug	NULL
+#define l2x0_set_debug	NULL
 #endif
 
 #ifdef CONFIG_PL310_ERRATA_588369
@@ -138,6 +152,23 @@ void l2x0_cache_sync(void)
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
+#ifdef CONFIG_PL310_ERRATA_727915
+static void l2x0_for_each_set_way(void __iomem *reg)
+{
+	int set;
+	int way;
+	unsigned long flags;
+
+	for (way = 0; way < l2x0_ways; way++) {
+		spin_lock_irqsave(&l2x0_lock, flags);
+		for (set = 0; set < l2x0_sets; set++)
+			writel_relaxed((way << 28) | (set << 5), reg);
+		cache_sync();
+		spin_unlock_irqrestore(&l2x0_lock, flags);
+	}
+}
+#endif
+
 static void __l2x0_flush_all(void)
 {
 	debug_writel(0x03);
@@ -151,6 +182,13 @@ static void l2x0_flush_all(void)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_PL310_ERRATA_727915
+	if (is_pl310_rev(REV_PL310_R2P0)) {
+		l2x0_for_each_set_way(l2x0_base + L2X0_CLEAN_INV_LINE_IDX);
+		return;
+	}
+#endif
+
 	/* clean all ways */
 	raw_spin_lock_irqsave(&l2x0_lock, flags);
 	__l2x0_flush_all();
@@ -161,11 +199,20 @@ static void l2x0_clean_all(void)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_PL310_ERRATA_727915
+	if (is_pl310_rev(REV_PL310_R2P0)) {
+		l2x0_for_each_set_way(l2x0_base + L2X0_CLEAN_LINE_IDX);
+		return;
+	}
+#endif
+
 	/* clean all ways */
 	raw_spin_lock_irqsave(&l2x0_lock, flags);
+	debug_writel(0x03);
 	writel_relaxed(l2x0_way_mask, l2x0_base + L2X0_CLEAN_WAY);
 	cache_wait_way(l2x0_base + L2X0_CLEAN_WAY, l2x0_way_mask);
 	cache_sync();
+	debug_writel(0x00);
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
@@ -284,6 +331,17 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
+void l2x0_flush_range_atomic(unsigned long start, unsigned long end)
+{
+	unsigned long addr;
+
+	start &= ~(CACHE_LINE_SIZE - 1);
+	for (addr = start; addr < end; addr += CACHE_LINE_SIZE)
+		writel_relaxed(addr, l2x0_base + L2X0_CLEAN_INV_LINE_PA);
+
+	mb();
+}
+
 static void l2x0_disable(void)
 {
 	unsigned long flags;
@@ -335,6 +393,7 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		cache_id = cache_id_part_number_from_dt;
 	else
 		cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
+	l2x0_cache_id = cache_id;
 	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 
 	aux &= aux_mask;
@@ -348,13 +407,6 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		else
 			ways = 8;
 		type = "L310";
-#ifdef CONFIG_PL310_ERRATA_753970
-		/* Unmapped register. */
-		sync_reg_offset = L2X0_DUMMY_REG;
-#endif
-		if ((cache_id & L2X0_CACHE_ID_RTL_MASK) <= L2X0_CACHE_ID_RTL_R3P0)
-			outer_cache.set_debug = pl310_set_debug;
-		break;
 	case L2X0_CACHE_ID_PART_L210:
 		ways = (aux >> 13) & 0xf;
 		type = "L210";
@@ -373,7 +425,7 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		type = "L2x0 series";
 		break;
 	}
-
+	writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
 	l2x0_way_mask = (1 << ways) - 1;
 
 	/*
@@ -383,7 +435,8 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	way_size = 1 << (way_size + way_size_shift);
 
 	l2x0_size = ways * way_size * SZ_1K;
-
+	l2x0_sets = way_size / CACHE_LINE_SIZE;
+	l2x0_ways = ways;
 	/*
 	 * Check if l2x0 controller is already enabled.
 	 * If you are booting from non-secure mode
@@ -732,8 +785,9 @@ static void __init pl310_of_setup(const struct device_node *np,
 			       l2x0_base + L2X0_ADDR_FILTER_START);
 	}
 }
+#endif
 
-static void __init pl310_save(void)
+static void pl310_save(void)
 {
 	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) &
 		L2X0_CACHE_ID_RTL_MASK;
@@ -873,7 +927,7 @@ static void __init aurora_of_setup(const struct device_node *np,
 	*aux_val |= val;
 	*aux_mask &= ~mask;
 }
-
+#ifdef CONFIG_OF
 static const struct l2x0_of_data pl310_data = {
 	.setup = pl310_of_setup,
 	.save  = pl310_save,
@@ -1010,3 +1064,15 @@ int __init l2x0_of_init(u32 aux_val, u32 aux_mask)
 	return 0;
 }
 #endif
+
+void l2cc_suspend(void)
+{
+	l2x0_disable();
+	dmb();
+}
+
+void l2cc_resume(void)
+{
+	pl310_resume();
+	dmb();
+}

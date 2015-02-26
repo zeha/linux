@@ -149,12 +149,6 @@ int msm_spm_turn_on_cpu_rail(unsigned int cpu);
 /* Internal low power management specific functions */
 
 /**
- * msm_spm_allow_x_cpu_set_vdd(): Turn on/off cross calling to set voltage
- * @allowed: boolean to indicate on/off.
- */
-void msm_spm_allow_x_cpu_set_vdd(bool allowed);
-
-/**
  * msm_spm_reinit(): Reinitialize SPM registers
  */
 void msm_spm_reinit(void);

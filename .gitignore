@@ -84,7 +84,7 @@ GTAGS
 *.orig
 *~
 \#*#
-
+/Debug
 #
 # Leavings from module signing
 #

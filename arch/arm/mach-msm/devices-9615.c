@@ -156,6 +156,8 @@ struct platform_device wake_n_gpio = {
 };
 #endif
 /* SWISTOP */
+
+/* SWISTART */
 #if defined(CONFIG_SIERRA_HSUSB_RESUME)
 #define MSM_HSUSB_RESUME_GPIO	82
 #else
