@@ -1495,15 +1495,26 @@ static int __init ehci_hcd_init(void)
 	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++) {
 /* SWISTART */
 #ifdef CONFIG_SIERRA_AR7
+#ifndef HSIC_PLATFORM_DRIVER
 		if(!((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)))
 		{
-			pr_info("%s():HSIC host is disabe", __func__ );
+			pr_info("%s():HSIC host is disabled", __func__ );
 			if(strcmp(plat_drivers[i]->driver.name, hsichostname )== 0)
 			{
 				continue;
 			}
 		}
-endif
+#else /* HSIC_PLATFORM_DRIVER */
+		if(strcmp(plat_drivers[i]->driver.name, hsichostname )== 0)
+		{
+			pr_info("%s(): HSIC host: boottoapp says '%s' should be %s",
+					__func__, hsichostname,
+					((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)) ? "enabled" : "disabled");
+		continue;
+		}
+#endif /* HSIC_PLATFORM_DRIVER */
+#endif /* CONFIG_SIERRA_AR7 */
+
 /* SWISTOP */
 		retval = platform_driver_register(plat_drivers[i]);
 		if (retval) {
