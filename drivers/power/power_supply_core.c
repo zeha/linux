@@ -702,9 +702,6 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 	if (rc)
 		goto device_add_failed;
 
-	spin_lock_init(&psy->changed_lock);
-	wake_lock_init(&psy->work_wake_lock, WAKE_LOCK_SUSPEND, "power-supply");
-
 	rc = psy_register_thermal(psy);
 	if (rc)
 		goto register_thermal_failed;
@@ -723,7 +720,6 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 
 create_triggers_failed:
 	psy_unregister_cooler(psy);
-	wake_lock_destroy(&psy->work_wake_lock);
 register_cooler_failed:
 	psy_unregister_thermal(psy);
 register_thermal_failed:
@@ -743,7 +739,6 @@ void power_supply_unregister(struct power_supply *psy)
 	cancel_work_sync(&psy->changed_work);
 	sysfs_remove_link(&psy->dev->kobj, "powers");
 	power_supply_remove_triggers(psy);
-	wake_lock_destroy(&psy->work_wake_lock);
 	psy_unregister_cooler(psy);
 	psy_unregister_thermal(psy);
 	device_init_wakeup(psy->dev, false);

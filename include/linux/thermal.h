@@ -132,8 +132,6 @@ struct thermal_zone_device_ops {
 			      unsigned long *);
 	int (*set_trip_temp) (struct thermal_zone_device *, int,
 			      unsigned long);
-	int (*set_trip_temp) (struct thermal_zone_device *, int,
-			      long);
 	int (*get_trip_hyst) (struct thermal_zone_device *, int,
 			      unsigned long *);
 	int (*set_trip_hyst) (struct thermal_zone_device *, int,
