@@ -149,6 +149,13 @@ struct platform_device msm_device_otg = {
 };
 
 /* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+struct platform_device wake_n_gpio = {
+	.name		= "wake-n_gpio",
+	.id		= -1,
+};
+#endif
+/* SWISTOP */
 #if defined(CONFIG_SIERRA_HSUSB_RESUME)
 #define MSM_HSUSB_RESUME_GPIO	82
 #else

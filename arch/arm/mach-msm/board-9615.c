@@ -1184,6 +1184,11 @@ static struct platform_device *common_devices[] = {
 	&msm_device_charger,
 #endif
 	&msm_device_otg,
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+	&wake_n_gpio,
+#endif
+/* SWISTOP */
 	&msm_device_hsic_peripheral,
 	&msm_device_gadget_peripheral,
 	&msm_device_hsusb_host,
