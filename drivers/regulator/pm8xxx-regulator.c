@@ -3071,13 +3071,14 @@ static int pm8xxx_init_boost(struct pm8xxx_vreg *vreg)
 	return rc;
 }
 
-static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
+static int pm8xxx_vreg_probe(struct platform_device *pdev)
 {
 	struct pm8xxx_regulator_core_platform_data *core_data;
 	const struct pm8xxx_regulator_platform_data *pdata;
 	enum pm8xxx_vreg_pin_function pin_fn;
 	struct regulator_desc *rdesc;
 	struct pm8xxx_vreg *vreg;
+	struct regulator_config rconfig;
 	unsigned pin_ctrl;
 	int rc = 0;
 
@@ -3204,9 +3205,13 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 	if (rc)
 		goto bail;
 
+	rconfig.dev = &pdev->dev;
+	rconfig.init_data = &(pdata->init_data);
+	rconfig.driver_data = vreg;
+	rconfig.of_node = NULL;
+	rconfig.regmap = NULL;
 	if (!core_data->is_pin_controlled) {
-		vreg->rdev = regulator_register(rdesc, &pdev->dev,
-				&(pdata->init_data), vreg, NULL);
+		vreg->rdev = regulator_register(rdesc, &rconfig);
 		if (IS_ERR(vreg->rdev)) {
 			rc = PTR_ERR(vreg->rdev);
 			vreg->rdev = NULL;
@@ -3214,8 +3219,7 @@ static int __devinit pm8xxx_vreg_probe(struct platform_device *pdev)
 				vreg->rdesc.name, rc);
 		}
 	} else {
-		vreg->rdev_pc = regulator_register(rdesc, &pdev->dev,
-				&(pdata->init_data), vreg, NULL);
+		vreg->rdev_pc = regulator_register(rdesc, &rconfig);
 		if (IS_ERR(vreg->rdev_pc)) {
 			rc = PTR_ERR(vreg->rdev_pc);
 			vreg->rdev_pc = NULL;
@@ -3237,7 +3241,7 @@ bail:
 	return rc;
 }
 
-static int __devexit pm8xxx_vreg_remove(struct platform_device *pdev)
+static int pm8xxx_vreg_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_regulator_core_platform_data *core_data;
 
@@ -3256,7 +3260,7 @@ static int __devexit pm8xxx_vreg_remove(struct platform_device *pdev)
 
 static struct platform_driver pm8xxx_vreg_driver = {
 	.probe	= pm8xxx_vreg_probe,
-	.remove	= __devexit_p(pm8xxx_vreg_remove),
+	.remove	= pm8xxx_vreg_remove,
 	.driver	= {
 		.name	= PM8XXX_REGULATOR_DEV_NAME,
 		.owner	= THIS_MODULE,
