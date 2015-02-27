@@ -134,8 +134,8 @@ static void smd_tty_read(unsigned long param)
 	for (;;) {
 		if (is_in_reset(info)) {
 			/* signal TTY clients using TTY_BREAK */
-			tty_insert_flip_char(tty, 0x00, TTY_BREAK);
-			tty_flip_buffer_push(tty);
+			tty_insert_flip_char(tty->port, 0x00, TTY_BREAK);
+			tty_flip_buffer_push(tty->port);
 			break;
 		}
 
@@ -147,7 +147,7 @@ static void smd_tty_read(unsigned long param)
 		if (avail > MAX_TTY_BUF_SIZE)
 			avail = MAX_TTY_BUF_SIZE;
 
-		avail = tty_prepare_flip_string(tty, &ptr, avail);
+		avail = tty_prepare_flip_string(tty->port, &ptr, avail);
 		if (avail <= 0) {
 			if (!timer_pending(&info->buf_req_timer)) {
 				init_timer(&info->buf_req_timer);
@@ -169,7 +169,7 @@ static void smd_tty_read(unsigned long param)
 		}
 
 		wake_lock_timeout(&info->wake_lock, HZ / 2);
-		tty_flip_buffer_push(tty);
+		tty_flip_buffer_push(tty->port);
 	}
 
 	/* XXX only when writable and necessary */
