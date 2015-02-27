@@ -1229,6 +1229,8 @@ void gpiod_unexport(struct gpio_desc *desc)
 	mutex_unlock(&sysfs_lock);
 
 	if (dev) {
+		device_remove_file(dev, &dev_attr_edge);
+		device_remove_file(dev, &dev_attr_direction);
 		device_unregister(dev);
 		put_device(dev);
 	}
@@ -1268,30 +1270,13 @@ static int gpiochip_export(struct gpio_chip *chip)
 		int	gpio;
 
 		spin_lock_irqsave(&gpio_lock, flags);
-/*SWISTART*/
-#ifdef CONFIG_SIERRA_EXT_GPIO
-	gpio_ext_chip.mask = bsgetgpioflag();
-	for(gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
-	{
-		if(gpio_ext_chip.mask & (0x0001 << gpio))
-		{
-			ext_gpio[gpio].function = EMBEDED_HOST;
-		}
-		else
-		{
-			ext_gpio[gpio].function = UNALLOCATED;
-		}
-	}
-    gpio_ext_chip.dev = gpio_desc[0].chip->dev;
-	status = gpiochip_export(&gpio_ext_chip);
-#else
-		gpio = 0;
-		while (gpio < chip->ngpio)
-			chip->desc[gpio++].chip = NULL;
+		gpio = chip->base;
+		while (gpio_desc[gpio].chip == chip)
+			gpio_desc[gpio++].chip = NULL;
 		spin_unlock_irqrestore(&gpio_lock, flags);
-#endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
-		chip_dbg(chip, "%s: status %d\n", __func__, status);
+
+		pr_debug("%s: chip %s status %d\n", __func__,
+				chip->label, status);
 	}
 
 	return status;
@@ -1321,7 +1306,7 @@ static int __init gpiolib_sysfs_init(void)
 {
 	int		status;
 	unsigned long	flags;
-	struct gpio_chip *chip;
+	unsigned	gpio;
 
 	status = class_register(&gpio_class);
 	if (status < 0)
@@ -1334,7 +1319,27 @@ static int __init gpiolib_sysfs_init(void)
 	 * registered, and so arch_initcall() can always gpio_export().
 	 */
 	spin_lock_irqsave(&gpio_lock, flags);
-	list_for_each_entry(chip, &gpio_chips, list) {
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	gpio_ext_chip.mask = bsgetgpioflag();
+	for(gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
+	{
+		if(gpio_ext_chip.mask & (0x0001 << gpio))
+		{
+			ext_gpio[gpio].function = EMBEDED_HOST;
+		}
+		else
+		{
+			ext_gpio[gpio].function = UNALLOCATED;
+		}
+	}
+    gpio_ext_chip.dev = gpio_desc[0].chip->dev;
+	status = gpiochip_export(&gpio_ext_chip);
+#else
+	for (gpio = 0; gpio < ARCH_NR_GPIOS; gpio++) {
+		struct gpio_chip	*chip;
+
+		chip = gpio_desc[gpio].chip;
 		if (!chip || chip->exported)
 			continue;
 
