@@ -437,19 +437,35 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
 #ifdef CONFIG_KUSER_HELPERS
 /*
  * The vectors page is always readable from user space for the
- * atomic helpers and the signal restart code.  Let's declare a mapping
- * for it so it is visible through ptrace and /proc/<pid>/mem.
+ * atomic helpers. Insert it into the gate_vma so that it is visible
+ * through ptrace and /proc/<pid>/mem.
  */
+static struct vm_area_struct gate_vma = {
+	.vm_start	= 0xffff0000,
+	.vm_end		= 0xffff0000 + PAGE_SIZE,
+	.vm_flags	= VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC,
+};
 
-int vectors_user_mapping(void)
+static int __init gate_vma_init(void)
 {
-        struct mm_struct *mm = current->mm;
-        return install_special_mapping(mm, 0xffff0000, PAGE_SIZE,
-                                       VM_READ | VM_EXEC |
-                                       VM_MAYREAD | VM_MAYEXEC |
-                                       !VM_NODUMP | VM_RESERVED,
-                                       NULL);
-	
+	gate_vma.vm_page_prot = PAGE_READONLY_EXEC;
+	return 0;
+}
+arch_initcall(gate_vma_init);
+
+struct vm_area_struct *get_gate_vma(struct mm_struct *mm)
+{
+	return &gate_vma;
+}
+
+int in_gate_area(struct mm_struct *mm, unsigned long addr)
+{
+	return (addr >= gate_vma.vm_start) && (addr < gate_vma.vm_end);
+}
+
+int in_gate_area_no_mm(unsigned long addr)
+{
+	return in_gate_area(NULL, addr);
 }
 #define is_gate_vma(vma)	((vma) == &gate_vma)
 #else

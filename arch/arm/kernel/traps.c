@@ -847,7 +847,7 @@ void __init early_trap_init(void)
 	 * branch back to the undefined instruction.
 	 */
 	for (i = 0; i < PAGE_SIZE / sizeof(u32); i++)
-		((u32 *)vectors_base)[i] = 0xe7fddef1;
+		((u32 *)vectors)[i] = 0xe7fddef1;
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)
@@ -857,7 +857,7 @@ void __init early_trap_init(void)
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
 	memcpy((void *)vectors + 0x1000, __stubs_start, __stubs_end - __stubs_start);
 
-	kuser_init(vectors_base);
+	kuser_init(vectors);
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE * 2);
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
