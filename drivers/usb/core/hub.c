@@ -3326,7 +3326,6 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	struct usb_port *port_dev = hub->ports[udev->portnum  - 1];
 	int		port1 = udev->portnum;
 	int		status;
-	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 	u16		portchange, portstatus;
 
 	if (port_dev->did_runtime_put) {
@@ -3418,6 +3417,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 /* caller has locked udev */
 int usb_remote_wakeup(struct usb_device *udev)
 {
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 	int	status = 0;
 
 	if (udev->state == USB_STATE_SUSPENDED) {

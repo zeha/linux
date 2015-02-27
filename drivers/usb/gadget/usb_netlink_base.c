@@ -37,7 +37,7 @@ void sendnlmsg(char *message, int msg_len, unsigned int usr_pid)
 
 	nlh = nlmsg_put(skb, 0, 0, 0, msg_len, 0);
 	
-	NETLINK_CB(skb).pid = 0;      
+	NETLINK_CB(skb).portid = 0;      
 	
        memcpy(NLMSG_DATA(nlh), message, msg_len);
 	rc = netlink_unicast(nl_sk, skb, usr_pid, MSG_DONTWAIT);
@@ -136,10 +136,13 @@ static struct file_operations netlinkbase_ctl_fops = {
 int netlink_init(void)
 {
     int err=0;
-	nl_sk = netlink_kernel_create(&init_net,
-						NETLINK_USB_SWITCH,
-						0, nl_data_ready,
-						NULL, THIS_MODULE);
+	struct netlink_kernel_cfg ncfg = {
+		.groups	= 0,
+		.input	= nl_data_ready,
+		.cb_mutex = NULL
+	};
+ 
+	nl_sk = netlink_kernel_create(&init_net,NETLINK_USB_SWITCH,&ncfg);
 
 	if (!nl_sk) 
 	{

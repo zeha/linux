@@ -371,10 +371,10 @@ struct hc_driver {
 	void	(*log_urb)(struct urb *urb, char *event, unsigned extra);
 	void	(*dump_regs)(struct usb_hcd *);
 	int	(*set_usb2_hw_lpm)(struct usb_hcd *, struct usb_device *, int);
+	void	(*enable_ulpi_control)(struct usb_hcd *hcd, u32 linestate);
+	void	(*disable_ulpi_control)(struct usb_hcd *hcd);
+	void	(*set_autosuspend_delay)(struct usb_device *);
 
-	/* to log submission/completion events*/
-	void	(*log_urb)(struct urb *urb, char *event, unsigned extra);
-	void	(*dump_regs)(struct usb_hcd *);
 	/* USB 3.0 Link Power Management */
 		/* Returns the USB3 hub-encoded value for the U1/U2 timeout. */
 	int	(*enable_usb3_lpm_timeout)(struct usb_hcd *,

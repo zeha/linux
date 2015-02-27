@@ -38,10 +38,9 @@
 
 #define MSM_USB_BASE (hcd->regs)
 
-#define DRIVER_DESC "Qualcomm On-Chip EHCI Host Controller"
-
-static const char hcd_name[] = "ehci-msm";
 static struct hc_driver __read_mostly msm_hc_driver;
+
+static struct usb_phy *phy;
 
 static int ehci_msm_reset(struct usb_hcd *hcd)
 {
@@ -69,7 +68,7 @@ static int ehci_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
 	struct resource *res;
-	struct usb_phy *phy;
+	struct usb_phy *phy_l;
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm proble\n");
@@ -109,24 +108,26 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	 * management.
 	 */
 	if (pdev->dev.of_node)
-		phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
+		phy_l = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
 	else
-		phy = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
+		phy_l = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 
-	if (IS_ERR(phy)) {
+	phy = phy_l;
+
+	if (IS_ERR(phy_l)) {
 		dev_err(&pdev->dev, "unable to find transceiver\n");
 		ret = -EPROBE_DEFER;
 		goto put_hcd;
 	}
 
-	ret = otg_set_host(phy->otg, &hcd->self);
+	ret = otg_set_host(phy_l->otg, &hcd->self);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "unable to register with transceiver\n");
 		goto put_hcd;
 	}
 
-	hcd->phy = phy;
-	hcd_to_ehci(hcd)->transceiver = phy;
+	hcd->phy = phy_l;
+	//hcd_to_ehci(hcd)->transceiver = phy;
 	device_init_wakeup(&pdev->dev, 1);
 
 	pm_runtime_enable(&pdev->dev);
@@ -149,7 +150,7 @@ static int ehci_msm_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	hcd_to_ehci(hcd)->transceiver = NULL;
+	//hcd_to_ehci(hcd)->transceiver = NULL;
 	otg_set_host(hcd->phy->otg, NULL);
 
 	/* FIXME: need to call usb_remove_hcd() here? */
@@ -244,7 +245,7 @@ static int __init ehci_msm_init(void)
 	if (usb_disabled())
 		return -ENODEV;
 
-	pr_info("%s: " DRIVER_DESC "\n", hcd_name);
+	pr_info("%s: " "Qualcomm On-Chip EHCI Host Controller" "\n", "ehci-msm");
 	ehci_init_driver(&msm_hc_driver, &msm_overrides);
 	return platform_driver_register(&ehci_msm_driver);
 }
@@ -256,6 +257,6 @@ static void __exit ehci_msm_cleanup(void)
 }
 module_exit(ehci_msm_cleanup);
 
-MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_DESCRIPTION("Qualcomm On-Chip EHCI Host Controller");
 MODULE_ALIAS("platform:msm-ehci");
 MODULE_LICENSE("GPL");

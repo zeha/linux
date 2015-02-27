@@ -217,6 +217,7 @@ struct msm_otg_platform_data {
 	enum usb_mode_type default_mode;
 	enum msm_usb_phy_type phy_type;
 	void (*setup_gpio)(enum usb_otg_state state);
+	char *pclk_src_name;
 	int pmic_id_irq;
 	unsigned int mpm_otgsessvld_int;
 	bool mhl_enable;
@@ -320,6 +321,7 @@ struct msm_otg {
 	int async_irq;
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *pclk_src;
 	struct clk *phy_reset_clk;
 	struct clk *core_clk;
 	void __iomem *regs;

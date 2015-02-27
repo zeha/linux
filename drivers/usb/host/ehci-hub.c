@@ -491,7 +491,7 @@ static int ehci_bus_resume (struct usb_hcd *hcd)
 	if (ehci->resume_sof_bug && resume_needed) {
 		/* root hub has only one port.
 		 * PORT_RESUME gets cleared automatically. */
-		handshake(ehci, &ehci->regs->port_status[0], PORT_RESUME, 0,
+		ehci_handshake(ehci, &ehci->regs->port_status[0], PORT_RESUME, 0,
 				20000);
 		ehci_writel(ehci, ehci_readl(ehci,
 				&ehci->regs->command) | CMD_RUN,
@@ -1266,7 +1266,7 @@ static int ehci_hub_control (
 				cmd = ehci_readl(ehci, &ehci->regs->command);
 				cmd &= ~CMD_RUN;
 				ehci_writel(ehci, cmd, &ehci->regs->command);
-				if (handshake(ehci, &ehci->regs->status,
+				if (ehci_handshake(ehci, &ehci->regs->status,
 						STS_HALT, STS_HALT, 16 * 125))
 					ehci_info(ehci,
 						"controller halt failed\n");
@@ -1278,7 +1278,7 @@ static int ehci_hub_control (
 						PORT_RESET);
 				spin_unlock_irqrestore(&ehci->lock, flags);
 				usleep_range(50000, 55000);
-				if (handshake(ehci, status_reg,
+				if (ehci_handshake(ehci, status_reg,
 						PORT_RESET, 0, 10 * 1000))
 					ehci_info(ehci,
 						"failed to clear reset\n");
