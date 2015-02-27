@@ -21,11 +21,14 @@
 #include <asm/stacktrace.h>
 
 #define BS_SECURE_RAM_SIZE             0x6000
-#define SIERRA_SMEM_SIZE               (0x5000 + BS_SECURE_RAM_SIZE)
+#define SIERRA_SMEM_SIZE               (0x5000 + BS_SECURE_RAM_SIZE)     /* same as BSRAM_SIZE_SMI */
 #define SIERRA_SMEM_BASE               (MSM_SHARED_RAM_BASE + MSM_SHARED_RAM_SIZE - SIERRA_SMEM_SIZE)
 /* this is actually BS_ER_ABORT_DATA_MODEM_START */
 #define SIERRA_SMEM_ERR_DUMP_START     (SIERRA_SMEM_BASE + SIERRA_SMEM_SIZE - 0x1828)
 #define BS_BOOT_APP_MSG_START          (SIERRA_SMEM_BASE + SIERRA_SMEM_SIZE - 0x1020)
+
+/* Cooperative mode message */
+#define BS_COWORK_MSG_START            (SIERRA_SMEM_BASE + SIERRA_SMEM_SIZE - 0xAEAC)
 
 /* Local constants and enumerated types */
 #define ERROR_START_MARKER  0x4552 /* "ER" in ASCII */
@@ -57,6 +60,8 @@
 #define BC_VALID_BOOT_MSG_MARKER           0xBABECAFEU   /* indicates message from Boot to App */
 #define BC_MSG_MARKER_M                    0xFFFF0000U
 #define BCBOOTAPPFLAG_DLOAD_MODE_M         0x00000008
+
+#define BC_VALID_COWORK_MSG_MARKER         0xCD3AE0B5U  /*cooperation mode message start & end marker*/
 
 #define ERDUMP_SAVE_CMD_START              0xFF00
 #define ERDUMP_SAVE_CMD_ERRSTR             0xFF01
@@ -170,6 +175,34 @@ struct __packed bcboottoappmsg
   uint32_t flags;                        /* boot -> app messages */
   uint32_t partisz[10];                  /* total size of 5 APP partitions, read from user partition */
   uint32_t bcendmarker;                  /* indicates end of structure */
+};
+
+/*************
+ *
+ * Name:     bccoworkmsg - Coopertive work message structure
+ *
+ * Purpose:  To provide a structure to share the resoure assigned state .
+ *
+ * Members:
+ *           bcstartmarker - marker indicating the start of this structure
+ *           bcgpioflag    - external gpio owner flag.
+ *           bcuartfun     - UART1 and UART2 function
+ *           bcendmarker   - marker indicating the end of this structure
+ *
+ * Note:     1. Both markers must contain BC_VALID_BOOT_MSG_MARKER for the
+ *              contents to be considered valid.
+ *              Otherwise, the structure's contents are undefined.
+ *           2. The total size of this structure is small and must reside in
+ *              RAM that is never initialized by boot loader at startup.
+ *
+ *************/
+struct __packed bccoworkmsg
+{
+  uint32_t bcstartmarker;    /* indicates start of structure */
+  uint16_t bcgpioflag;       /* external gpio owner flag. */
+  uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
+  uint32_t bcreserved[13];   /* The unused memory */
+  uint32_t bcendmarker;      /* indicates end of structure */
 };
 
 void sierra_smem_errdump_save_start(void);

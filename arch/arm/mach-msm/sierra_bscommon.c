@@ -698,4 +698,101 @@ bool bssupport(
 }
 EXPORT_SYMBOL(bssupport);
 
+/************
+ *
+ * Name:     bscheckcoworkmsgmsk()
+ *
+ * Purpose:  Use to check the cooperative mode message mask
+ *
+ * Parms:    none
+ *
+ * Return:   true: the start and end mask is valid 
+ *           false: the start or end mask is invalid.
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bscheckcoworkmsgmsk(void)
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START; 
+  
+  if ((mp->bcstartmarker == BC_VALID_COWORK_MSG_MARKER) &&
+      (mp->bcendmarker == BC_VALID_COWORK_MSG_MARKER))
+  {
+    return true;
+  }
+  else
+  {
+    pr_err("Cooperative mode message marker is invalid.");
+    return false;
+  }
+}
 
+/************
+ *
+ * Name:     bsgetgpioflag()
+ *
+ * Purpose:  Returns the external gpio owner flag
+ *
+ * Parms:    none
+ *
+ * Return:   Extern GPIO owner flag
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint16_t bsgetgpioflag(void)
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+
+  if (bscheckcoworkmsgmsk() == true)
+  {
+    return mp->bcgpioflag;
+  }
+  else
+  {
+    pr_err("Cooperative mode message read procedure failed.");
+    return 0;
+  }
+}
+EXPORT_SYMBOL(bsgetgpioflag);
+
+/************
+ *
+ * Name:     bsgetuartfun()
+ *
+ * Purpose:  Provide to get UARTs function seting
+ *
+ * Parms:    uart Number
+ *
+ * Return:   UART function
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+int8_t bsgetuartfun(uint uart_num )
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+   
+  if (uart_num > 1) 
+  {
+    return -1;
+  }
+
+  if (bscheckcoworkmsgmsk() == true)
+  {
+    return (int8_t)mp->bcuartfun[uart_num];
+  }
+  else
+  {
+    pr_err("Cooperative mode message read procedure failed.");
+    return -1;
+  }
+}
+EXPORT_SYMBOL(bsgetuartfun);

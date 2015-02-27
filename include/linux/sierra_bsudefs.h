@@ -252,5 +252,26 @@ enum bsfeature
   BSFEATURE_MAX
 };
 
+/************
+ *
+ * Name:     bsuartfunc
+ *
+ * Purpose:  Enumerated list of different functions supported by App processor
+ *
+ * Members:  BSFEATURE_MINICARD  - if the hardware is a MiniCard
+ *           BSFEATURE_MINICARD_M2M - if the HW support MC M2M features
 
+ *
+ * Notes:    None
+ *
+ ************/
+enum bsuartfunc
+{
+  BSUARTFUNC_INVALID = 0,
+  BSUARTFUNC_DM      = 2,
+  BSUARTFUNC_CONSOLE = 16,
+  BSUARTFUNC_APP     = 17,
+};
+
+#include "sierra_bsuproto.h"
 #endif
