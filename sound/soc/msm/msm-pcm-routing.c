@@ -477,11 +477,11 @@ static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 	if (ucontrol->value.integer.value[0] &&
 	    msm_pcm_routing_route_is_set(mc->reg, mc->shift) == false) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 1);
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else if (!ucontrol->value.integer.value[0] &&
 		   msm_pcm_routing_route_is_set(mc->reg, mc->shift) == true) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 0);
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	return 1;
@@ -578,10 +578,10 @@ static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 
 	if (ucontrol->value.integer.value[0]) {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 1);
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 0);
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	return 1;
@@ -621,13 +621,13 @@ static int msm_routing_put_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 		set_bit(mc->shift, &msm_bedais[mc->reg].fe_sessions);
 		mutex_unlock(&routing_lock);
 
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else {
 		mutex_lock(&routing_lock);
 		clear_bit(mc->shift, &msm_bedais[mc->reg].fe_sessions);
 		mutex_unlock(&routing_lock);
 
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	pr_debug("%s: reg %x shift %x val %ld\n", __func__, mc->reg, mc->shift,
@@ -654,9 +654,9 @@ static int msm_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0])
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	else
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	fm_switch_enable = ucontrol->value.integer.value[0];
 	return 1;
 }
@@ -679,9 +679,9 @@ static int msm_routing_put_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0])
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	else
-		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	fm_pcmrx_switch_enable = ucontrol->value.integer.value[0];
 	return 1;
 }
