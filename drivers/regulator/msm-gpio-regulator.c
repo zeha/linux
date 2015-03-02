@@ -101,7 +101,7 @@ static struct regulator_ops gpio_vreg_ops = {
 	.is_enabled	= gpio_vreg_is_enabled,
 };
 
-static int __devinit gpio_vreg_probe(struct platform_device *pdev)
+static int gpio_vreg_probe(struct platform_device *pdev)
 {
 	const struct gpio_regulator_platform_data *pdata;
 	struct gpio_vreg *vreg;
@@ -154,8 +154,8 @@ static int __devinit gpio_vreg_probe(struct platform_device *pdev)
 	vreg->desc.type		= REGULATOR_VOLTAGE;
 	vreg->desc.owner	= THIS_MODULE;
 
-	vreg->rdev = regulator_register(&vreg->desc, &pdev->dev,
-					&pdata->init_data, vreg, NULL);
+
+	vreg->rdev = regulator_register(&vreg->desc, &pdata->init_data);
 	if (IS_ERR(vreg->rdev)) {
 		rc = PTR_ERR(vreg->rdev);
 		pr_err("%s: regulator_register failed, rc=%d.\n", vreg->name,
@@ -180,7 +180,7 @@ free_vreg:
 	return rc;
 }
 
-static int __devexit gpio_vreg_remove(struct platform_device *pdev)
+static int  gpio_vreg_remove(struct platform_device *pdev)
 {
 	struct gpio_vreg *vreg = platform_get_drvdata(pdev);
 
@@ -198,7 +198,7 @@ static int __devexit gpio_vreg_remove(struct platform_device *pdev)
 
 static struct platform_driver gpio_vreg_driver = {
 	.probe = gpio_vreg_probe,
-	.remove = __devexit_p(gpio_vreg_remove),
+	.remove = gpio_vreg_remove,
 	.driver = {
 		.name = GPIO_REGULATOR_DEV_NAME,
 		.owner = THIS_MODULE,
