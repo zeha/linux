@@ -42,13 +42,13 @@ static struct snd_soc_dai_driver msm_stub_dais[] = {
 
 static struct snd_soc_codec_driver soc_msm_stub = {};
 
-static int __devinit msm_stub_dev_probe(struct platform_device *pdev)
+static int  msm_stub_dev_probe(struct platform_device *pdev)
 {
 	return snd_soc_register_codec(&pdev->dev,
 	&soc_msm_stub, msm_stub_dais, ARRAY_SIZE(msm_stub_dais));
 }
 
-static int __devexit msm_stub_dev_remove(struct platform_device *pdev)
+static int  msm_stub_dev_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
@@ -60,7 +60,7 @@ static struct platform_driver msm_stub_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = msm_stub_dev_probe,
-	.remove = __devexit_p(msm_stub_dev_remove),
+	.remove = msm_stub_dev_remove,
 };
 
 static int __init msm_stub_init(void)
