@@ -144,10 +144,6 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
-	/* send events to user space */
-	int	(*send_event)(struct usb_otg *otg,
-			enum usb_otg_event event);
-
 };
 
 /**

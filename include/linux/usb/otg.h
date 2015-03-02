@@ -34,6 +34,8 @@ struct usb_otg {
 	/* start or continue HNP role switch */
 	int	(*start_hnp)(struct usb_otg *otg);
 
+	/* send events to user space */
+	int	(*send_event)(struct usb_otg *otg, enum usb_otg_event event);
 };
 
 extern const char *usb_otg_state_string(enum usb_otg_state state);

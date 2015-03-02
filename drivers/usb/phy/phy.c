@@ -17,6 +17,7 @@
 #include <linux/of.h>
 
 #include <linux/usb/phy.h>
+#include <linux/usb/otg.h>
 
 static LIST_HEAD(phy_list);
 static LIST_HEAD(phy_bind_list);
@@ -441,3 +442,21 @@ int usb_bind_phy(const char *dev_name, u8 index,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_bind_phy);
+
+
+int otg_send_event(enum usb_otg_event event)
+{
+	struct usb_phy *phy;
+	int ret = -ENOTSUPP;
+	phy = usb_get_phy(USB_PHY_TYPE_USB2);
+
+	if (phy && phy->otg && phy->otg->send_event)
+		ret = phy->otg->send_event(phy->otg, event);
+
+	if (phy)
+		usb_put_phy(phy);
+
+	return ret;
+}
+EXPORT_SYMBOL(otg_send_event);
+
