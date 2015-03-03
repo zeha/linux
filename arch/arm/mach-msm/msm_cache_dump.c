@@ -127,7 +127,7 @@ static int msm_cache_dump_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver msm_cache_dump_driver = {
-	.remove		= __devexit_p(msm_cache_dump_remove),
+	.remove		= msm_cache_dump_remove,
 	.driver         = {
 		.name = "msm_cache_dump",
 		.owner = THIS_MODULE
