@@ -59,6 +59,23 @@ static const char *isa_modes[] = {
   "ARM" , "Thumb" , "Jazelle", "ThumbEE"
 };
 
+static volatile int hlt_counter;
+
+void disable_hlt(void)
+{
+	hlt_counter++;
+}
+
+EXPORT_SYMBOL(disable_hlt);
+
+void enable_hlt(void)
+{
+	hlt_counter--;
+}
+
+EXPORT_SYMBOL(enable_hlt);
+
+
 extern void call_with_stack(void (*fn)(void *), void *arg, void *sp);
 typedef void (*phys_reset_t)(unsigned long);
 
