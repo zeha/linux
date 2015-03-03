@@ -937,13 +937,6 @@ static u32 notrace msm_read_sched_clock(void)
 	return cs->read(NULL);
 }
 
-int read_current_timer(unsigned long *timer_val)
-{
-	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
-	*timer_val = msm_read_timer_count(dgt, GLOBAL_TIMER);
-	return 0;
-}
-
 static void __init msm_sched_clock_init(void)
 {
 	struct msm_clock *clock = &msm_clocks[msm_global_timer];
