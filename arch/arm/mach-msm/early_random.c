@@ -52,7 +52,7 @@ int arch_get_random_common(void *v, size_t size)
 			sizeof(data), &resp, sizeof(resp),
 			common_scm_buf, SCM_BUFFER_SIZE(common_scm_buf));
 	if (!ret) {
-		dmac_inv_range(random_buffer, random_buffer +
+		dmac_flush_range(random_buffer, random_buffer +
 						RANDOM_BUFFER_SIZE);
 		outer_inv_range(
 			(unsigned long) virt_to_phys(random_buffer),
