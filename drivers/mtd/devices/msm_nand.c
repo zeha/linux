@@ -1228,7 +1228,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 					total_ecc_errors += ecc_errors;
 					/* not thread safe */
 					mtd->ecc_stats.corrected += ecc_errors;
-/*SWISTART*/
+
 #ifndef CONFIG_SIERRA
 					if (ecc_errors > 1)
 						pageerr = -EUCLEAN;
@@ -1252,7 +1252,6 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 							pageerr = -EUCLEAN;
 					}
 #endif /* CONFIG_SIERRA */
-/*SWISTOP*/
 				}
 			}
 		}
@@ -2215,40 +2214,19 @@ static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len
 static int msm_nand_read_partial(struct mtd_info *mtd, loff_t from, size_t len,
            size_t *retlen, u_char *buf)
 {
-   int ret;
    struct mtd_oob_ops ops;
-   u_char buf_cache[mtd->writesize];
-   unsigned long r_offset;
-
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-    pr_info("%s: %llx %i\n", __func__, from, len);
-#endif
-
-   r_offset = (unsigned long)(((unsigned long)from) % ((unsigned long)mtd->writesize));
-    from = from - (((unsigned long)from) % ((unsigned long)mtd->writesize));
-
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-   pr_info("%s: Effective read from %llx with size %i and offset %li\n", __func__, from, len, r_offset);
-#endif
-
-   if( ( (unsigned long)len + (unsigned long)r_offset ) > (unsigned long)mtd->writesize) {
-#if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
-       pr_info("%s: %i over maxsize %i!\n",__func__, ((int)len + (int)r_offset), (int)mtd->writesize);
-#endif
-       return 0;
-    }
+   int ret = 0;
 
    ops.mode = MTD_OPS_PLACE_OOB;
-   ops.len = mtd->writesize;
-   ops.datbuf = buf_cache;
+   ops.len = len;
+   ops.datbuf = buf;
    ops.retlen = 0;
    ops.ooblen = 0;
    ops.oobbuf = NULL;
 
    ret = msm_nand_read_oob(mtd, from, &ops);
-   memcpy(buf, buf_cache + r_offset, len);
 
-   *retlen = len;
+   *retlen = ops.retlen;
    return ret;
 }
 
