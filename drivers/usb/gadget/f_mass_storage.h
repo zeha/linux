@@ -115,7 +115,7 @@ struct fsg_config {
 	const char *product_name;		/* 16 characters or less */
 
 	char			can_stall;
-	unsigned int		fsg_num_buffers;
+	unsigned		fsg_num_buffers;
 };
 
 static inline struct fsg_opts *

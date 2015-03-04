@@ -299,30 +299,9 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 		} else {
 			skb_queue_tail(&dev->rx_frames, skb);
 		}
-		skb = NULL;
 
-		skb2 = skb_dequeue(&dev->rx_frames);
-		while (skb2) {
-			if (status < 0
-					|| ETH_HLEN > skb2->len
-					|| skb2->len > VLAN_ETH_FRAME_LEN) {
-				dev->net->stats.rx_errors++;
-				dev->net->stats.rx_length_errors++;
-				DBG(dev, "rx length %d\n", skb2->len);
-				dev_kfree_skb_any(skb2);
-				goto next_frame;
-			}
-			skb2->protocol = eth_type_trans(skb2, dev->net);
-			dev->net->stats.rx_packets++;
-			dev->net->stats.rx_bytes += skb2->len;
-
-			/* no buffer copies needed, unless hardware can't
-			 * use skb buffers.
-			 */
-			status = netif_rx(skb2);
-next_frame:
-			skb2 = skb_dequeue(&dev->rx_frames);
-		}
+		if (!status)
+			queue = 1;
 		break;
 
 	/* software-driven interface shutdown */
@@ -429,7 +408,7 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 	spin_lock_irqsave(&dev->req_lock, flags);
 	while (!list_empty(&dev->rx_reqs)) {
 		/* break the nexus of continuous completion and re-submission*/
-		if (++req_cnt > qlen(dev->gadget))
+		if (++req_cnt > qlen(dev->gadget,dev->qmult))
 			break;
 
 		req = container_of(dev->rx_reqs.next,
@@ -885,6 +864,16 @@ static int eth_stop(struct net_device *net)
 
 /*-------------------------------------------------------------------------*/
 
+/* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
+static char *dev_addr;
+module_param(dev_addr, charp, S_IRUGO);
+MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");
+
+/* this address is invisible to ifconfig */
+static char *host_addr;
+module_param(host_addr, charp, S_IRUGO);
+MODULE_PARM_DESC(host_addr, "Host Ethernet Address");
+
 static int get_ether_addr(const char *str, u8 *dev_addr)
 {
 	if (str) {
@@ -917,6 +906,7 @@ static int get_ether_addr_str(u8 dev_addr[ETH_ALEN], char *str, int len)
 	return 18;
 }
 
+static struct eth_dev *the_dev;
 static const struct net_device_ops eth_netdev_ops = {
 	.ndo_open		= eth_open,
 	.ndo_stop		= eth_stop,

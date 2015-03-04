@@ -1565,8 +1565,8 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 /* SWISTOP */
 
 	/* copy descriptors, and track endpoint copies */
-	f->descriptors = usb_copy_descriptors(mbim_fs_function);
-	if (!f->descriptors)
+	f->fs_descriptors = usb_copy_descriptors(mbim_fs_function);
+	if (!f->fs_descriptors)
 		goto fail;
 
 	/*
@@ -1610,8 +1610,8 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 fail:
 	pr_err("%s failed to bind, err %d\n", f->name, status);
 
-	if (f->descriptors)
-		usb_free_descriptors(f->descriptors);
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
 
 	if (mbim->not_port.notify_req) {
 		kfree(mbim->not_port.notify_req->buf);
@@ -1637,7 +1637,7 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 	bam_data_destroy(mbim->port_num);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
-	usb_free_descriptors(f->descriptors);
+	usb_free_descriptors(f->fs_descriptors);
 
 	kfree(mbim->not_port.notify_req->buf);
 	usb_ep_free_request(mbim->not_port.notify, mbim->not_port.notify_req);

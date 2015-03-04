@@ -732,8 +732,8 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	ecm->notify_req->complete = ecm_qc_notify_complete;
 
 	/* copy descriptors, and track endpoint copies */
-	f->descriptors = usb_copy_descriptors(ecm_qc_fs_function);
-	if (!f->descriptors)
+	f->fs_descriptors = usb_copy_descriptors(ecm_qc_fs_function);
+	if (!f->fs_descriptors)
 		goto fail;
 
 	/* support all relevant hardware speeds... we expect that when
@@ -769,8 +769,8 @@ ecm_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
-	if (f->descriptors)
-		usb_free_descriptors(f->descriptors);
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
 
 	if (ecm->notify_req) {
 		kfree(ecm->notify_req->buf);
@@ -800,7 +800,7 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	bam_data_destroy(0);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
-	usb_free_descriptors(f->descriptors);
+	usb_free_descriptors(f->fs_descriptors);
 
 	kfree(ecm->notify_req->buf);
 	usb_ep_free_request(ecm->notify, ecm->notify_req);

@@ -1022,7 +1022,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 #endif /* CONFIG_SIERRA_USB_COMP*/
 /* SWISTOP */
 #endif
-+/* SWISTART */
+/* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
@@ -1044,11 +1044,11 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 	if(is_acm(gser))
 	{
 		/* copy descriptors, and track endpoint copies */
-		f->descriptors = usb_copy_descriptors(gser_fs_function);
+		f->fs_descriptors = usb_copy_descriptors(gser_fs_function);
 	}
 	else
 	{
-		f->descriptors = usb_copy_descriptors(gser_obex_fs_function);
+		f->fs_descriptors = usb_copy_descriptors(gser_obex_fs_function);
 	}
 #else
 	if (status)
@@ -1067,8 +1067,8 @@ fail:
 		usb_free_descriptors(f->ss_descriptors);
 	if (f->hs_descriptors)
 		usb_free_descriptors(f->hs_descriptors);
-	if (f->descriptors)
-		usb_free_descriptors(f->descriptors);
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
 #ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
@@ -1145,14 +1145,14 @@ static ssize_t f_serial_port_num_show(struct f_serial_opts *opts, char *page)
 static struct f_serial_opts_attribute f_serial_port_num =
 	__CONFIGFS_ATTR_RO(port_num, f_serial_port_num_show);
 
-static struct configfs_attribute *acm_attrs[] = {
+static struct configfs_attribute *f_acm_attrs[] = {
 	&f_serial_port_num.attr,
 	NULL,
 };
 
 static struct config_item_type serial_func_type = {
 	.ct_item_ops	= &serial_item_ops,
-	.ct_attrs	= acm_attrs,
+	.ct_attrs	= f_acm_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
@@ -1196,22 +1196,28 @@ static void gser_free(struct usb_function *f)
 
 static void gser_unbind(struct usb_configuration *c, struct usb_function *f)
 {
+#ifdef CONFIG_MODEM_SUPPORT
+	struct f_gser *gser = func_to_gser(f);
+#endif
 	usb_free_all_descriptors(f);
+/* SWISTART */
+#ifdef CONFIG_MODEM_SUPPORT
 /* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 	if(is_acm(gser))
 	{
 		gs_free_req(gser->notify, gser->notify_req);
 	}
-#endif /* CONFIG_SIERRA */
+#else
+	gs_free_req(gser->notify, gser->notify_req);
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
+#endif
 /* SWISTOP */
 }
 
 static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 {
-#ifdef CONFIG_MODEM_SUPPORT
-	struct f_gser *gser = func_to_gser(f);
-#endif
 	struct f_gser	*gser;
 	struct f_serial_opts *opts;
 
@@ -1233,8 +1239,60 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.set_alt = gser_set_alt;
 	gser->port.func.disable = gser_disable;
 	gser->port.func.free_func = gser_free;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	/* For Compositions that have NMEA but not AT using port_num breaks the NMEA interface */
+	if (gser->transport == USB_GADGET_XPORT_SMD)
+		gser->port.func.name = "modem";
+	else if (gser->transport == USB_GADGET_XPORT_SMDAT)
+		gser->port.func.name = "at";
+	else if (gser->transport == USB_GADGET_XPORT_SMDOSA)
+		gser->port.func.name = "osa";
+	else if (gser->transport == USB_GADGET_XPORT_TTYRD)
+		gser->port.func.name = "raw_data";
+	else
+		gser->port.func.name = "nmea";
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
 #ifdef CONFIG_MODEM_SUPPORT
-	gs_free_req(gser->notify, gser->notify_req);
+/* SWISTART */
+#ifndef CONFIG_SIERRA_USB_COMP
+	/* We support only three ports for now */
+	if (port_num == 0)
+		gser->port.func.name = "modem";
+	else if (port_num == 1)
+		gser->port.func.name = "nmea";
+	else
+		gser->port.func.name = "modem2";
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	if(is_acm(gser))
+	{
+		gser->port.func.setup = gser_setup;
+		gser->port.connect = gser_connect;
+		gser->port.get_dtr = gser_get_dtr;
+		gser->port.get_rts = gser_get_rts;
+		gser->port.send_carrier_detect = gser_send_carrier_detect;
+		gser->port.send_ring_indicator = gser_send_ring_indicator;
+		gser->port.send_modem_ctrl_bits = gser_send_modem_ctrl_bits;
+		gser->port.disconnect = gser_disconnect;
+		gser->port.send_break = gser_send_break;
+	}
+#else
+	gser->port.func.setup = gser_setup;
+	gser->port.connect = gser_connect;
+	gser->port.get_dtr = gser_get_dtr;
+	gser->port.get_rts = gser_get_rts;
+	gser->port.send_carrier_detect = gser_send_carrier_detect;
+	gser->port.send_ring_indicator = gser_send_ring_indicator;
+	gser->port.send_modem_ctrl_bits = gser_send_modem_ctrl_bits;
+	gser->port.disconnect = gser_disconnect;
+	gser->port.send_break = gser_send_break;
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
 #endif
 	return &gser->port.func;
 }

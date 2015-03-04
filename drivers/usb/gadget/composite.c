@@ -35,6 +35,9 @@
  * with the relevant device-wide data.
  */
 
+/* big enough to hold our biggest descriptor */
+#define USB_BUFSIZ	4096
+
 static struct usb_gadget_strings **get_containers_gs(
 		struct usb_gadget_string_container *uc)
 {
@@ -797,8 +800,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	}
 
 	/* when we return, be sure our power usage is valid */
-	power = c->bMaxPower ? (cdev->vbus_draw_units * c->bMaxPower) :
-			CONFIG_USB_GADGET_VBUS_DRAW;
+	power = c->MaxPower ? c->MaxPower : CONFIG_USB_GADGET_VBUS_DRAW;
 done:
 	usb_gadget_vbus_draw(gadget, power);
 	if (result >= 0 && cdev->delayed_status)
@@ -1441,7 +1443,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				count_configs(cdev, USB_DT_DEVICE);
 			cdev->desc.bMaxPacketSize0 =
 				cdev->gadget->ep0->maxpacket;
-			cdev->vbus_draw_units = 2
+			cdev->vbus_draw_units = 2;
 			if (gadget_is_superspeed(gadget)) {
 				if (gadget->speed >= USB_SPEED_SUPER) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0300);

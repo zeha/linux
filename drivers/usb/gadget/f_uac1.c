@@ -1130,7 +1130,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 	audio->in_ep = ep;
 	ep->desc = &microphone_as_ep_in_desc;
-	ep->driver_data = cdev;/
+	ep->driver_data = cdev;
 
 	status = -ENOMEM;
 

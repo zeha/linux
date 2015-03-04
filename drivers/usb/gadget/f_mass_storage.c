@@ -272,7 +272,7 @@ static ud_msg_notify switch_cmd;
 static int switch_sig = 0;
 
 /*SCSI commands we recognize */
-#define SC_GET_CONFIG<>0x46
+#define SC_GET_CONFIG	0x46
 #endif /* CONFIG_SIERRA_USB_COMP*/
 /* SWISTOP */
 
@@ -1134,12 +1134,12 @@ write_error:
 				 * yet from the host. So there is no point in
 				 * csw right away without the complete data.
 				 */
-				for (i = 0; i < fsg_num_buffers; i++) {
+				for (i = 0; i < 4; i++) {
 					if (common->buffhds[i].state ==
 							BUF_STATE_BUSY)
 						break;
 				}
-				if (!amount_left_to_req && i == fsg_num_buffers) {
+				if (!amount_left_to_req && i == 4) {
 					csw_hack_sent = 1;
 					send_status(common);
 				}
@@ -3945,16 +3945,6 @@ static struct usb_function *fsg_alloc(struct usb_function_instance *fi)
 	struct fsg_opts *opts = fsg_opts_from_func_inst(fi);
 	struct fsg_common *common = opts->common;
 	struct fsg_dev *fsg;
-
-	
-	/* Maybe allocate device-global string IDs, and patch descriptors */
-	if (fsg_strings[FSG_STRING_INTERFACE].id == 0) {
-		rc = usb_string_id(cdev);
-	if (unlikely(rc < 0))
-		return rc;
-		fsg_strings[FSG_STRING_INTERFACE].id = rc;
-		fsg_intf_desc.iInterface = rc;
-	}
 
 	fsg = kzalloc(sizeof(*fsg), GFP_KERNEL);
 	if (unlikely(!fsg))

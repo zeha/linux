@@ -44,4 +44,6 @@ struct NDIS_PM_PACKET_PATTERN {
 	__le32	PatternFlags;
 };
 
+#define NDIS_MEDIUM_802_3		0x00000000
+
 #endif /* _LINUX_NDIS_H */

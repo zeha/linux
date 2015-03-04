@@ -610,7 +610,7 @@ static int gaudio_open_snd_dev(struct gaudio *card)
 		snd->filp = NULL;
 		return ret;
 	}
-	pr_debug("Initialized PCM playback device: %s\n", fn_play)
+	pr_debug("Initialized PCM playback device: %s\n", fn_play);
 	pcm_file = snd->filp->private_data;
 	snd->substream = pcm_file->substream;
 	snd->card = card;

@@ -430,7 +430,7 @@ struct uac_format_type_i_continuous_descriptor {
 	__u8  tUpperSamFreq[3];
 } __attribute__ ((packed));
 
-DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(1);
+
 #define UAC_FORMAT_TYPE_I_CONTINUOUS_DESC_SIZE	14
 struct uac_format_type_i_discrete_descriptor {
 	__u8  bLength;			/* in bytes: 8 + (ns * 3) */
@@ -457,6 +457,7 @@ struct uac_format_type_i_discrete_descriptor_##n {		\
 	__u8  tSamFreq[n][3];					\
 } __attribute__ ((packed))
 
+DECLARE_UAC_FORMAT_TYPE_I_DISCRETE_DESC(1);
 #define UAC_FORMAT_TYPE_I_DISCRETE_DESC_SIZE(n)	(8 + (n * 3))
 
 struct uac_format_type_i_ext_descriptor {

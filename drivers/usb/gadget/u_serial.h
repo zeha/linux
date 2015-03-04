@@ -70,6 +70,10 @@ void gs_free_req(struct usb_ep *, struct usb_request *req);
 int gserial_alloc_line(unsigned char *port_line);
 void gserial_free_line(unsigned char port_line);
 
+/* port setup/teardown is handled by gadget driver */
+int gserial_setup(struct usb_gadget *g, unsigned n_ports);
+void gserial_cleanup(void);
+
 /* connect/disconnect is handled by individual functions */
 int gserial_connect(struct gserial *, u8 port_num);
 void gserial_disconnect(struct gserial *);

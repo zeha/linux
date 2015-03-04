@@ -22,6 +22,10 @@
 #define RNDIS_MAXIMUM_FRAME_SIZE	1518
 #define RNDIS_MAX_TOTAL_SIZE		1558
 
+/* Message Set for Connectionless (802.3) Devices */
+#define REMOTE_NDIS_PACKET_MSG		0x00000001U
+#define REMOTE_NDIS_INITIALIZE_MSG	0x00000002U	/* Initialize device */
+
 typedef struct rndis_init_msg_type
 {
 	__le32	MessageType;

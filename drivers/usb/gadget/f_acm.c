@@ -819,8 +819,8 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 fail:
 	if (f->hs_descriptors)
 		usb_free_descriptors(f->hs_descriptors);
-	if (f->descriptors)
-		usb_free_descriptors(f->descriptors);
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
 
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
@@ -929,18 +929,18 @@ static int acm_init_port(int port_num, const char *name)
 }
 
 
-static inline struct f_serial_opts *to_f_serial_opts(struct config_item *item)
+static inline struct f_serial_opts *to_f_acm_serial_opts(struct config_item *item)
 {
 	return container_of(to_config_group(item), struct f_serial_opts,
 			func_inst.group);
 }
 
-CONFIGFS_ATTR_STRUCT(f_serial_opts);
+//CONFIGFS_ATTR_STRUCT(f_serial_opts);
 static ssize_t f_acm_attr_show(struct config_item *item,
 				 struct configfs_attribute *attr,
 				 char *page)
 {
-	struct f_serial_opts *opts = to_f_serial_opts(item);
+	struct f_serial_opts *opts = to_f_acm_serial_opts(item);
 	struct f_serial_opts_attribute *f_serial_opts_attr =
 		container_of(attr, struct f_serial_opts_attribute, attr);
 	ssize_t ret = 0;
@@ -952,7 +952,7 @@ static ssize_t f_acm_attr_show(struct config_item *item,
 
 static void acm_attr_release(struct config_item *item)
 {
-	struct f_serial_opts *opts = to_f_serial_opts(item);
+	struct f_serial_opts *opts = to_f_acm_serial_opts(item);
 
 	usb_put_function_instance(&opts->func_inst);
 }

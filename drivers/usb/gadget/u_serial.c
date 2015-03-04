@@ -89,6 +89,7 @@
 #define RX_BUF_SIZE		4096
 
 #define N_PORTS		8
+static unsigned	n_ports;
 /* circular buffer */
 struct gs_buf {
 	unsigned		buf_size;
@@ -1222,7 +1223,7 @@ static ssize_t debug_read_status(struct file *file, char __user *ubuf,
 	int ret;
 	int result = 0;
 
-	tty = ui_dev->port_tty;
+	tty = ui_dev->port.tty;
 	gser = ui_dev->port_usb;
 
 	buf = kzalloc(sizeof(char) * BUF_SIZE, GFP_KERNEL);
@@ -1315,6 +1316,134 @@ static void usb_debugfs_init(struct gs_port *ui_dev, int port_num)
 static void usb_debugfs_init(struct gs_port *ui_dev) {}
 #endif
 
+/**
+ * gserial_setup - initialize TTY driver for one or more ports
+ * @g: gadget to associate with these ports
+ * @count: how many ports to support
+ * Context: may sleep
+ *
+ * The TTY stack needs to know in advance how many devices it should
+ * plan to manage.  Use this call to set up the ports you will be
+ * exporting through USB.  Later, connect them to functions based
+ * on what configuration is activated by the USB host; and disconnect
+ * them as appropriate.
+ *
+ * An example would be a two-configuration device in which both
+ * configurations expose port 0, but through different functions.
+ * One configuration could even expose port 1 while the other
+ * one doesn't.
+ *
+ * Returns negative errno or zero.
+ */
+int gserial_setup(struct usb_gadget *g, unsigned count)
+{
+	unsigned			i;
+	struct usb_cdc_line_coding	coding;
+	int				status;
+
+	if (count == 0 || count > N_PORTS)
+		return -EINVAL;
+
+	gs_tty_driver = alloc_tty_driver(count);
+	if (!gs_tty_driver)
+		return -ENOMEM;
+
+	gs_tty_driver->driver_name = "g_serial";
+	gs_tty_driver->name = PREFIX;
+	/* uses dynamically assigned dev_t values */
+
+	gs_tty_driver->type = TTY_DRIVER_TYPE_SERIAL;
+	gs_tty_driver->subtype = SERIAL_TYPE_NORMAL;
+	gs_tty_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV
+				| TTY_DRIVER_RESET_TERMIOS;
+	gs_tty_driver->init_termios = tty_std_termios;
+
+	/* 9600-8-N-1 ... matches defaults expected by "usbser.sys" on
+	 * MS-Windows.  Otherwise, most of these flags shouldn't affect
+	 * anything unless we were to actually hook up to a serial line.
+	 */
+	gs_tty_driver->init_termios.c_cflag =
+			B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+	gs_tty_driver->init_termios.c_ispeed = 9600;
+	gs_tty_driver->init_termios.c_ospeed = 9600;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	/* set ~ICANON so that serial data will not be buffered
+	 * set ~ECHO so that serial data from host will not be echoed back
+	 * These two settings are required for NMEA port so that the short NMEA
+	 * command $GPS_START from host will not be buffered and echoed.
+	 * FIXME: make sure this will not affect other serial ports (diag and modem
+	 *        are not affected and they are not using this function)
+	 */
+	gs_tty_driver->init_termios.c_lflag &= ~(ICANON | ECHO);
+	/*set ~ONLCR so that serial data will not turn '\n' to '\r\n'
+	 *This flag is set to ONLCR in tty_std_termios which is the benefit of tty drivers.
+	 *But here should be modified for customer.
+	 */
+	gs_tty_driver->init_termios.c_oflag &= (~ONLCR);
+#endif /* CONFIG_SIERRA_USB_COMP */
+/* SWISTOP */
+
+	coding.dwDTERate = cpu_to_le32(9600);
+	coding.bCharFormat = 8;
+	coding.bParityType = USB_CDC_NO_PARITY;
+	coding.bDataBits = USB_CDC_1_STOP_BITS;
+
+	tty_set_operations(gs_tty_driver, &gs_tty_ops);
+
+	gserial_wq = create_singlethread_workqueue("k_gserial");
+	if (!gserial_wq) {
+		status = -ENOMEM;
+		goto fail;
+	}
+
+	/* make devices be openable */
+	for (i = 0; i < count; i++) {
+		mutex_init(&ports[i].lock);
+		status = gs_port_alloc(i, &coding);
+		if (status) {
+			count = i;
+			goto fail;
+		}
+	}
+	n_ports = count;
+
+	/* export the driver ... */
+	status = tty_register_driver(gs_tty_driver);
+	if (status) {
+		put_tty_driver(gs_tty_driver);
+		pr_err("%s: cannot register, err %d\n",
+				__func__, status);
+		goto fail;
+	}
+
+	/* ... and sysfs class devices, so mdev/udev make /dev/ttyGS* */
+	for (i = 0; i < count; i++) {
+		struct device	*tty_dev;
+
+		tty_dev = tty_register_device(gs_tty_driver, i, &g->dev);
+		if (IS_ERR(tty_dev))
+			pr_warning("%s: no classdev for port %d, err %ld\n",
+				__func__, i, PTR_ERR(tty_dev));
+	}
+
+	for (i = 0; i < count; i++)
+		usb_debugfs_init(ports[i].port, i);
+
+	pr_debug("%s: registered %d ttyGS* device%s\n", __func__,
+			count, (count == 1) ? "" : "s");
+
+	return status;
+fail:
+	while (count--)
+		kfree(ports[count].port);
+	if (gserial_wq)
+		destroy_workqueue(gserial_wq);
+	put_tty_driver(gs_tty_driver);
+	gs_tty_driver = NULL;
+	return status;
+}
 
 static int gs_closed(struct gs_port *port)
 {
@@ -1324,6 +1453,56 @@ static int gs_closed(struct gs_port *port)
 	cond = (port->port.count == 0) && !port->openclose;
 	spin_unlock_irq(&port->port_lock);
 	return cond;
+}
+
+/**
+ * gserial_cleanup - remove TTY-over-USB driver and devices
+ * Context: may sleep
+ *
+ * This is called to free all resources allocated by @gserial_setup().
+ * Accordingly, it may need to wait until some open /dev/ files have
+ * closed.
+ *
+ * The caller must have issued @gserial_disconnect() for any ports
+ * that had previously been connected, so that there is never any
+ * I/O pending when it's called.
+ */
+void gserial_cleanup(void)
+{
+	unsigned	i;
+	struct gs_port	*port;
+
+	if (!gs_tty_driver)
+		return;
+
+	/* start sysfs and /dev/ttyGS* node removal */
+	for (i = 0; i < n_ports; i++)
+		tty_unregister_device(gs_tty_driver, i);
+
+	for (i = 0; i < n_ports; i++) {
+		/* prevent new opens */
+		mutex_lock(&ports[i].lock);
+		port = ports[i].port;
+		ports[i].port = NULL;
+		mutex_unlock(&ports[i].lock);
+
+		cancel_work_sync(&port->push);
+
+		/* wait for old opens to finish */
+		wait_event(port->port.close_wait, gs_closed(port));
+
+		WARN_ON(port->port_usb != NULL);
+
+		kfree(port);
+	}
+	n_ports = 0;
+
+	destroy_workqueue(gserial_wq);
+	tty_unregister_driver(gs_tty_driver);
+	put_tty_driver(gs_tty_driver);
+	gs_tty_driver = NULL;
+
+	pr_debug("%s: cleaned up ttyGS* support\n", __func__);
 }
 
 static void gserial_free_port(struct gs_port *port)
