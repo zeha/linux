@@ -1061,7 +1061,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 /*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO
 		dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
-		        desc, ioname ? ioname : "gpio%u", gpio_map_ext(gpio_desc));
+		        desc, ioname ? ioname : "gpio%u", gpio_map_ext(offset));
 #else
 	
 	dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
