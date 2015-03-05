@@ -80,7 +80,14 @@
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    /* Increase bark time to fix: SBM17458 Module crash after LTP stress test overnight */
+	.bark_time = 17000,
+#else
 	.bark_time = 11000,
+#endif
+/* SWISTOP */
 	.has_secure = false,
 	.use_kernel_fiq = true,
 };
