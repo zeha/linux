@@ -530,7 +530,7 @@ static void msm_hsl_enable_ms(struct uart_port *port)
 
 static void handle_rx(struct uart_port *port, unsigned int misr)
 {
-	struct tty_port tty_port = port->state->port;
+	struct tty_port *tport = &(port->state->port);
 	unsigned int vid;
 	unsigned int sr;
 	int count = 0;
@@ -544,7 +544,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 	if ((msm_hsl_read(port, regmap[vid][UARTDM_SR]) &
 				UARTDM_SR_OVERRUN_BMSK)) {
 		port->icount.overrun++;
-		tty_insert_flip_char(&tty_port, 0, TTY_OVERRUN);
+		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
 		msm_hsl_write(port, RESET_ERROR_STATUS,
 			regmap[vid][UARTDM_CR]);
 	}
@@ -585,12 +585,12 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 
 		/* TODO: handle sysrq */
 		if (!uart_handle_sysrq_char(port, c))
-		tty_insert_flip_string(&tty_port, (char *) &c,
+		tty_insert_flip_string(tport, (char *) &c,
 				       (count > 4) ? 4 : count);
 		count -= 4;
 	}
 
-	tty_flip_buffer_push(&tty_port);
+	tty_flip_buffer_push(tport);
 }
 
 static void handle_tx(struct uart_port *port)
