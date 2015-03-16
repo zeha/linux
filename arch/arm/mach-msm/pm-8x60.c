@@ -651,7 +651,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 		struct msm_rpmrs_limits *rs_limits = NULL;
 		int idx;
 
-		mode = (enum msm_pm_sleep_mode)(st_usage->disable);
+		mode = (enum msm_pm_sleep_mode) cpuidle_get_statedata(st_usage);
 		idx = MSM_PM_MODE(dev->cpu, mode);
 
 		allow = msm_pm_sleep_modes[idx].idle_enabled &&

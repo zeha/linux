@@ -116,7 +116,7 @@ static int msm_cpuidle_enter(
 	msm_pm_idle_enter(pm_mode);
 	for (i = 0; i < dev->state_count; i++) {
 		st_usage = &dev->states_usage[i];
-		if ((enum msm_pm_sleep_mode)(st_usage->disable)
+		if ((enum msm_pm_sleep_mode) cpuidle_get_statedata(st_usage)
 		    == pm_mode) {
 			ret = i;
 			break;
@@ -184,7 +184,7 @@ static void __init msm_cpuidle_set_cpu_statedata(struct cpuidle_device *dev)
 			continue;
 
 		st_usage = &dev->states_usage[state_count];
-		//cpuidle_set_statedata(st_usage, (void *)cstate->mode_nr);
+		cpuidle_set_statedata(st_usage, (void *)cstate->mode_nr);
 		state_count++;
 		BUG_ON(state_count > msm_cpuidle_driver.state_count);
 	}
