@@ -638,7 +638,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 	int i;
 	int ret = 0;
 	uint32_t power_usage = -1;
-	
+
 	latency_us = (uint32_t) pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
 	sleep_us = (uint32_t) ktime_to_ns(tick_nohz_get_sleep_length());
 	sleep_us = DIV_ROUND_UP(sleep_us, 1000);
@@ -648,10 +648,10 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 		struct cpuidle_state_usage *st_usage = &dev->states_usage[i];
 		enum msm_pm_sleep_mode mode;
 		bool allow;
-		uint32_t power;
-		int idx;
 		struct msm_rpmrs_limits *rs_limits = NULL;
-		mode = (enum msm_pm_sleep_mode) (st_usage->disable);
+		int idx;
+
+		mode = (enum msm_pm_sleep_mode)(st_usage->disable);
 		idx = MSM_PM_MODE(dev->cpu, mode);
 
 		allow = msm_pm_sleep_modes[idx].idle_enabled &&

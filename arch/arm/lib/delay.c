@@ -47,6 +47,38 @@ int read_current_timer(unsigned long *timer_val)
 }
 EXPORT_SYMBOL_GPL(read_current_timer);
 
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+/*
+ * Assuming read_current_timer() is monotonically increasing
+ * across calls.
+ */
+void read_current_timer_delay_loop(unsigned long loops)
+{
+	unsigned long bclock, now;
+
+	read_current_timer(&bclock);
+	do {
+		read_current_timer(&now);
+	} while ((now - bclock) < loops);
+}
+#endif
+
+static void (*delay_fn)(unsigned long) = __loop_delay;
+
+void set_delay_fn(void (*fn)(unsigned long))
+{
+	delay_fn = fn;
+}
+
+/*
+ * loops = usecs * HZ * loops_per_jiffy / 1000000
+ */
+void __delay(unsigned long loops)
+{
+	delay_fn(loops);
+}
+EXPORT_SYMBOL(__delay);
+
 static void __timer_delay(unsigned long cycles)
 {
 	cycles_t start = get_cycles();

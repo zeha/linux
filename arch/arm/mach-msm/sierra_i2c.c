@@ -43,15 +43,15 @@ static struct i2c_client * sierra_i2c_lookup(int addr)
   return NULL;
 }
 
-static ssize_t sierra_i2c_read(struct file *fp, char __user *buf,
-            size_t count, loff_t *posp)
+static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
+                               loff_t *posp)
 {
   struct i2c_adapter *i2c_adap;
   struct i2c_client *client;
   struct i2c_msg msg;
   char data_buf[I2C_BUF_SIZE];
   int ret,data_size;
-    
+
   client = (struct i2c_client *)fp->private_data;
   if(!client)
   {
@@ -118,7 +118,14 @@ static ssize_t sierra_i2c_write(struct file *fp, const char __user *buf,
     
 static int sierra_i2c_open(struct inode *inode, struct file *file)
 {
-  return 0;
+  int ret = 0;
+
+  if(list_empty(&sierra_i2c_device_list))
+  {
+    pr_err("%s: device list is empty. Hint: Set one up using SWI_IOCTL_I2C_ADDR_CONFIG ioctl.\n", __func__);
+    ret = -ENODEV;
+  }
+  return ret;
 }
 
 static int sierra_i2c_release(struct inode *inode, struct file *file)
@@ -129,10 +136,10 @@ static int sierra_i2c_release(struct inode *inode, struct file *file)
 static long sierra_i2c_ioctl(struct file *filp, u_int cmd, u_long arg)
 {
   int addr,freq,ret;
-  struct i2c_adapter *i2c_adap;
-  struct i2c_client *swi_i2c_client;
+  struct i2c_adapter *i2c_adap = NULL;
+  struct i2c_client *swi_i2c_client = NULL;
+  struct sierra_i2c_device *swi_i2c_dev = NULL;
   struct i2c_board_info info;
-  struct sierra_i2c_device *swi_i2c_dev;
   unsigned short addr_list[] = {0xFF, I2C_CLIENT_END};
   memset(&info, 0, sizeof(struct i2c_board_info));
   i2c_adap = i2c_get_adapter(0x0);

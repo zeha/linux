@@ -27,8 +27,7 @@ extern struct arm_delay_ops {
 	unsigned long ticks_per_jiffy;
 } arm_delay_ops;
 
-#define __delay(n)		arm_delay_ops.delay(n)
-
+extern void __delay(unsigned long loops);
 /*
  * This function intentionally does not exist; if you see references to
  * it, it means that you're calling udelay() with an out of range value.
@@ -66,7 +65,9 @@ extern void __loop_const_udelay(unsigned long);
 #define ARCH_HAS_READ_CURRENT_TIMER
 extern void register_current_timer_delay(const struct delay_timer *timer);
 
-#endif /* __ASSEMBLY__ */
+extern void set_delay_fn(void (*fn)(unsigned long));
+extern void read_current_timer_delay_loop(unsigned long loops);
 
+#endif /* __ASSEMBLY__ */
 #endif /* defined(_ARM_DELAY_H) */
 

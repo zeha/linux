@@ -34,29 +34,21 @@ static struct gpiomux_setting slimbus = {
 #endif /* CONFIG_SIERRA_INTERNAL_CODEC */
 
 #ifdef CONFIG_SIERRA_UART
+static struct gpiomux_setting gsbi3 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting gsbi4 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-#else
-static struct gpiomux_setting gsbi2 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif /* CONFIG_SIERRAi_UART */
 
-#ifdef CONFIG_SIERRA_UART
 static struct gpiomux_setting gsbi5 = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gsbi3 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
@@ -65,7 +57,14 @@ static struct gpiomux_setting gsbi5_uart = {
     .drv = GPIOMUX_DRV_8MA,
     .pull = GPIOMUX_PULL_NONE,
 };
-#endif /* CONFIG_SIERRA */
+#else
+static struct gpiomux_setting gsbi2 = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+#endif /* CONFIG_SIERRA_UART */
+
 /* SWISTOP */
 
 #ifdef CONFIG_LTC4088_CHARGER
