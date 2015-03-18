@@ -1885,8 +1885,8 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			if (!mReq->req.no_interrupt)
 				mReq->ptr->token |= MSM_ETD_IOC;
 		}
-		/* SBM-17334: Set req.dma to INVALID value to indicate that dma needs to be remapped */
-		mReq->req.dma = DMA_ADDR_INVALID;
+		/* revert SBM-17334 due to USB becomes non-functional after data connection */
+		mReq->req.dma = 0;
 	}
 
 	mReq->ptr->page[0]  = mReq->req.dma;
@@ -2158,8 +2158,8 @@ static void release_ep_request(struct ci13xxx_ep  *mEp,
 		dma_unmap_single(mEp->device, mReq->req.dma,
 			mReq->req.length,
 			mEp->dir ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-		/* SBM-17334 Set req.dma to INVALID value to indicate that dma needs to be remapped if USB cable is plugged again */
-		mReq->req.dma = DMA_ADDR_INVALID;
+		/* revert SBM-17334 due to USB becomes non-functional after data connection */
+		mReq->req.dma = 0;
 		mReq->map     = 0;
 	}
 
