@@ -297,6 +297,10 @@ bool bssupport(
         case BSMC7350L:
         case BSMC7802:
         case BSMC7304:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
           supported = true;
           break;
 
@@ -355,7 +359,7 @@ bool bssupport(
         case BSAR7552RD:
           supported = true;
           break;
-          
+
         default:
           supported = false;
           break;
@@ -426,6 +430,10 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
         case BSAR7552RD:
           supported = true;
           break;
@@ -472,6 +480,10 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR7552RD:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
           supported = true;
           break;
 
@@ -567,6 +579,9 @@ bool bssupport(
         case BSMC8805:
         case BSEM8805:
         case BSAR8652:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
           supported = false;
           break;
 
@@ -650,6 +665,10 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR8652:
         case BSAR7552RD:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
           supported = true;
           break;
 
@@ -668,6 +687,76 @@ bool bssupport(
         case BSWP7100_LARGER_MEMORY:
         case BSWP7102_LARGER_MEMORY:
         case BSWP7104_LARGER_MEMORY:
+          supported = true;
+          break;
+          
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_OSA:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7556:
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
+        case BSAR7554RD:
+        case BSAR8652:
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
+        case BSAR7552RD:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_ATPORTSW:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7556:
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
+        case BSAR7554RD:
+        case BSAR8652:
+        case BSWP7100:
+        case BSWP7102:
+        case BSWP7104:
+        case BSWP7100_LARGER_MEMORY:
+        case BSWP7102_LARGER_MEMORY:
+        case BSWP7104_LARGER_MEMORY:
+        case BSWP7100_NEW:
+        case BSWP7102_NEW:
+        case BSWP7104_NEW:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -703,6 +792,10 @@ bool bssupport(
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
         case BSAR7554RD:
         case BSAR7552RD:
           supported = true;
@@ -743,6 +836,26 @@ bool bssupport(
         case BSAR8652:
         case BSAR7554RD:
         case BSAR7552RD:
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_CF3:
+      switch (hwtype)
+      {
+        case BSWP75XX:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
           supported = true;
           break;
 
@@ -924,4 +1037,3 @@ int8_t bsgetriowner(void)
   }
 }
 EXPORT_SYMBOL(bsgetriowner);
-

@@ -34,11 +34,11 @@
 #include "devices.h"
 #include "clock-pll.h"
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 #include "linux/sierra_bsudefs.h"
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_LPA(off)	(MSM_LPASS_CLK_CTL_BASE + (off))
@@ -510,17 +510,14 @@ static CLK_GSBI_UART(gsbi5_uart,   5, CLK_HALT_CFPB_STATEB_REG, 22);
 static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 	F_GSBI_QUP(       0, gnd,  1, 0,  0),
 	F_GSBI_QUP(  960000, cxo,  4, 1,  5),
-#ifdef CONFIG_SIERRA_SPI_INF
+#ifdef CONFIG_SIERRA_GSBI3_SPI
 	F_GSBI_QUP( 4000000, pll8, 4, 1, 24),
-#endif
-
-#ifndef CONFIG_SIERRA_SPI_INF
-	F_GSBI_QUP( 4800000, cxo,  4, 0,  1),
-	F_GSBI_QUP( 9600000, cxo,  2, 0,  1),
-#else
 	F_GSBI_QUP( 4800000, pll8, 4, 1, 20),
 	F_GSBI_QUP( 9600000, pll8, 4, 1, 10),
-#endif
+#else
+	F_GSBI_QUP( 4800000, cxo,  4, 0,  1),
+	F_GSBI_QUP( 9600000, cxo,  2, 0,  1),
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
 	F_GSBI_QUP(15058800, pll8, 1, 2, 51),
 	F_GSBI_QUP(24000000, pll8, 4, 1,  4),
 	F_GSBI_QUP(25600000, pll8, 1, 1, 15),
@@ -710,14 +707,12 @@ static struct rcg_clk usb_hs1_xcvr_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_xcvr_clk",
 		.ops = &clk_ops_rcg,
-/* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 		VDD_DIG_FMAX_MAP1(NONE, 60000000),
 #else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 #endif
-/* SWISTOP */
 		CLK_INIT(usb_hs1_xcvr_clk.c),
 	},
 };
@@ -742,14 +737,12 @@ static struct rcg_clk usb_hs1_sys_clk = {
 	.c = {
 		.dbg_name = "usb_hs1_sys_clk",
 		.ops = &clk_ops_rcg,
-/* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 		VDD_DIG_FMAX_MAP1(NONE, 60000000),
 #else
 		VDD_DIG_FMAX_MAP1(NOMINAL, 60000000),
 #endif
-/* SWISTOP */
 		CLK_INIT(usb_hs1_sys_clk.c),
 	},
 };
@@ -1236,13 +1229,11 @@ static CLK_AIF_BIT_DIV(spare_i2s_spkr_bit, LCC_SPARE_I2S_SPKR_NS_REG,
 	}
 static struct clk_freq_tbl clk_tbl_pcm[] = {
 	{ .ns_val = BIT(10) /* external input */ },
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 	F_PCM(   64000, pll4, 4, 1, 1536),
 	F_PCM(  128000, pll4, 4, 1,  768),
 	F_PCM(  256000, pll4, 4, 1,  384),
 #endif
-/* SWISTOP */
 	F_PCM(  512000, pll4, 4, 1, 192),
 	F_PCM(  768000, pll4, 4, 1, 128),
 	F_PCM( 1024000, pll4, 4, 1,  96),
@@ -1646,26 +1637,41 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk",		gp1_clk.c,	""),
 	CLK_LOOKUP("core_clk",		gp2_clk.c,	""),
 
+#if !defined(CONFIG_SIERRA)
+
 	CLK_LOOKUP("core_clk", gsbi3_uart_clk.c, ""),
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
-#ifdef CONFIG_SIERRA_UART
-	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, ""),
 
 	CLK_LOOKUP("core_clk",	gsbi3_qup_clk.c, "spi_qsd.0"),
 	CLK_LOOKUP("core_clk",	gsbi4_qup_clk.c, ""),
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	CLK_LOOKUP("core_clk",  gsbi4_qup_clk.c, "spi_qsd.4"),
-#endif
-#ifdef CONFIG_SIERRA_I2C_GSBI2
-	CLK_LOOKUP("core_clk",	gsbi2_qup_clk.c, "qup_i2c.0"),
-#elif defined CONFIG_SIERRA_I2C_GSBI5
 	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, "qup_i2c.0"),
-#endif
-/* SWISTOP */
+
+#else /* CONFIG_SIERRA */
+
+/* Sierra's clock configuration */
+#if defined(CONFIG_SIERRA_GSBI2_I2C_GPIO)
+	CLK_LOOKUP("core_clk",	gsbi2_qup_clk.c, "qup_i2c.0"),
+#elif defined CONFIG_SIERRA_GSBI5_I2C_UART
+	CLK_LOOKUP("core_clk",	gsbi5_qup_clk.c, "qup_i2c.0"),
+#endif /* CONFIG_SIERRA_GSBIn_I2C */
+
+#if defined(CONFIG_SIERRA_GSBI3_SPI)
+	CLK_LOOKUP("core_clk",	gsbi3_qup_clk.c, ""),
+	CLK_LOOKUP("core_clk",	gsbi3_qup_clk.c, "spi_qsd.0"),
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, ""),
+	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
+#endif /* CONFIG_SIERRA_GSBI4_UART) */
+
+#if defined(CONFIG_SIERRA_GSBI5_I2C_UART) || defined(CONFIG_SIERRA_GSBI5_UART)
+	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, ""),
+	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
+#endif /* CONFIG_SIERRA_GSBI5_I2C_UART */
+
+#endif /* CONFIG_SIERRA */
 	CLK_LOOKUP("core_clk",		pdm_clk.c,		""),
 	CLK_LOOKUP("mem_clk",		pmem_clk.c,		"msm_sps"),
 	CLK_LOOKUP("core_clk",		prng_clk.c,		"msm_rng.0"),
@@ -1673,18 +1679,35 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk",		sdc2_clk.c,		"msm_sdcc.2"),
 	CLK_LOOKUP("dma_bam_pclk",	dma_bam_p_clk.c,	NULL),
 
-	CLK_LOOKUP("iface_clk",	gsbi3_p_clk.c, "spi_qsd.0"),
+#if !defined(CONFIG_SIERRA)
+
+	CLK_LOOKUP("iface_clk", gsbi3_p_clk.c, "spi_qsd.0"),
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+
+	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "qup_i2c.0"),
+
+#else /* CONFIG_SIERRA */
+
+/* Sierra's clock configuration */
+#if defined(CONFIG_SIERRA_GSBI2_I2C_GPIO)
+	CLK_LOOKUP("iface_clk", gsbi2_p_clk.c, "qup_i2c.0"),
+#elif defined(CONFIG_SIERRA_GSBI5_I2C_UART)
+	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "qup_i2c.0"),
+#endif  /* CONFIG_SIERRA_GSBIn_I2C */
+
+#if defined(CONFIG_SIERRA_GSBI3_SPI)
+	CLK_LOOKUP("iface_clk", gsbi3_p_clk.c, "spi_qsd.0"),
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+	CLK_LOOKUP("iface_clk", gsbi4_p_clk.c, "msm_serial_hsl.0"),
+#endif /* CONFIG_SIERRA_GSBI4_UART */
+
+#if defined(CONFIG_SIERRA_GSBI5_UART) || defined(CONFIG_SIERRA_GSBI5_I2C_UART)
 	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
-#endif /* CONFIG_SIERRA_UART */
-#ifdef CONFIG_SIERRA_I2C_GSBI2
-	CLK_LOOKUP("iface_clk",	gsbi2_p_clk.c, "qup_i2c.0"),
-#elif defined CONFIG_SIERRA_I2C_GSBI5
-	CLK_LOOKUP("iface_clk",	gsbi5_p_clk.c, "qup_i2c.0"),
-#endif
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBI5_I2C_UART */
+
+#endif /* CONFIG_SIERRA */
 	CLK_LOOKUP("iface_clk",	     usb_hs1_p_clk.c,		"msm_otg"),
 	CLK_LOOKUP("core_clk",       usb_hs1_sys_clk.c,		"msm_otg"),
 	CLK_LOOKUP("alt_core_clk",   usb_hs1_xcvr_clk.c,	"msm_otg"),
@@ -1720,12 +1743,10 @@ static struct clk_lookup msm_clocks_9615[] = {
 			   "msm-dai-q6.0"),
 	CLK_LOOKUP("bit_clk",		spare_i2s_mic_bit_clk.c,
 			   "msm-dai-q6.5"),
-/* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	CLK_LOOKUP("sec_osr_clk",	codec_i2s_mic_osr_clk.c,
 			   "msm-dai-q6.5"),
 #endif
-/* SWISTOP */
 	CLK_LOOKUP("osr_clk",		spare_i2s_mic_osr_clk.c,
 			   "msm-dai-q6.5"),
 	CLK_LOOKUP("bit_clk",		codec_i2s_spkr_bit_clk.c,
@@ -1734,12 +1755,10 @@ static struct clk_lookup msm_clocks_9615[] = {
 			   "msm-dai-q6.16384"),
 	CLK_LOOKUP("bit_clk",		spare_i2s_spkr_bit_clk.c,
 			   "msm-dai-q6.4"),
-/* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	CLK_LOOKUP("sec_osr_clk",	codec_i2s_spkr_osr_clk.c,
 			   "msm-dai-q6.4"),
 #endif
-/* SWISTOP */
 	CLK_LOOKUP("osr_clk",		spare_i2s_spkr_osr_clk.c,
 			   "msm-dai-q6.4"),
 	CLK_LOOKUP("pcm_clk",		pcm_clk.c,	"msm-dai-q6.2"),
@@ -1807,26 +1826,32 @@ static struct pll_config pll14_config __initdata = {
 	.main_output_mask = BIT(23),
 };
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if defined(CONFIG_SIERRA_GSBI4_UART)  || \
+    defined(CONFIG_SIERRA_GSBI5_UART)  || \
+    defined(CONFIG_SIERRA_GSBI5_I2C_UART) 
+
 static void uart_clock_setting(void)
 {
+#if defined(CONFIG_SIERRA_GSBI4_UART)
 	/* if UART1 is for modem, then not to disable GSBI clock */
 	if(bsuart4modem(BS_UART1_LINE) == true)
 	{
 		gsbi4_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
 		gsbi4_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;  
 	}
+#endif /* CONFIG_SIERRA_GSBI4_UART */
 
+#if defined(CONFIG_SIERRA_GSBI5_UART) || defined(CONFIG_SIERRA_GSBI5_I2C_UART)
 	/* if UART2 is for modem, then not to disable GSBI clock */
 	if(bsuart4modem(BS_UART2_LINE) == true)
 	{
 		gsbi5_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
-		gsbi5_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;  
+		gsbi5_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
 	}
+#endif /*  CONFIG_SIERRA_GSBI5_UART */
 }
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 /*
  * Miscellaneous clock register initializations
@@ -1835,11 +1860,11 @@ static void __init msm9615_clock_pre_init(void)
 {
 	u32 regval, is_pll_enabled, pll9_lval;
   
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if defined(CONFIG_SIERRA_GSBI4_UART)   || \
+    defined(CONFIG_SIERRA_GSBI5_UART)   || \
+    defined(CONFIG_SIERRA_GSBI5_I2C_UART) 
 	uart_clock_setting();
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 

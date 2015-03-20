@@ -656,11 +656,9 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 		}
 		if (dd->rx_bytes_remaining == 0)
 			msm_spi_complete(dd);
-/* SWISTART */
-#ifdef CONFIG_SIERRA_SPI_INF
+#ifdef CONFIG_SIERRA_GSBI3_SPI
 		dd->cur_msg->actual_length = dd->read_xfr_cnt;
 #endif
-/* SWISTOP */
 	}
 
 	return IRQ_HANDLED;
@@ -1519,8 +1517,7 @@ err_setup_exit:
 	return rc;
 }
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_SPI_INF
+#ifdef CONFIG_SIERRA_GSBI3_SPI
 void swi_reg_bit_set(struct spi_device *spi, int reg_addr, int bit_offset,int set_flag)
 {
 	u32 spi_ioc;
@@ -1560,7 +1557,6 @@ void swi_write_deassert_time(struct spi_device *spi,u8 value)
 	clk_disable_unprepare(dd->pclk);
 }
 #endif
-/* SWISTOP */
 
 #ifdef CONFIG_DEBUG_FS
 static int debugfs_iomem_x32_set(void *data, u64 val)

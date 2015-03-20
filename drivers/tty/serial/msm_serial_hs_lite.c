@@ -53,11 +53,11 @@
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 #include <linux/sierra_bsudefs.h>
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 /*
  * There are 3 different kind of UART Core available on MSM.
@@ -1879,8 +1879,10 @@ static ssize_t set_msm_fifo_tx(struct device *dev,
 
 static DEVICE_ATTR(fifo_tx, S_IWUSR | S_IRUGO, show_msm_fifo_tx,
                                                 set_msm_fifo_tx);
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 const static char dm_func_string[] = "DM";
 const static char cons_func_string[] = "CONSOLE";
 const static char app_func_string[] = "APP";
@@ -1926,8 +1928,7 @@ static ssize_t show_uart_config(struct device *dev,
 }
 
 static DEVICE_ATTR(config, 0444, show_uart_config, NULL);
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 static struct uart_driver msm_hsl_uart_driver = {
 	.owner = THIS_MODULE,
@@ -2119,8 +2120,9 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 	/* create config file for APP usage */
 	ret = device_create_file(&pdev->dev, &dev_attr_config);
 	if (unlikely(ret))
@@ -2158,8 +2160,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 			uart_func_str_pt[line] = (char *)inv_func_string;
 			return -EPERM;;
 	}
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);
@@ -2191,8 +2192,9 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	if (msm_hsl_port->pclk)
 		clk_prepare_enable(msm_hsl_port->pclk);
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 	/* if UART console is not enabled and also this uart is reserved for console, then try to register the uart to console */
 	if((!(msm_hsl_uart_driver.cons->flags & CON_ENABLED)) && (uart_func[line] == BSUARTFUNC_CONSOLE))
 	{
@@ -2203,8 +2205,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		/* console is not enabled and UART is not allowed to use console, so allocate an invalid line to disable console registering */
 		msm_hsl_uart_driver.cons->index = UART_NR;
 	}
-#endif /* CONFIG_SIERRA_UART */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_UART */
 	
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 	if (msm_hsl_port->pclk)

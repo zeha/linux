@@ -95,17 +95,35 @@ extern struct platform_device apq8064_device_ssbi_pmic1;
 extern struct platform_device apq8064_device_ssbi_pmic2;
 extern struct platform_device apq8064_device_cache_erp;
 
+#if !defined(CONFIG_SIERRA)
+
 extern struct platform_device msm9615_device_uart_gsbi4;
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
-extern struct platform_device msm9615_device_uart_gsbi5;
-#endif /* CONFIG_SIERRA */
-#ifdef CONFIG_SIERRA_EXTERNAL_CODEC
-extern struct platform_device msm9615_device_qup_i2c_gsbi2;
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 extern struct platform_device msm9615_device_qup_i2c_gsbi5;
 extern struct platform_device msm9615_device_qup_spi_gsbi3;
+
+#else  /* CONFIG_SIERRA */
+
+/* Configuration of a UART2 port on GSBI5 */
+#if defined(CONFIG_SIERRA_GSBI5_UART) || defined(CONFIG_SIERRA_GSBI5_I2C_UART)
+extern struct platform_device swi_msm9615_device_uart_gsbi5;
+#endif /* CONFIG_SIERRA_GSBI5_I2C_UART */
+
+/* Configuration of the I2C GSBI port on different HW design */
+#if (defined(CONFIG_SIERRA_GSBI2_I2C_GPIO) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART) )
+extern struct platform_device swi_msm9615_device_qup_i2c_gsbi;
+#endif /* CONFIG_SIERRA_GSBIn_I2C_xxxx */
+
+#if defined(CONFIG_SIERRA_GSBI3_SPI)
+extern struct platform_device msm9615_device_qup_spi_gsbi3;
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+extern struct platform_device msm9615_device_uart_gsbi4;
+#endif /* CONFIG_SIERRA_GSBI4_UART */
+
+#endif /* CONFIG_SIERRA */
+
 extern struct platform_device msm9615_slim_ctrl;
 extern struct platform_device msm9615_device_ssbi_pmic1;
 extern struct platform_device msm9615_device_tsens;

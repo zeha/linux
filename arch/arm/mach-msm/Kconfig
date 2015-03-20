@@ -2533,6 +2533,12 @@ config SIERRA_MC7
  	   this config used for features only valid in MC7 products
 	default n
 
+config SIERRA_CF3
+	bool "MDM9615 SIERRA CF3 FEATURES"
+	help
+	  this config used for features only valid on WP75/WP85 products
+	default n
+	
 config SIERRA_PLATFORM_FEATURES
 	bool "Sierra Wireless Platform Features"
 	default y
@@ -2618,13 +2624,6 @@ config SIERRA_USB_OTG
 	help
 	  Use Sierra USB On-The-Go. If unsure, say Y here.
 
-config SIERRA_UART
-	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
-	bool "Use UART1 and UART2"
-	default y
-	help
-	  Add UART1 and UART2 support. If unsure, say Y here.
-
 config SIERRA_RTC
 	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
 	bool "Use Real Time Clock"
@@ -2640,19 +2639,45 @@ config SIERRA_USB_COMP
 	  Sierra USB composition (USB audio/AT/modem/ADB/DM/NMEA/RAW/OSA/RMNET/ECM/RNDIS).
 	  If unsure, say Y here.
 
-config SIERRA_I2C_GSBI2
+config SIERRA_GSBI2_I2C_GPIO
 	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
-	bool "I2C interface uses GSBI2 pins"
+	bool "Use GSBI2 for I2C and GPIO"
 	default n
 	help
-	  I2C interface uses GSBI2 GPIO pins. If unsure, say N here.
+	  Configuration of 2-pin I2C interface and 2 GPIO pins on GSBI2
+	  This configuration applies to Mini Card devices by default
 
-config SIERRA_I2C_GSBI5
-	depends on ARCH_MSM9615 && !SIERRA_I2C_GSBI2 && SIERRA_PLATFORM_FEATURES
-	bool "I2C interface uses GSBI5 pins"
+config SIERRA_GSBI3_SPI
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use GSBI3 for 4-pin SPI"
 	default y
 	help
-	  I2C interface uses GSBI5 GPIO pins. If unsure, say Y here.
+	  Configuration of 4-pin SPI interface on GSBI3
+	  This configuration applies to AR7/AR8, WP71, WP75/WP85 devices by default
+
+config SIERRA_GSBI4_UART
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use GSBI4 for 4-pin UART"
+	default y
+	help
+	  Configuration of 4-pin uart interface on GSBI4
+	  This configuration applies to AR7/AR8, WP71, WP75/WP85 devices by default
+
+config SIERRA_GSBI5_UART
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use GSBI5 for 4-pin UART"
+	default n
+	help
+	  Configuration of 4-pin UART interfaces on GSBI5
+	  This configuration does not apply to any devices by default
+
+config SIERRA_GSBI5_I2C_UART
+	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
+	bool "Use GSBI5 for I2C and 2-pin UART"
+	default y
+	help
+	  Configuration of 2-pin I2C and 2-pin UART interfaces on GSBI5
+	  This configuration applies to AR7/AR8, WP71, WP75/WP85 devices by default
 
 config SIERRA_VDDMIN
 	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
@@ -2726,21 +2751,6 @@ config SIERRA_GPIO_WAKEN
 	  Support for GPIO WAKE functionality. This pin is monitored
 	  by Modem Power Manager (MPM). If unsure, say Y here.
 
-config SIERRA_I2C_INF
-	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
-	tristate "Use Application Interface I2C driver"
-	default y
-	help
-	  Include Sierra I2C driver needed for application interface.
-	  If unsure, say Y here.
-
-config SIERRA_SPI_INF
-	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
-	tristate "Use Application Interface SPI driver"
-	default y
-	help
-	  Include Sierra SPI driver needed for application interface.
-	  If unsure, say Y here.
 #SWISTOP
 
 config MSM_CACHE_DUMP_ON_PANIC

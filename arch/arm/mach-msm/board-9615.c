@@ -19,7 +19,6 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #endif
-/* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) && defined(CONFIG_WCD9304_CODEC)
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
@@ -27,7 +26,6 @@
 #ifdef CONFIG_MFD_WM8944
 #include <linux/mfd/wm8944/pdata.h>
 #endif
-/* SWISTOP */
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
 #include <linux/usb/android.h>
@@ -65,13 +63,11 @@
 #include <linux/usb/gadget.h>
 #include "ci13xxx_udc.h"
 
-/* SWISTART */
 #ifdef CONFIG_SIERRA_VDDMIN
 #include <mach/rpm-regulator.h>
 #include <linux/sierra_bsudefs.h>
 #include <linux/sierra_bsuproto.h>
 #endif
-/* SWISTOP */
 
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_AUDIO_SIZE	0xAF000
@@ -214,7 +210,6 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_FUNC_NORMAL, 0, 0)
 
 /* Initial PM8018 GPIO configurations */
-/* SWISTART */
 #ifndef CONFIG_SIERRA_GPIO
 static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 	PM8018_GPIO_OUTPUT(2,	0,	HIGH), /* EXT_LDO_EN_WLAN */
@@ -225,8 +220,13 @@ static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 	PM8018_GPIO_OUTPUT(4,0,LOW), /* USB_VBUS_EN */
 	PM8018_GPIO_INPUT(6,PM_GPIO_PULL_DN), /* XO_OUT_A1_EN, pulled down so XO_OUT_A1 is OFF by default */
 };
+
+static struct pm8xxx_gpio_init pm8018_gpios_cf3[] __initdata = {
+	PM8018_GPIO_OUTPUT(4, 0, LOW),  /* USB_VBUS_EN */
+	PM8018_GPIO_OUTPUT(5, 0, LOW), /* CTRL_MCU_RESET for CF3 */
+	PM8018_GPIO_INPUT(6, PM_GPIO_PULL_DN), /* XO_OUT_A1_EN, pulled down so XO_OUT_A1 is OFF by default */
+};
 #endif
-/* SWISTOP */
 
 /* Initial PM8018 MPP configurations */
 static struct pm8xxx_mpp_init pm8018_mpps[] __initdata = {
@@ -236,6 +236,7 @@ void __init msm9615_pm8xxx_gpio_mpp_init(void)
 {
 	int i, rc;
 
+#ifndef CONFIG_SIERRA_GPIO
 	for (i = 0; i < ARRAY_SIZE(pm8018_gpios); i++) {
 		rc = pm8xxx_gpio_config(pm8018_gpios[i].gpio,
 					&pm8018_gpios[i].config);
@@ -244,6 +245,30 @@ void __init msm9615_pm8xxx_gpio_mpp_init(void)
 			break;
 		}
 	}
+#else
+  if (bssupport(BSFEATURE_CF3))
+  {
+	for (i = 0; i < ARRAY_SIZE(pm8018_gpios_cf3); i++) {
+		rc = pm8xxx_gpio_config(pm8018_gpios_cf3[i].gpio,
+					&pm8018_gpios_cf3[i].config);
+		if (rc) {
+			pr_err("%s: pm8018_gpio_config: rc=%d\n", __func__, rc);
+			break;
+		}
+	}
+  }
+  else
+  {
+	for (i = 0; i < ARRAY_SIZE(pm8018_gpios); i++) {
+		rc = pm8xxx_gpio_config(pm8018_gpios[i].gpio,
+					&pm8018_gpios[i].config);
+		if (rc) {
+			pr_err("%s: pm8018_gpio_config: rc=%d\n", __func__, rc);
+			break;
+		}
+	}
+  }
+#endif /* CONFIG_SIERRA_GPIO */
 
 	for (i = 0; i < ARRAY_SIZE(pm8018_mpps); i++) {
 		rc = pm8xxx_mpp_config(pm8018_mpps[i].mpp,
@@ -272,12 +297,10 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 	 */
 	{"batt_id", CHANNEL_BATT_ID_THERM, CHAN_PATH_SCALING1,
 		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
-/* SWISTART */
 #ifdef CONFIG_SIERRA_BATTERY_SENSOR
 	{"mpp_05", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1,
 		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 #endif
-/* SWISTOP */
 	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
 	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
@@ -286,12 +309,10 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
-/* SWISTART */
 #ifdef CONFIG_SIERRA_XO_THERM
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
 #endif
-/* SWISTOP */
 };
 
 static struct pm8xxx_adc_properties pm8018_adc_data = {
@@ -320,7 +341,6 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata = {
 	.mpp_base		= PM8018_MPP_PM_TO_SYS(1),
 };
 
-/* SWISTART */
 #ifdef CONFIG_SIERRA_RTC7
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
 	.rtc_write_enable	= false,
@@ -333,10 +353,8 @@ static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata = {
 	.rtc_alarm_powerup	= false,
 };
 #endif
-/* SWISTOP */
 
 
-/* SWISTART */
 #ifdef CONFIG_SIERRA_PWRKEY
 static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.pull_up		= 1,
@@ -351,7 +369,6 @@ static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
 	.wakeup			= 1,
 };
 #endif
-/* SWISTOP */
 
 static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 	.priority		= 0,
@@ -478,11 +495,9 @@ static void __init msm9615_init_buses(void)
  * MDM9x15 I2S.
  */
 static struct wcd9xxx_pdata wcd9xxx_i2c_platform_data = {
-/* SWISTART */
 #if !defined (CONFIG_SIERRA_DR) && defined (CONFIG_SIERRA_INTERNAL_CODEC)
 	.irq = MSM_GPIO_TO_INT(85),
 #endif
-/* SWISTOP */
 	.irq_base = TABLA_INTERRUPT_BASE,
 	.num_irqs = NR_TABLA_IRQS,
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
@@ -639,7 +654,6 @@ static struct slim_device msm_slim_tabla20 = {
 };
 #endif
 
-/* SWISTART */
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 
@@ -787,7 +801,6 @@ static struct slim_device msm_slim_sitar1p1 = {
 };
 #endif
 #endif
-/* SWISTOP */
 
 static struct i2c_registry msm9615_i2c_devices[] __initdata = {
 #ifdef CONFIG_WCD9310_CODEC
@@ -800,7 +813,6 @@ static struct i2c_registry msm9615_i2c_devices[] __initdata = {
 #endif
 };
 
-/* SWISTART */
 #ifdef CONFIG_MFD_WM8944
 
 #define WM8944_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8018_IRQS)
@@ -832,7 +844,6 @@ static struct i2c_registry msm9615_i2c_devices_wm8944[] __initdata = {
 	},
 };
 #endif
-/* SWISTOP */
 
 static struct slim_boardinfo msm_slim_devices[] = {
 	/* add slimbus slaves as needed */
@@ -842,7 +853,6 @@ static struct slim_boardinfo msm_slim_devices[] = {
 		.slim_slave = &msm_slim_tabla20,
 	},
 #endif
-/* SWISTART */
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
 #ifdef CONFIG_WCD9304_CODEC
 	{
@@ -855,34 +865,44 @@ static struct slim_boardinfo msm_slim_devices[] = {
 	},
 #endif
 #endif
-/* SWISTOP */
 };
+
+#if !defined(CONFIG_SIERRA)
 
 static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
 	.max_clock_speed = 24000000,
 };
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_I2C_GSBI2
-static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi2_pdata = {
-	.clk_freq = 100000,
-	.src_clk_rate = 24000000,
-};
-#elif defined CONFIG_SIERRA_I2C_GSBI5
 static struct msm_i2c_platform_data msm9615_i2c_qup_gsbi5_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
-#endif /* CONFIG_SIERRA_I2C_GSBI2 */
-/* SWISTOP */
 
-/* SWISTART */
+#define USB_5V_EN		3
+
+#else /* CONFIG_SIERRA */
+
+#if defined(CONFIG_SIERRA_GSBI3_SPI)
+static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
+	.max_clock_speed = 24000000,
+};
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#if (defined(CONFIG_SIERRA_GSBI2_I2C_GPIO) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART) )
+static struct msm_i2c_platform_data swi_msm9615_i2c_qup_gsbi_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+#endif /* CONFIG_SIERRA_GSBIn_I2C */
+
 #ifndef CONFIG_SIERRA_USB_OTG
 #define USB_5V_EN		3
 #else
 #define USB_5V_EN   4
 #endif
-/* SWISTOP */
+
+#endif /* CONFIG_SIERRA */
 #define PM_USB_5V_EN	PM8018_GPIO_PM_TO_SYS(USB_5V_EN)
 
 static int msm_hsusb_vbus_power(bool on)
@@ -1051,7 +1071,6 @@ static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 	.usb_bam_num_pipes = 16,
 };
 
-/* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 #define MSM_MPM_PIN_USB1_OTGSESSVLD    40
@@ -1066,7 +1085,6 @@ static struct msm_usb_bam_platform_data msm_usb_bam_pdata = {
 static struct pm8xxx_mpp_init pm8018_mpp_vddmin =
 	PM8018_MPP_INIT(PM8018_MPP_VDDMIN, D_INPUT, PM8018_MPP_DIG_LEVEL_L4, DOUT_CTRL_LOW);
 #endif
-/* SWISTOP */
 
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
@@ -1077,16 +1095,13 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.enable_lpm_on_dev_suspend	= true,
 	.core_clk_always_on_workaround = true,
 	.delay_lpm_on_disconnect = true,
-/* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 	.vdd_min_enable     = PM8018_VDDMIN_IO,
 	.mpm_otgsessvld_int = MSM_MPM_PIN_USB1_OTGSESSVLD,
 #endif
-/* SWISTOP */
 };
 
-/* SWISTART */
 /* Change based on 80-N5423-14 */
 #ifdef CONFIG_SIERRA_VDDMIN
 void msm9615_pm8xxx_gpio_mpp_init_vddmin(void)
@@ -1115,7 +1130,6 @@ USB_DP, while MC7304 DV1 and other products all use MPP_01 for this purpose */
 	}
 }
 #endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 static struct ci13xxx_platform_data msm_peripheral_pdata = {
 	.usb_core_id = 0,
@@ -1222,11 +1236,9 @@ static struct platform_device *common_devices[] = {
 	&msm_device_charger,
 #endif
 	&msm_device_otg,
-/* SWISTART */
 #ifdef CONFIG_SIERRA_GPIO_WAKEN
 	&wake_n_gpio,
 #endif
-/* SWISTOP */
 	&msm_device_hsic_peripheral,
 	&msm_device_gadget_peripheral,
 	&msm_device_hsusb_host,
@@ -1237,22 +1249,43 @@ static struct platform_device *common_devices[] = {
 	&msm_android_usb_hsic_device,
 #endif
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_UART
+/* See GSBI Configuration below */
+#if !defined(CONFIG_SIERRA)
 	&msm9615_device_uart_gsbi4,
-    	&msm9615_device_uart_gsbi5,
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
+#endif /* ! CONFIG_SIERRA */
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
-/* SWISTART */
-#ifdef CONFIG_SIERRA_I2C_GSBI2
-	&msm9615_device_qup_i2c_gsbi2,
-#elif defined CONFIG_SIERRA_I2C_GSBI5
+
+/* GSBI Configuration */
+#if !defined(CONFIG_SIERRA)
+
 	&msm9615_device_qup_i2c_gsbi5,
-#endif /* CONFIG_SIERRA_I2C_GSBI2 */
-/* SWISTOP */
 	&msm9615_device_qup_spi_gsbi3,
+
+#else /* CONFIG_SIERRA */
+
+/* Sierra's GSBI configuration */
+#if (defined(CONFIG_SIERRA_GSBI2_I2C_GPIO) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART) )
+
+	&swi_msm9615_device_qup_i2c_gsbi,
+#endif /* CONFIG_SIERRA_GSBIn_I2C */
+
+#if defined(CONFIG_SIERRA_GSBI3_SPI)
+	&msm9615_device_qup_spi_gsbi3,
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#ifdef CONFIG_SIERRA_GSBI4_UART
+	&msm9615_device_uart_gsbi4,
+#endif /* CONFIG_SIERRA_GSBI4_UART */
+
+#if defined(CONFIG_SIERRA_GSBI5_I2C_UART) || \
+    defined(CONFIG_SIERRA_GSBI5_UART)
+	&swi_msm9615_device_uart_gsbi5,
+#endif /* CONFIG_SIERRA_GSBI5_UART */
+
+#endif /* CONFIG_SIERRA */
+
 	&msm_device_sps,
 	&msm9615_slim_ctrl,
 	&msm_device_nand,
@@ -1328,14 +1361,18 @@ static void __init msm9615_i2c_init(void)
 		mach_mask = I2C_FFA;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
-/* SWISTART */
-#ifdef CONFIG_SIERRA_I2C_GSBI2
-	msm9615_device_qup_i2c_gsbi2.dev.platform_data =
-					&msm9615_i2c_qup_gsbi2_pdata;
-#elif defined CONFIG_SIERRA_I2C_GSBI5
+#if defined(CONFIG_SIERRA)
+#if (defined(CONFIG_SIERRA_GSBI2_I2C_GPIO) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART) )
+
+	swi_msm9615_device_qup_i2c_gsbi.dev.platform_data =
+					&swi_msm9615_i2c_qup_gsbi_pdata;
+#endif /* CONFIG_SIERRA_GSBIn_I2C */
+
+#else  /* !CONFIG_SIERRA */
 	msm9615_device_qup_i2c_gsbi5.dev.platform_data =
 					&msm9615_i2c_qup_gsbi5_pdata;
-#endif /* CONFIG_SIERRA_I2C_GSBI2 */
+#endif  /* CONFIG_SIERRA */
 
 #ifdef CONFIG_MFD_WM8944
 	if(bssupport(BSFEATURE_WM8944) == true)
@@ -1351,7 +1388,6 @@ static void __init msm9615_i2c_init(void)
 	}
 	else
 #endif
-/* SWISTOP */
 	{
 		for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices); ++i) {
 			if (msm9615_i2c_devices[i].machs & mach_mask) {
@@ -1387,8 +1423,10 @@ static void __init msm9615_common_init(void)
 	msm_xo_init();
 	msm_clock_init(&msm9615_clock_init_data);
 	msm9615_init_buses();
+#if defined(CONFIG_SIERRA_GSBI3_SPI) || !defined(CONFIG_SIERRA)
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
+#endif /* CONFIG_SIERRA_GSBI3_SPI */
 	msm9615_device_ssbi_pmic1.dev.platform_data =
 						&msm9615_ssbi_pm8018_pdata;
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
@@ -1408,7 +1446,6 @@ static void __init msm9615_common_init(void)
 	msm9615_init_ar6000pm();
 
 	msm9615_init_mmc();
-/* SWISTART */
 #ifdef CONFIG_MFD_WM8944
 	if(bssupport(BSFEATURE_WM8944) == false)
 	{
@@ -1419,7 +1456,6 @@ static void __init msm9615_common_init(void)
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
 #endif
-/* SWISTOP */
 	android_pdata->update_pid_and_serial_num =
 					usb_diag_update_pid_and_serial_num;
 	android_hsic_pdata->update_pid_and_serial_num =
