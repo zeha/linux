@@ -1390,7 +1390,7 @@ MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.map_io = msm9615_map_io,
 	.init_irq = msm9615_init_irq,
 	.handle_irq = gic_handle_irq,
-	.init_time = &msm_timer,
+	.init_time = msm_timer_init,
 	.init_machine = msm9615_cdp_init,
 	.reserve = msm9615_reserve,
 #ifdef CONFIG_FB_MSM
@@ -1403,7 +1403,7 @@ MACHINE_START(MSM9615_MTP, "QCT MSM9615 MTP")
 	.map_io = msm9615_map_io,
 	.init_irq = msm9615_init_irq,
 	.handle_irq = gic_handle_irq,
-	.init_time = &msm_timer,
+	.init_time = msm_timer_init,
 	.init_machine = msm9615_mtp_init,
 	.reserve = msm9615_reserve,
 	.restart = msm_restart,

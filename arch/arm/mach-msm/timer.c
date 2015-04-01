@@ -999,7 +999,7 @@ static struct local_timer_ops msm_lt_ops = {
 };
 #endif /* CONFIG_LOCAL_TIMERS */
 
-static void __init msm_timer_init(void)
+void msm_timer_init(void)
 {
 	int i;
 	int res;
