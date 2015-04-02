@@ -20,6 +20,7 @@
 /*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 #include <linux/sierra_bsudefs.h>
+#include <linux/sierra_bsuproto.h>
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
 /*SWISTOP*/
 
@@ -93,6 +94,7 @@ static DEFINE_IDR(dirent_idr);
 /*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 #define NR_EXT_GPIOS 10
+#define GPIO_RI NR_EXT_GPIOS
 
 typedef enum
 {
@@ -120,7 +122,9 @@ struct ext_gpio_map ext_gpio[]={
 	{7,21,UNALLOCATED},
 	{8,60,UNALLOCATED},
 	{9,45,UNALLOCATED},
-	{10,40,UNALLOCATED}
+	{10,40,UNALLOCATED},
+	/* gpio used for RI */
+	{11,66,UNALLOCATED},
 };
 
 
@@ -1333,8 +1337,17 @@ static int __init gpiolib_sysfs_init(void)
 			ext_gpio[gpio].function = UNALLOCATED;
 		}
 	}
-    gpio_ext_chip.dev = gpio_desc[0].chip->dev;
+	gpio_ext_chip.dev = gpio_desc[0].chip->dev;
+
+	/* Check if RI gpio is owned by APP core
+	 * In this case, create the gpio11 for RI management
+	 */
 	status = gpiochip_export(&gpio_ext_chip);
+	/* RI owner: 1 APP , 0 Modem. See AT!RIOWNER */
+	if( 1 == bsgetriowner() ) {
+		pr_info( "RI owner is APP/Linux\n" );
+		ext_gpio[GPIO_RI].function = EMBEDED_HOST;
+	}
 #else
 	for (gpio = 0; gpio < ARCH_NR_GPIOS; gpio++) {
 		struct gpio_chip	*chip;
