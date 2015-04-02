@@ -444,8 +444,7 @@ static struct i2c_driver wm8944_i2c_driver = {
 static int __init wm8944_i2c_init(void)
 {
 	int ret;
-
-	if( bsgethwtype() != BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == false)
 		return 0;
 
 	printk(KERN_DEBUG "%s \n", __func__);
@@ -463,7 +462,8 @@ module_init(wm8944_i2c_init);
 
 static void __exit wm8944_i2c_exit(void)
 {
-	if( bsgethwtype() != BSAR8652 )
+
+	if(bssupport(BSFEATURE_WM8944) == false)
 		return;
 
 	i2c_del_driver(&wm8944_i2c_driver);

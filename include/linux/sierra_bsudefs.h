@@ -209,7 +209,7 @@ enum bshwrev
  *           BSFEATURE_SD        - if SD is supported
  *           BSFEATURE_VOICE     - if voice is supported
  *           BSFEATURE_HSUPA     - if the hardware supports HSUPA
- *           BSFEATURE_GPIOSAR  -  if GPIO controlled SAR backoff is supported
+ *           BSFEATURE_GPIOSAR   -  if GPIO controlled SAR backoff is supported
  *           BSFEATURE_RMAUTOCONNECT - if auto-connect feature is device centric
  *           BSFEATURE_UART      - if the hardware support UART
  *           BSFEATURE_ANTSEL    - if the hardware supports ANTSEL
@@ -224,7 +224,12 @@ enum bshwrev
  *           BSFEATURE_GPSSEL    - if GPS antenna selection is supported
  *           BSFEATURE_SVC_PIN_DLOAD - if service pin for DL mode is supported
  *           BSFEATURE_BUZZER    - if the hardware supports Buzzer
- *           BSFEATURE_SIMHOTSWAP - if the hardware supports SIM detection via GPIO
+ *           BSFEATURE_OSA,      - if Open SIM Access supported
+ *           BSFEATURE_ATPORTSW, - if the hardware support at port switch
+ *           BSFEATURE_VDDMIN_MPP1, - If use PMIC MPP01 for USB wakeup 
+ *           BSFEATURE_SIMHOTSWAP,  - if the hardware supports SIM detection via GPIO 
+ *           BSFEATURE_DR,       - if Data Reliability is supported 
+ *           BSFEATURE_WM8944,   - if WM8944 codec is supported
  *           BSFEATURE_MAX       - Used for bounds checking
  *
  * Notes:    None
@@ -257,7 +262,12 @@ enum bsfeature
   BSFEATURE_GPSSEL,
   BSFEATURE_SVC_PIN_DLOAD,
   BSFEATURE_BUZZER,
+  BSFEATURE_OSA,
+  BSFEATURE_ATPORTSW,
+  BSFEATURE_VDDMIN_MPP1,
   BSFEATURE_SIMHOTSWAP,
+  BSFEATURE_DR,
+  BSFEATURE_WM8944,
   BSFEATURE_MAX
 };
 

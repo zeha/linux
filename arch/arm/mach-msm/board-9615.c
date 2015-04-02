@@ -1337,7 +1337,8 @@ static void __init msm9615_i2c_init(void)
 #endif /* CONFIG_SIERRA_I2C_GSBI2 */
 
 #ifdef CONFIG_MFD_WM8944
-	if( bsgethwtype() == BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == true)
+	{
 		for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices_wm8944); ++i) {
 			if (msm9615_i2c_devices_wm8944[i].machs & mach_mask) {
 				i2c_register_board_info(
@@ -1406,11 +1407,18 @@ static void __init msm9615_common_init(void)
 	msm9615_init_ar6000pm();
 
 	msm9615_init_mmc();
-	if( bsgethwtype() != BSAR8652 ) {
+/* SWISTART */
+#ifdef CONFIG_MFD_WM8944
+	if(bssupport(BSFEATURE_WM8944) == false)
+	{
 		slim_register_board_info(msm_slim_devices,
 					 ARRAY_SIZE(msm_slim_devices));
 	}
-
+#else
+	slim_register_board_info(msm_slim_devices,
+		ARRAY_SIZE(msm_slim_devices));
+#endif
+/* SWISTOP */
 	android_pdata->update_pid_and_serial_num =
 					usb_diag_update_pid_and_serial_num;
 	android_hsic_pdata->update_pid_and_serial_num =

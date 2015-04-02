@@ -16,8 +16,11 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include "board-9615.h"
+/* SWISTART */
+#ifdef CONFIG_MFD_WM8944
 #include <linux/sierra_bsudefs.h>
-
+#endif
+/* SWISTOP */
 
 static struct gpiomux_setting ps_hold = {
 	.func = GPIOMUX_FUNC_1,
@@ -437,7 +440,7 @@ int __init msm9615_init_gpiomux(void)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
-	if( bsgethwtype() != BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == false)
 		msm_gpiomux_install(msm9615_slimbus_configs,
 				ARRAY_SIZE(msm9615_slimbus_configs));
 #endif /* CONFIG_SIERRA */

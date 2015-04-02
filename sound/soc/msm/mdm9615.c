@@ -679,10 +679,7 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
-/* SWISTART */
-	enum bshwtype hwtype = bsgethwtype();
-/* SWISTOP */
-	pr_debug("%s: enable = %d\n", __func__, enable);
+	pr_info("%s: enable = %d\n", __func__, enable);
 	if (enable) {
 		clk_users++;
 		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
@@ -701,20 +698,23 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		tabla_mclk_enable(codec, 1, dapm);
 #else
 #ifdef CONFIG_WCD9310_CODEC
-		if( hwtype != BSAR8652 ) {
-		clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
-		clk_prepare_enable(codec_clk);
-		tabla_mclk_enable(codec, 1, dapm);
+		if(bssupport(BSFEATURE_WM8944) == false)
+		{
+			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
+			clk_prepare_enable(codec_clk);
+			tabla_mclk_enable(codec, 1, dapm);
 		}
 #elif defined(CONFIG_WCD9304_CODEC)
-		if( hwtype != BSAR8652 ) {
-		clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
-		clk_prepare_enable(codec_clk);
-		sitar_mclk_enable(codec, 1, dapm);
+		if(bssupport(BSFEATURE_WM8944) == false)
+		{
+			clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
+			clk_prepare_enable(codec_clk);
+			sitar_mclk_enable(codec, 1, dapm);
 		}
 #endif
 #if defined(CONFIG_MFD_WM8944)
-		if( hwtype == BSAR8652 ) {
+		if(bssupport(BSFEATURE_WM8944) == true)
+		{
 			clk_set_rate(codec_clk, WM8944_EXT_CLK_RATE);
 			clk_prepare_enable(codec_clk);
 		}
@@ -1721,10 +1721,9 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
 /* SWISTART */
-	enum bshwtype hwtype = bsgethwtype();
-
 #ifdef CONFIG_MFD_WM8944
-	if( hwtype == BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == true)
+	{
 		err = snd_soc_add_codec_controls(codec, wm8944_msm9615_i2s_controls,
 						 ARRAY_SIZE(wm8944_msm9615_i2s_controls));
 	}
@@ -1743,7 +1742,7 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-	if( hwtype == BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == true)
 		snd_soc_dapm_add_routes(dapm, common_audio_map_wm8944,
 					ARRAY_SIZE(common_audio_map_wm8944));
 	else
@@ -1758,7 +1757,8 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-	if( hwtype != BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == false)
+	{
 #endif
 /* SWISTOP */
 	err = snd_soc_jack_new(codec, "Headset Jack",
@@ -1782,13 +1782,15 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 /* SWISTART */
 #if defined(CONFIG_SND_SOC_WCD9310) || defined(CONFIG_SND_SOC_WCD9304)
-	if( hwtype != BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == false)
+	{
 		err = tabla_hs_detect(codec, &mbhc_cfg);
 	}
 #endif
 	install_codec_i2s_gpio();
 #ifdef CONFIG_MFD_WM8944
-	if( hwtype == BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == true)
+	{
 		mdm9615_enable_codec_ext_clk(codec, 1, true);
 	}
 #endif
@@ -2216,9 +2218,6 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct msm_i2s_ctl *pintf = &msm9x15_i2s_ctl;
 	u8 i2s_intf, i2s_dir;
-/* SWISTART */
-	enum bshwtype hwtype = bsgethwtype();
-/* SWISTOP */
 
 	if (!msm9615_i2s_intf_dir_sel(cpu_dai->name, &i2s_intf, &i2s_dir)) {
 		pr_debug("%s( ): cpu name = %s intf =%d dir = %d\n",
@@ -2246,7 +2245,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 				      i2s_intf);
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-				if( hwtype == BSAR8652 ) {
+				if(bssupport(BSFEATURE_WM8944) == true)
+				{
 					ret = snd_soc_dai_set_fmt(cpu_dai,
 							SND_SOC_DAIFMT_CBM_CFM
 							| SND_SOC_DAIFMT_I2S
@@ -2291,7 +2291,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					i2s_intf);
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-				if( hwtype == BSAR8652 ) {
+				if(bssupport(BSFEATURE_WM8944) == true)
+				{
 					ret = snd_soc_dai_set_fmt(cpu_dai,
 							SND_SOC_DAIFMT_CBS_CFS
 							| SND_SOC_DAIFMT_I2S
@@ -2339,7 +2340,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					i2s_intf);
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-				if( hwtype == BSAR8652 ) {
+				if(bssupport(BSFEATURE_WM8944) == true)
+				{
 					ret = snd_soc_dai_set_fmt(cpu_dai,
 							SND_SOC_DAIFMT_CBS_CFS
 							| SND_SOC_DAIFMT_I2S
@@ -2375,7 +2377,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 	mdm9615_ar7_enable_codec_ext_clk(rtd->codec, 1, true);
 #endif
 #ifdef CONFIG_MFD_WM8944
-	if( hwtype == BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == true)
+	{
 		snd_soc_dai_set_clkdiv(codec_dai, WM8944_BCLKDIV, 0);
 		snd_soc_dai_set_sysclk(codec_dai, WM8944_SYSCLK_MCLK, WM8944_EXT_CLK_RATE, 0);
 	}
@@ -2453,7 +2456,7 @@ static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
 
 /* SWISTART */
 #ifndef CONFIG_MFD_WM8944
-	if( bsgethwtype() != BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == false){
 #endif
 /* SWISTOP */
 	{
@@ -2522,7 +2525,7 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-	if( bsgethwtype() == BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == true)
 		snd_soc_dapm_add_routes(dapm, common_audio_map_wm8944,
 					ARRAY_SIZE(common_audio_map_wm8944));
 	else
@@ -4693,7 +4696,8 @@ static void install_codec_i2s_gpio(void)
 {
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-	if( bsgethwtype() == BSAR8652 ) {
+	if(bssupport(BSFEATURE_WM8944) == true)
+	{
 		msm_gpiomux_install(
 			msm9615_audio_prim_i2s_codec_configs_wm8944,
 			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs_wm8944));
@@ -4752,7 +4756,7 @@ static int __init mdm9615_audio_init(void)
 
 #if defined(CONFIG_SND_SOC_WCD9310) || defined(CONFIG_SND_SOC_WCD9304)
 #ifdef CONFIG_SND_SOC_WM8944
-	if( hwtype != BSAR8652 )
+	if(bssupport(BSFEATURE_WM8944) == false)
 #endif
 	pr_info("%s(): Interface Type = %d\n", __func__, wcd9xxx_get_intf_type());
 
@@ -4766,6 +4770,7 @@ static int __init mdm9615_audio_init(void)
 	{
 /* SWISTART */
 	case BSAR8652:
+	case BSAR7554RD:
 		pr_info( KERN_DEBUG "%s - AR8 configuration", __func__);
 #if defined(CONFIG_MFD_WM8944)
 		snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card",

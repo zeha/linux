@@ -688,6 +688,7 @@ bool bssupport(
         case BSAR7554_LARGER_MEMORY:
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
+        case BSAR8652:
         case BSWP7100:
         case BSWP7102:
         case BSWP7104:
@@ -697,6 +698,42 @@ bool bssupport(
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW:
+        case BSAR7554RD:
+          supported = true;
+          break;
+
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_DR:
+      switch (hwtype)
+      {
+        case BSAR7550:
+        case BSAR7552:
+        case BSAR7554:
+        case BSAR7556:
+        case BSAR7550_LARGER_MEMORY:
+        case BSAR7552_LARGER_MEMORY:
+        case BSAR7554_LARGER_MEMORY:
+        case BSAR7556_LARGER_MEMORY:
+        case BSAR7558_LARGER_MEMORY:
+        case BSAR7554RD:
+        case BSAR8652:
+          supported = true;
+          break;
+        default:
+          supported = false;
+          break;
+      }
+      break;
+
+    case BSFEATURE_WM8944:
+      switch (hwtype)
+      {
+        case BSAR8652:
         case BSAR7554RD:
           supported = true;
           break;
@@ -849,3 +886,34 @@ int8_t bsgetuartfun(uint uart_num )
   }
 }
 EXPORT_SYMBOL(bsgetuartfun);
+
+/************
+ *
+ * Name:     bsgetriowner()
+ *
+ * Purpose:  Provide to get RI owner seting
+ *
+ * Parms:    none
+ *
+ * Return:   RI owner
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+int8_t bsgetriowner(void)
+{
+  struct bccoworkmsg *mp = (struct bccoworkmsg *)BS_COWORK_MSG_START;
+  if (bscheckcoworkmsgmsk() == true)
+  {
+    return (int8_t)mp->bcriowner;
+  }
+  else
+  {
+    pr_err("Read Cooperative mode message failed.");
+    return -1;
+  }
+}
+EXPORT_SYMBOL(bsgetriowner);
+
