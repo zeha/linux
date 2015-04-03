@@ -160,7 +160,7 @@ struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,
 			err = -EINVAL;
 			goto fail_free;
 		}
-		ubifs_warn(c, "running out of inode numbers (current %lu, max %d)",
+		ubifs_warn(c, "running out of inode numbers (current %lu, max %u)",
 			   (unsigned long)c->highest_inum, INUM_WATERMARK);
 	}
 
