@@ -1885,7 +1885,10 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			if (!mReq->req.no_interrupt)
 				mReq->ptr->token |= MSM_ETD_IOC;
 		}
-		/* revert SBM-17334 due to USB becomes non-functional after data connection */
+		/* revert SBM-17334 due to USB becomes non-functional after data connection.
+		 * This value must set to 0. Because BAM2BAM and DMA map recognize 0 as
+		 * invalid value.
+		 */
 		mReq->req.dma = 0;
 	}
 
@@ -2158,8 +2161,11 @@ static void release_ep_request(struct ci13xxx_ep  *mEp,
 		dma_unmap_single(mEp->device, mReq->req.dma,
 			mReq->req.length,
 			mEp->dir ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-		/* revert SBM-17334 due to USB becomes non-functional after data connection */
-		mReq->req.dma = 0;
+		/* This value should be set to DMA_ADDR_INVALID,
+		 * due to invalid value is set to DMA_ADDR_INVALID
+		 * rather than 0 in USB UDC driver.
+		 */
+		mReq->req.dma = DMA_ADDR_INVALID;
 		mReq->map     = 0;
 	}
 
