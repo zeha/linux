@@ -202,7 +202,8 @@ struct __packed bccoworkmsg
   uint16_t bcgpioflag;       /* external gpio owner flag. */
   uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
   uint8_t  bcriowner;        /* RI owner*/
-  uint8_t  bcreserved_u8[3]; /* The unused memory for uint 8*/
+  uint8_t  bcsleepind;       /* Sleep inidcation function */
+  uint8_t  bcreserved_u8[2]; /* The unused memory for uint 8*/
   uint32_t bcreserved[12];   /* The unused memory */
   uint32_t bcendmarker;      /* indicates end of structure */
 };

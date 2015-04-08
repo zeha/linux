@@ -4771,7 +4771,8 @@ static int __init mdm9615_audio_init(void)
 /* SWISTART */
 	case BSAR8652:
 	case BSAR7554RD:
-		pr_info( KERN_DEBUG "%s - AR8 configuration", __func__);
+	case BSAR7552RD:
+		pr_info( KERN_DEBUG "%s - AR8, AR7554RD and AR7552RD configuration", __func__);
 #if defined(CONFIG_MFD_WM8944)
 		snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card",
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;

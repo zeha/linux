@@ -254,6 +254,7 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -351,6 +352,7 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
+        case BSAR7552RD:
           supported = true;
           break;
           
@@ -424,6 +426,7 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -468,6 +471,7 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSAR7554RD:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -645,6 +649,7 @@ bool bssupport(
         case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -699,6 +704,7 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSAR7554RD:
+        case BSAR7552RD:
           supported = true;
           break;
 
@@ -722,6 +728,7 @@ bool bssupport(
         case BSAR7558_LARGER_MEMORY:
         case BSAR7554RD:
         case BSAR8652:
+        case BSAR7552RD:
           supported = true;
           break;
         default:
@@ -735,6 +742,7 @@ bool bssupport(
       {
         case BSAR8652:
         case BSAR7554RD:
+        case BSAR7552RD:
           supported = true;
           break;
 
