@@ -607,12 +607,14 @@ static void mdm9615_ext_spk_power_amp_off(u32 spk)
 	}
 }
 
-static void mdm9615_ext_control(struct snd_soc_codec *codec)
+static void mdm9615_ext_control(struct snd_soc_codec *codec, bool i2s)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
-	pr_debug("%s: mdm9615_spk_control = %d", __func__, mdm9615_spk_control);
-	if (mdm9615_spk_control == MDM9615_SPK_ON) {
+	int spk_control = i2s ? msm9615_i2s_spk_control : mdm9615_spk_control;
+	pr_debug("%s: mdm9615_%sspk_control = %d", __func__, i2s ? "i2s_" : "",
+		 spk_control);
+	if (spk_control == MDM9615_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 	} else {
@@ -640,7 +642,7 @@ static int mdm9615_set_spk(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	mdm9615_spk_control = ucontrol->value.integer.value[0];
-	mdm9615_ext_control(codec);
+	mdm9615_ext_control(codec, false);
 	return 1;
 }
 static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
@@ -691,7 +693,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 			clk_users--;
 			return -EINVAL;
 		}
-/* SWISTART */
+		/* SWISTART */
 #if !defined(CONFIG_SIERRA_INTERNAL_CODEC)
 		clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
 		clk_prepare_enable(codec_clk);
@@ -720,7 +722,7 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		}
 #endif
 #endif
-/* SWISTOP */
+		/* SWISTOP */
 	} else {
 		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
 		if (clk_users == 0)
@@ -728,21 +730,21 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		clk_users--;
 		if (!clk_users) {
 			pr_debug("%s: disabling MCLK. clk_users = %d\n",
-					 __func__, clk_users);
-/* SWISTART */
+				 __func__, clk_users);
+			/* SWISTART */
+			if (bssupport(BSFEATURE_WM8944) == false) {
 #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
-			tabla_mclk_enable(codec, 0, dapm);
+				tabla_mclk_enable(codec, 0, dapm);
 #else
+
 #ifdef CONFIG_WCD9310_CODEC
-			tabla_mclk_enable(codec, 0, dapm);
+				tabla_mclk_enable(codec, 0, dapm);
 #elif defined(CONFIG_WCD9304_CODEC)
-			sitar_mclk_enable(codec, 0, dapm);
-#endif
-#if defined(CONFIG_MFD_WM8944)
-			/* TODO config clock in wm8944 ? */
-#endif
-#endif
-/* SWISTOP */
+				sitar_mclk_enable(codec, 0, dapm);
+#endif /* #ifdef CONFIG_WCD9310_CODEC */
+			}
+#endif /* #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC) */
+			/* SWISTOP */
 			clk_disable_unprepare(codec_clk);
 		}
 	}
@@ -1071,9 +1073,10 @@ static const struct snd_soc_dapm_route common_audio_map_wm8944[] = {
 	{"Ext Spk Neg", NULL, "SPKOUTN"},
 
 	/* Microphone path */
-
 	{"IN1", NULL, "Mic Bias"},
 	{"Mic Bias", NULL, "ANCLeft Headset Mic"},
+
+	{"LDO", NULL, "MCLK"},
 
 	/**
 	 * The digital Mic routes are setup considering
@@ -1575,7 +1578,7 @@ static int msm9615_i2s_set_spk(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	msm9615_i2s_spk_control = ucontrol->value.integer.value[0];
-	mdm9615_ext_control(codec);
+	mdm9615_ext_control(codec, true);
 	return 1;
 }
 
@@ -1678,7 +1681,8 @@ static int msm9615_i2s_tx_ch_put(struct snd_kcontrol *kcontrol,
 static int msm9615_i2s_get_spk(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s: msm9615_spk_control = %d", __func__, mdm9615_spk_control);
+	pr_debug("%s: msm9615_i2s_spk_control = %d", __func__,
+		 msm9615_i2s_spk_control);
 	ucontrol->value.integer.value[0] = msm9615_i2s_spk_control;
 	return 0;
 }
@@ -1788,13 +1792,8 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 #endif
 	install_codec_i2s_gpio();
-#ifdef CONFIG_MFD_WM8944
-	if(bssupport(BSFEATURE_WM8944) == true)
-	{
-		mdm9615_enable_codec_ext_clk(codec, 1, true);
-	}
-#endif
 /* SWISTOP */
+
 	return err;
 }
 
@@ -2454,20 +2453,29 @@ static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
 {
 	u8 ret = 0;
 
-/* SWISTART */
-#ifndef CONFIG_MFD_WM8944
-	if(bssupport(BSFEATURE_WM8944) == false){
-#endif
-/* SWISTOP */
+#ifdef CONFIG_MFD_WM8944
+	if ((bssupport(BSFEATURE_WM8944) == false) &&
+	     (wcd9xxx_get_intf_type() < 0))
+#else
+	if (wcd9xxx_get_intf_type() < 0)
+#endif /* #ifdef CONFIG_MFD_WM8944 */
 	{
-		if (wcd9xxx_get_intf_type() < 0)
-			ret = -ENODEV;
+		ret = -ENODEV;
 	}
-/* SWISTART */
+	/* SWISTART */
 #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
+
+#ifdef CONFIG_MFD_WM8944
+	else if ((bssupport(BSFEATURE_WM8944) == true) ||
+		(wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C))
+#else
 	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-#endif
+#endif /* #ifdef CONFIG_MFD_WM8944 */
+
+#endif /* #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC) */
+	{
 		mdm9615_install_codec_i2s_gpio(substream);
+	}
 
 	return ret;
 }
@@ -4741,14 +4749,6 @@ static int __init mdm9615_audio_init(void)
 		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
-/* SWISTART */
-#if defined(CONFIG_SND_SOC_WCD9310) || defined(CONFIG_SND_SOC_WCD9304)
-/* SWISTOP */
-	pr_err("%s: Interface Type = %d\n", __func__,
-			wcd9xxx_get_intf_type());
-/* SWISTART */
-#endif
-/* SWISTOP */
 
 /* SWISTART */
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
@@ -4762,7 +4762,7 @@ static int __init mdm9615_audio_init(void)
 
 #ifdef CONFIG_SND_SOC_WM8944
 	else
-		pr_info("%s(): Interface Type = wm8944\n", __func__);
+		pr_info("%s(): Interface Type = I2C (wm8944)\n", __func__);
 #endif
 #endif
 

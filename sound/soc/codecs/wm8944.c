@@ -91,6 +91,20 @@ static const char *wm8944_dsp_mode_text[] = {"Record", "Playback", "General1", "
 static const struct soc_enum wm8944_dsp_mode_enum
 = SOC_ENUM_SINGLE(WM8944_SECFG, 0, 4, wm8944_dsp_mode_text);
 
+static const char *wm8944_sys_clock_src_text[] = {"MCLK", "FLL"};
+static const struct soc_enum wm8944_sys_clock_src_enum
+= SOC_ENUM_SINGLE(WM8944_CLOCK, 8, 2, wm8944_sys_clock_src_text);
+
+static const char *wm8944_audio_intf_format_text[] = {"Reserved",
+	"Left Justified", "I2S", "DSP/PCM"};
+static const struct soc_enum wm8944_audio_intf_format_enum
+= SOC_ENUM_SINGLE(WM8944_IFACE, 0, 4, wm8944_audio_intf_format_text);
+
+static const char *wm8944_audio_intf_word_length_text[] = {"16 bits", "20 bits",
+       "24 bits", "32 bits"};
+static const struct soc_enum wm8944_audio_intf_word_length_enum
+= SOC_ENUM_SINGLE(WM8944_IFACE, 2, 4, wm8944_audio_intf_word_length_text);
+
 static DECLARE_TLV_DB_SCALE(WM8944_spk_vol_tlv, -5700, 100, 0); //min = -57 dB , step = 1 dB, , mute = 0
 static DECLARE_TLV_DB_SCALE(WM8944_att_tlv, -600, 600, 0);    //min = -6 dB , step = 6 dB, , mute = 0
 static DECLARE_TLV_DB_SCALE(WM8944_inpga_vol_tlv, -1200, 75, 0);  //min = -12 dB , step = 0.75 dB, , mute = 0
@@ -103,16 +117,18 @@ static DECLARE_TLV_DB_SCALE(WM8944_adc_tlv, -7200, 37, 1); //min = -72 dB, step 
 
 
 static const struct snd_kcontrol_new wm8944_snd_controls[] = {
-	SOC_SINGLE("Digital Loopback Switch", WM8944_COMPANDINGCTL, 5, 1, 0),
-	SOC_SINGLE("Digital Audio Loopback Switch", WM8944_COMPANDINGCTL,
-		   15, 1, 0),
 	SOC_ENUM("DAC Companding", wm8944_dac_companding_enum),
 	SOC_ENUM("ADC Companding", wm8944_adc_companding_enum),
 
 
 	SOC_SINGLE("Clock Master Mode", WM8944_CLOCK, 0, 1, 0),
-	SOC_SINGLE("Interface Format", WM8944_IFACE, 0, 3, 0),
-	SOC_SINGLE("Interface Word Length", WM8944_IFACE, 2, 3, 0),
+	SOC_SINGLE("Sys Clock Enable Switch", WM8944_CLOCK, 9, 1, 0),
+	SOC_ENUM("Sys Clock Source", wm8944_sys_clock_src_enum),
+
+	SOC_SINGLE("LDO Enable Switch", WM8944_LDO, 15, 1, 0),
+
+	SOC_ENUM("Interface Format", wm8944_audio_intf_format_enum),
+	SOC_ENUM("Interface Word Length", wm8944_audio_intf_word_length_enum),
 
 	// DRC : Dynamic Range Compressor
 	SOC_SINGLE("DRC Noise Gate Switch", WM8944_DRCCTL1, 8, 1, 0),
@@ -165,17 +181,17 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 		       0, WM8944_adc_tlv),
 
 	// Speaker output  Attenuation
-	SOC_DAPM_SINGLE("AUX to SPKOUTP Mixer Atten", WM8944_SPEAKMIXCTL3,
-			8, 1, 0),
-	SOC_DAPM_SINGLE("Speaker PGA to SPKOUTP Mixer Atten",
-			WM8944_SPEAKMIXCTL3, 7, 1, 0),
-	SOC_DAPM_SINGLE("IN1 to SPKOUTN Mixer Atten", WM8944_SPEAKMIXCTL4,
-			9, 1, 0),
-	SOC_DAPM_SINGLE("Speaker PGA to SPKOUTN Mixer Atten",
+	SOC_SINGLE("AUX to SPKOUTP Mixer Atten", WM8944_SPEAKMIXCTL3,
+	           8, 1, 0),
+	SOC_SINGLE("Speaker PGA to SPKOUTP Mixer Atten",
+	           WM8944_SPEAKMIXCTL3, 7, 1, 0),
+	SOC_SINGLE("IN1 to SPKOUTN Mixer Atten", WM8944_SPEAKMIXCTL4,
+	           9, 1, 0),
+	SOC_SINGLE("Speaker PGA to SPKOUTN Mixer Atten",
 			WM8944_SPEAKMIXCTL4, 7, 1, 0),
 
-	SOC_SINGLE("Digital Playback Mute", WM8944_DACVOL,
-		   WM8944_DAC_MUTE_SHIFT, 1, 0),
+	SOC_SINGLE("Digital Playback Mute Switch", WM8944_DACVOL,
+		   WM8944_DAC_MUTE_SHIFT, 1, 1),
 
 	SOC_SINGLE_TLV("Digital Playback Volume", WM8944_DACVOL,
 		       WM8944_DAC_VOL_SHIFT, 255, 0, WM8944_adc_tlv),
@@ -193,6 +209,30 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	SOC_SINGLE("Speaker Playback ZC Switch", WM8944_SPEAKVOL,
 		   WM8944_SPK_ZC_SHIFT, 1, 0),
 
+	SOC_SINGLE("Input PGA Enable Switch", WM8944_POWER1,
+		   WM8944_INPGA_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("Master Bias Enable Switch", WM8944_POWER1,
+		   WM8944_BIAS_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("VMID Buffer Enable Switch", WM8944_POWER1,
+		   WM8944_VMID_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("Left ADC Enable Switch", WM8944_POWER1,
+		   WM8944_ADCL_ENA_SHIFT, 1, 0),
+
+	SOC_SINGLE("SPKOUTP VDD Enable Switch", WM8944_POWER2,
+		   WM8944_SPKP_SPKVDD_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("SPKOUTN VDD Enable Switch", WM8944_POWER2,
+		   WM8944_SPKN_SPKVDD_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("SPKOUTP Mute Switch", WM8944_POWER2,
+		   WM8944_SPKP_OP_MUTE_SHIFT, 1, 1),
+	SOC_SINGLE("SPKOUTN Mute Switch", WM8944_POWER2,
+		   WM8944_SPKN_OP_MUTE_SHIFT, 1, 1),
+	SOC_SINGLE("SPKOUTP Enable Switch", WM8944_POWER2,
+		   WM8944_SPKP_OP_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("SPKOUTN Enable Switch", WM8944_POWER2,
+		   WM8944_SPKN_OP_ENA_SHIFT, 1, 0),
+	SOC_SINGLE("Speaker PGA Mixer Mute Switch", WM8944_POWER2,
+		   WM8944_SPK_MIX_MUTE_SHIFT, 1, 1),
+
 	SOC_ENUM("DSP Configuration Mode", wm8944_dsp_mode_enum),
 
 	SOC_ENUM("High Pass Filter Mode", wm8944_filter_mode_enum),
@@ -206,9 +246,9 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 		   WM8944_ADC_MUTE_ALL_SHIFT, 1, 1),
 
 	SOC_SINGLE("Left ADC Volume Update", WM8944_LADCVOL, 12, 1, 0),
-	SOC_SINGLE("Left ADC Volume Mute Switch", WM8944_LADCVOL, 8, 1, 0),
+	SOC_SINGLE("Left ADC Mute Switch", WM8944_LADCVOL, 8, 1, 1),
 	SOC_SINGLE("Right ADC Volume Update", WM8944_RADCVOL, 12, 1, 0),
-	SOC_SINGLE("Right ADC Volume Mute Switch", WM8944_RADCVOL, 8, 1, 0),
+	SOC_SINGLE("Right ADC Mute Switch", WM8944_RADCVOL, 8, 1, 1),
 
 	SOC_SINGLE("DAC Inversion Switch", WM8944_DACCTL1, 0, 1, 0),
 	SOC_SINGLE("DAC Auto Mute Switch", WM8944_DACCTL1, 4, 1, 0),
@@ -217,7 +257,7 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	SOC_SINGLE("ZC Timeout Clock Switch", WM8944_ADDCNTRL, 0, 1, 0),
 	//
 
-#if 0
+#ifdef DEBUG_REGISTER_ACCESS
 	//	SOC_SINGLE_EXT("reg00", SND_SOC_NOPM, 0, 65535, 0,  WM8944_get_reset,
 	//		       WM8944_set_reset), /* R0  - Chip Revision Id1  */
 	SOC_SINGLE("reg01", 0x01, 0, 65535, 0),  /* R1  - Chip Revision Id2 (RO) */
@@ -435,6 +475,14 @@ static const struct snd_kcontrol_new wm8944_spkoutp_mixer_controls[] = {
 			8, 1, 0),
 };
 
+static const struct snd_kcontrol_new wm8944_loopback_adc_dac_controls =
+	SOC_DAPM_SINGLE("Switch", WM8944_COMPANDINGCTL,
+			15, 1, 0);
+
+static const struct snd_kcontrol_new wm8944_loopback_interface_controls =
+	SOC_DAPM_SINGLE("Switch", WM8944_COMPANDINGCTL,
+			5, 1, 0);
+
 static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 	//SND_SOC_DAPM_MIXER(wname, wreg, wshift, winvert, wcontrols, wncontrols)
 	SND_SOC_DAPM_MIXER("Speaker Mixer", WM8944_POWER2,
@@ -444,7 +492,7 @@ static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("Line Mixer", SND_SOC_NOPM, 0, 0,
 			   &wm8944_lineout_mixer_controls[0],
 			   ARRAY_SIZE(wm8944_lineout_mixer_controls)),
-	SND_SOC_DAPM_MIXER("Mic PGA", WM8944_POWER1, WM8944_INPGA_ENA_SHIFT, 0,
+	SND_SOC_DAPM_MIXER("Input PGA", WM8944_POWER1, WM8944_INPGA_ENA_SHIFT, 0,
 			   &wm8944_micpga_controls[0],
 			   ARRAY_SIZE(wm8944_micpga_controls)),
 	SND_SOC_DAPM_MIXER("SPKOUTN Mixer", SND_SOC_NOPM, 0, 0,
@@ -454,6 +502,10 @@ static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 			   &wm8944_spkoutp_mixer_controls[0],
 			   ARRAY_SIZE(wm8944_spkoutp_mixer_controls)),
 
+	SND_SOC_DAPM_SWITCH("ADC to DAC Loopback", SND_SOC_NOPM, 0, 0,
+			    &wm8944_loopback_adc_dac_controls),
+	SND_SOC_DAPM_SWITCH("Interface Loopback", SND_SOC_NOPM, 0, 0,
+			    &wm8944_loopback_interface_controls),
 	SND_SOC_DAPM_SUPPLY("LDO", WM8944_LDO, 15, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("SPKOUTN VDD", WM8944_POWER2,
 			    WM8944_SPKN_SPKVDD_ENA_SHIFT, 0, NULL, 0), // To do last
@@ -507,14 +559,16 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"Line Mixer", "Inv DAC to Line Out Switch", "DAC"},
 	{"Line Mixer", "AUX to Line Out Switch", "AUX"},
 	{"Line Mixer", "IN1 to Line Out Switch", "IN1"},
-	{"Line Mixer", "Input PGA to Line Out Switch", "Mic PGA"},
+	{"Line Mixer", "Input PGA to Line Out Switch", "Input PGA"},
+	{"Line Mixer", "AUX diff to Line Out Switch", "IN1"},
 
 	/* Speaker output mixer */
 	{"Speaker Mixer", "DAC to Speak PGA Switch", "DAC"},
 	{"Speaker Mixer", "Inv DAC to Speak PGA Switch", "DAC"},
 	{"Speaker Mixer", "AUX to Speak PGA Switch", "AUX"},
 	{"Speaker Mixer", "IN1 to Speak PGA Switch", "IN1"},
-	{"Speaker Mixer", "Input PGA to Speak PGA Switch", "Mic PGA"},
+	{"Speaker Mixer", "Input PGA to Speak PGA Switch", "Input PGA"},
+	{"Speaker Mixer", "AUX diff to Speak PGA Switch", "IN1"},
 
 	/* Speaker PGA */
 	{"Speaker PGA", NULL, "Speaker Mixer"},
@@ -534,12 +588,17 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPKOUTP", NULL, "SpeakerP Out"},
 	{"LINEOUT", NULL, "Line Mixer"},
 
-	{"ADC", NULL, "Mic PGA"},
+	{"ADC", NULL, "Input PGA"},
 
 	/* Microphone PGA */
-	{"Mic PGA", "AUX to Invert InPGA Switch", "AUX"},
-	{"Mic PGA", "IN1 to InPGA Switch", "IN1"},
+	{"Input PGA", "AUX to Invert InPGA Switch", "AUX"},
+	{"Input PGA", "IN1 to InPGA Switch", "IN1"},
 
+	/* loopback */
+	{"ADC to DAC Loopback", "Switch", "ADC" },
+	{"Interface Loopback", "Switch", "DAC" },
+	{"DAC", NULL, "ADC to DAC Loopback"},
+	{"ADC", NULL, "Interface Loopback"},
 
 	/* Power */
 	{"Mic Bias", NULL, "LDO"},
