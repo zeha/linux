@@ -263,7 +263,7 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 	struct wm8944_pdata *pdata = wm8944->dev->platform_data;
 	struct regmap_config *regmap_config;
 	const char *devname;
-	int ret, i;
+	int ret;
 	int pulls = 0;
 
 	printk(KERN_DEBUG "%s START\n",__func__);
@@ -304,6 +304,8 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 	}
 
 	if (pdata) {
+		int i;
+
 		wm8944->irq_base = (int)pdata->irq_base;
 		wm8944->gpio_base = (int)pdata->gpio_base;
 
@@ -331,10 +333,10 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 	 * in operation and are then disabled.
 	 */
 	if (wm8944_ldo_in_use(pdata, 0))
-		wm8944_set_bits(wm8944, WM8944_LDO + i, WM8944_LDO_OPFLT,
+		wm8944_set_bits(wm8944, WM8944_LDO, WM8944_LDO_OPFLT,
 				WM8944_LDO_OPFLT);
 	else
-		wm8944_set_bits(wm8944, WM8944_LDO + i, WM8944_LDO_OPFLT, 0);
+		wm8944_set_bits(wm8944, WM8944_LDO, WM8944_LDO_OPFLT, 0);
 
 	wm8944_irq_init(wm8944);
 
