@@ -60,6 +60,15 @@ static void nmea_work_func(struct work_struct *ws)
 		sz = smd_cur_packet_size(nmea_devp->ch);
 		if (sz == 0)
 			break;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+		if(sz<0)
+		{
+			printk(KERN_ERR"nmea sz<0 error, sz = %d\n",sz);
+			break;
+		}
+#endif
+/* SWISTOP */
 		if (sz > smd_read_avail(nmea_devp->ch))
 			break;
 		if (sz > MAX_BUF_SIZE) {
