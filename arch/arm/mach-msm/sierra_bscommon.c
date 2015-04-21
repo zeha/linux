@@ -763,6 +763,40 @@ EXPORT_SYMBOL(bsgetgpioflag);
 
 /************
  *
+ * Name:     bsuart4modem()
+ *
+ * Purpose:  To check if UART is controlled by modem side
+ *
+ * Parms:    uart Number
+ *
+ * Return:   true - uart is controlled by modem processor
+ *           false - uart is not controlled by modem processor 
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bsuart4modem(uint uart_num )
+{
+  int8_t uart_fun;
+  
+  uart_fun =  bsgetuartfun(uart_num);
+  
+  if((uart_fun != -1) && (uart_fun != BSUARTFUNC_INVALID) &&
+     (uart_fun != BSUARTFUNC_DM) && (uart_fun != BSUARTFUNC_CONSOLE) &&
+     (uart_fun != BSUARTFUNC_APP))
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+/************
+ *
  * Name:     bsgetuartfun()
  *
  * Purpose:  Provide to get UARTs function seting

@@ -53,6 +53,12 @@
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+#include <linux/sierra_bsudefs.h>
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
+
 /*
  * There are 3 different kind of UART Core available on MSM.
  * High Speed UART (i.e. Legacy HSUART), GSBI based HSUART
@@ -1873,6 +1879,55 @@ static ssize_t set_msm_fifo_tx(struct device *dev,
 
 static DEVICE_ATTR(fifo_tx, S_IWUSR | S_IRUGO, show_msm_fifo_tx,
                                                 set_msm_fifo_tx);
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+const static char dm_func_string[] = "DM";
+const static char cons_func_string[] = "CONSOLE";
+const static char app_func_string[] = "APP";
+const static char inv_func_string[] = "UNAVAILABLE";
+static int8_t uart_func[UART_NR];
+static char* uart_func_str_pt[UART_NR] = {0};
+
+static ssize_t show_uart_config(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int line;
+	struct msm_serial_hslite_platform_data *pdata;
+
+	struct platform_device *pdev = to_platform_device(dev);
+	
+	/*line = get_line(pdev);*/
+	/* Use line (ttyHSLx) number from pdata or device tree if specified */
+	pdata = pdev->dev.platform_data;
+	if (pdata)
+		line = pdata->line;
+	else
+		line = pdev->id;
+
+	if(line >= UART_NR)
+	{
+		pr_info("invalid line number %d", line);
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+
+	if(uart_func_str_pt[line])
+	{
+		sprintf(buf, "%s", uart_func_str_pt[line]);
+		return strlen((const char*)uart_func_str_pt[line]) + 1;
+	}
+	else
+	{
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+
+}
+
+static DEVICE_ATTR(config, 0444, show_uart_config, NULL);
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
 
 static struct uart_driver msm_hsl_uart_driver = {
 	.owner = THIS_MODULE,
@@ -2064,6 +2119,48 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+	/* create config file for APP usage */
+	ret = device_create_file(&pdev->dev, &dev_attr_config);
+	if (unlikely(ret))
+		pr_err("%s():Can't create config attribute\n", __func__);
+
+	uart_func[line] = bsgetuartfun(line);
+	
+	if(uart_func[line] == -1)
+	{
+		uart_func[line] = BSUARTFUNC_INVALID;
+	}
+	
+	if((line == BS_UART2_LINE) && (uart_func[line] == BSUARTFUNC_INVALID))
+	{
+		/* UART2 is set to console by default */
+		uart_func[BS_UART2_LINE] = BSUARTFUNC_CONSOLE;
+	}
+	
+	switch(uart_func[line])
+	{
+		case BSUARTFUNC_DM:
+			pr_info("ttyHSL%d is reserved for DM service\n", line);
+			uart_func_str_pt[line] = (char *)dm_func_string;
+			break;
+		case BSUARTFUNC_CONSOLE:
+			pr_info("ttyHSL%d is reserved for CONSOLE service\n", line);
+			uart_func_str_pt[line] = (char *)cons_func_string;
+			break;
+		case BSUARTFUNC_APP:
+			pr_info("ttyHSL%d is open for customer usage\n", line);
+			uart_func_str_pt[line] = (char *)app_func_string;
+			break;
+		default:
+			pr_info("ttyHSL%d, function %d, not allowed to control by A5. \n", line, uart_func[line]);
+			uart_func_str_pt[line] = (char *)inv_func_string;
+			return -EPERM;;
+	}
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
+
 	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);
 	pm_runtime_enable(port->dev);
@@ -2093,6 +2190,22 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	 */
 	if (msm_hsl_port->pclk)
 		clk_prepare_enable(msm_hsl_port->pclk);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+	/* if UART console is not enabled and also this uart is reserved for console, then try to register the uart to console */
+	if((!(msm_hsl_uart_driver.cons->flags & CON_ENABLED)) && (uart_func[line] == BSUARTFUNC_CONSOLE))
+	{
+		msm_hsl_uart_driver.cons->index = line;
+	}
+	else if(!(msm_hsl_uart_driver.cons->flags & CON_ENABLED))
+	{
+		/* console is not enabled and UART is not allowed to use console, so allocate an invalid line to disable console registering */
+		msm_hsl_uart_driver.cons->index = UART_NR;
+	}
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
+	
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 	if (msm_hsl_port->pclk)
 		clk_disable_unprepare(msm_hsl_port->pclk);

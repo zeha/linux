@@ -34,6 +34,12 @@
 #include "devices.h"
 #include "clock-pll.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+#include "linux/sierra_bsudefs.h"
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
+
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_LPA(off)	(MSM_LPASS_CLK_CTL_BASE + (off))
 #define REG_GCC(off)	(MSM_APCS_GCC_BASE + (off))
@@ -1637,7 +1643,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk", gsbi3_uart_clk.c, ""),
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
 #ifdef CONFIG_SIERRA_UART
-    CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
+	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, "msm_serial_hsl.1"),
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	CLK_LOOKUP("core_clk", gsbi5_uart_clk.c, ""),
@@ -1646,7 +1652,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("core_clk",	gsbi4_qup_clk.c, ""),
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-  CLK_LOOKUP("core_clk",  gsbi4_qup_clk.c, "spi_qsd.4"),
+	CLK_LOOKUP("core_clk",  gsbi4_qup_clk.c, "spi_qsd.4"),
 #endif
 #ifdef CONFIG_SIERRA_I2C_GSBI2
 	CLK_LOOKUP("core_clk",	gsbi2_qup_clk.c, "qup_i2c.0"),
@@ -1665,7 +1671,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 	CLK_LOOKUP("iface_clk",	gsbi4_p_clk.c, "msm_serial_hsl.0"),
 /* SWISTART */
 #ifdef CONFIG_SIERRA_UART
-    	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
+	CLK_LOOKUP("iface_clk", gsbi5_p_clk.c, "msm_serial_hsl.1"),
 #endif /* CONFIG_SIERRA_UART */
 #ifdef CONFIG_SIERRA_I2C_GSBI2
 	CLK_LOOKUP("iface_clk",	gsbi2_p_clk.c, "qup_i2c.0"),
@@ -1795,12 +1801,39 @@ static struct pll_config pll14_config __initdata = {
 	.main_output_mask = BIT(23),
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+static void uart_clock_setting(void)
+{
+	/* if UART1 is for modem, then not to disable GSBI clock */
+	if(bsuart4modem(BS_UART1_LINE) == true)
+	{
+		gsbi4_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
+		gsbi4_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;  
+	}
+
+	/* if UART2 is for modem, then not to disable GSBI clock */
+	if(bsuart4modem(BS_UART2_LINE) == true)
+	{
+		gsbi5_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
+		gsbi5_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;  
+	}
+}
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
+
 /*
  * Miscellaneous clock register initializations
  */
 static void __init msm9615_clock_pre_init(void)
 {
 	u32 regval, is_pll_enabled, pll9_lval;
+  
+/* SWISTART */
+#ifdef CONFIG_SIERRA_UART
+	uart_clock_setting();
+#endif /* CONFIG_SIERRA_UART */
+/* SWISTOP */
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 

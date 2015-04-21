@@ -258,9 +258,10 @@ enum bsfeature
  *
  * Purpose:  Enumerated list of different functions supported by App processor
  *
- * Members:  BSFEATURE_MINICARD  - if the hardware is a MiniCard
- *           BSFEATURE_MINICARD_M2M - if the HW support MC M2M features
-
+ * Members:  BSUARTFUNC_INVALID  - UART unavilable for APP
+ *           BSUARTFUNC_DM - UART reserved for DM service
+ *           BSUARTFUNC_CONSOLE - UART reserved for CONSOLE service
+ *           BSUARTFUNC_APP - UART open for all application usage
  *
  * Notes:    None
  *
@@ -272,6 +273,17 @@ enum bsuartfunc
   BSUARTFUNC_CONSOLE = 16,
   BSUARTFUNC_APP     = 17,
 };
+
+/************
+ *
+ * Members:  BS_UART1_LINE  - line number of UART1
+ *           BS_UART2_LINE - line number of UART2
+ *
+ * Notes:    None
+ *
+ ************/
+#define BS_UART1_LINE  0
+#define BS_UART2_LINE  1
 
 #include "sierra_bsuproto.h"
 #endif
