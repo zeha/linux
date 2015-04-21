@@ -1690,11 +1690,11 @@ static const struct snd_kcontrol_new wm8944_msm9615_i2s_controls[] = {
 		     msm9615_i2s_set_spk),
 	SOC_ENUM_EXT("PRI_RX Channels", mdm9615_enum[1],
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
-	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[2],
+	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[1],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
-	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[3],
+	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[1],
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
-	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[4],
+	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[1],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
 };
 #endif
@@ -1707,9 +1707,9 @@ static const struct snd_kcontrol_new tabla_msm9615_i2s_controls[] = {
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
 	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[2],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
-	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[3],
+	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[1],
 			msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
-	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[4],
+	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[2],
 			msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
 };
 
