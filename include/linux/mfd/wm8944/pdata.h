@@ -24,6 +24,12 @@
 #define WM8944_NUM_LDO   1
 #define WM8944_NUM_GPIO  2
 
+enum wm8944_vmid_mode {
+	WM8944_VMID_FAST=1,
+	WM8944_VMID_NORMAL,
+	WM8944_VMID_SLOW,
+};
+
 struct wm8944_ldo_pdata {
 	/** GPIOs to enable regulator, 0 or less if not available */
 	int enable;
@@ -104,6 +110,8 @@ struct wm8944_pdata {
 	 * system.
 	 */
 	bool spkmode_pu;
+
+	enum wm8944_vmid_mode vmid_mode;
 };
 
 #endif

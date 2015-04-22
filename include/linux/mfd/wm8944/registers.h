@@ -351,6 +351,26 @@
 #define WM8944_MLCK_PU_WIDTH                         2  /* MLCK_PU */
 
 /*
+ * R7 (0x7) - Clock
+ */
+
+#define WM8944_STARTUP_BIAS_ENA                 0x0100  /* STARTUP_BIAS_ENA */
+#define WM8944_STARTUP_BIAS_ENA_MASK            0x0100  /* STARTUP_BIAS_ENA */
+#define WM8944_STARTUP_BIAS_ENA_SHIFT                8  /* STARTUP_BIAS_ENA */
+#define WM8944_STARTUP_BIAS_ENA_WIDTH                1  /* STARTUP_BIAS_ENA */
+
+#define WM8944_BIAS_SRC_STARTUP                 0x0080  /* BIAS_SRC */
+#define WM8944_BIAS_SRC_MASTER                  0x0000  /* BIAS_SRC */
+#define WM8944_BIAS_SRC_MASK                    0x0080  /* BIAS_SRC */
+#define WM8944_BIAS_SRC_SHIFT                        7  /* BIAS_SRC */
+#define WM8944_BIAS_SRC_WIDTH                        1  /* BIAS_SRC */
+
+#define WM8944_VMID_RAMP                        0x0060  /* VMID_RAMP */
+#define WM8944_VMID_RAMP_MASK                   0x0060  /* VMID_RAMP */
+#define WM8944_VMID_RAMP_SHIFT                       5  /* VMID_RAMP */
+#define WM8944_VMID_RAMP_WIDTH                       2  /* VMID_RAMP */
+
+/*
  * R13 (0xD) - GPIO1 control
  */
 
@@ -462,6 +482,21 @@
 /*
  * R42 (0x2A) - Output Ctrl
  */
+#define WM8944_SPKN_DISCH                       0x0080  /* SPKN_DISCH */
+#define WM8944_SPKN_DISCH_MASK                  0x0080  /* SPKN_DISCH */
+#define WM8944_SPKN_DISCH_SHIFT                      7  /* SPKN_DISCH */
+#define WM8944_SPKN_DISCH_WIDTH                      1  /* SPKN_DISCH */
+
+#define WM8944_SPKP_DISCH                       0x0040  /* SPKP_DISCH */
+#define WM8944_SPKP_DISCH_MASK                  0x0040  /* SPKP_DISCH */
+#define WM8944_SPKP_DISCH_SHIFT                      6  /* SPKP_DISCH */
+#define WM8944_SPKP_DISCH_WIDTH                      1  /* SPKP_DISCH */
+
+#define WM8944_LINE_DISCH                       0x0010  /* LINE_DISCH */
+#define WM8944_LINE_DISCH_MASK                  0x0010  /* LINE_DISCH */
+#define WM8944_LINE_DISCH_SHIFT                      4  /* LINE_DISCH */
+#define WM8944_LINE_DISCH_WIDTH                      1  /* LINE_DISCH */
+
 #define WM8944_SPK_VROI                         0x0002  /* SPK_VROI */
 #define WM8944_SPK_VROI_MASK                    0x0002  /* SPK_VROI */
 #define WM8944_SPK_VROI_SHIFT                        1  /* SPK_VROI */

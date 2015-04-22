@@ -812,6 +812,7 @@ static struct wm8944_pdata wm8944_platform_data = {
 	.spk_vroi = 0,
 	.micbias_lvl = 0,
 	.irq_base = WM8944_INTERRUPT_BASE,
+	.vmid_mode = WM8944_VMID_FAST,
 };
 
 static struct i2c_board_info wm8944_device_info[] __initdata = {
