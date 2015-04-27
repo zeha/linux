@@ -76,10 +76,14 @@
 #define yaffs_printf(msk, fmt, ...) \
 	printk(KERN_DEBUG "yaffs: " fmt "\n", ##__VA_ARGS__)
 
+#ifdef CONFIG_YAFFS_DEBUG
 #define yaffs_trace(msk, fmt, ...) do { \
 	if (yaffs_trace_mask & (msk)) \
 		printk(KERN_DEBUG "yaffs: " fmt "\n", ##__VA_ARGS__); \
 } while (0)
-
+#else
+#define yaffs_trace(msk, fmt, ...) do { \
+} while (0)
+#endif
 
 #endif

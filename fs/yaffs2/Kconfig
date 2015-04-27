@@ -169,3 +169,12 @@ config YAFFS_XATTR
 	help
 	 If this is set then yaffs2 will provide xattr support.
 	 If unsure, say Y.
+
+config YAFFS_DEBUG
+	bool "Enable yaffs debugging"
+	depends on YAFFS_FS
+	default n
+	help
+	  Enable the yaffs debugging tracing.
+
+	  If unsure, say N.
