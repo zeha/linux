@@ -12,15 +12,12 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
 #include <linux/crc32.h>
 #include <linux/slab.h>
 
 #include "u_ether.h"
-#include "u_ether_configfs.h"
-#include "u_eem.h"
 
 #define EEM_HLEN 2
 
@@ -245,39 +242,13 @@ static void eem_disable(struct usb_function *f)
 
 /* EEM function driver setup/binding */
 
-static int eem_bind(struct usb_configuration *c, struct usb_function *f)
+static int
+eem_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct f_eem		*eem = func_to_eem(f);
-	struct usb_string	*us;
 	int			status;
 	struct usb_ep		*ep;
-
-	struct f_eem_opts	*eem_opts;
-
-	eem_opts = container_of(f->fi, struct f_eem_opts, func_inst);
-	/*
-	 * in drivers/usb/gadget/configfs.c:configfs_composite_bind()
-	 * configurations are bound in sequence with list_for_each_entry,
-	 * in each configuration its functions are bound in sequence
-	 * with list_for_each_entry, so we assume no race condition
-	 * with regard to eem_opts->bound access
-	 */
-	if (!eem_opts->bound) {
-		mutex_lock(&eem_opts->lock);
-		gether_set_gadget(eem_opts->net, cdev->gadget);
-		status = gether_register_netdev(eem_opts->net);
-		mutex_unlock(&eem_opts->lock);
-		if (status)
-			return status;
-		eem_opts->bound = true;
-	}
-
-	us = usb_gstrings_attach(cdev, eem_strings,
-				 ARRAY_SIZE(eem_string_defs));
-	if (IS_ERR(us))
-		return PTR_ERR(us);
-	eem_intf.iInterface = us[0].id;
 
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
@@ -303,20 +274,38 @@ static int eem_bind(struct usb_configuration *c, struct usb_function *f)
 
 	status = -ENOMEM;
 
+	/* copy descriptors, and track endpoint copies */
+	f->fs_descriptors = usb_copy_descriptors(eem_fs_function);
+	if (!f->fs_descriptors)
+		goto fail;
+
 	/* support all relevant hardware speeds... we expect that when
 	 * hardware is dual speed, all bulk-capable endpoints work at
 	 * both speeds
 	 */
-	eem_hs_in_desc.bEndpointAddress = eem_fs_in_desc.bEndpointAddress;
-	eem_hs_out_desc.bEndpointAddress = eem_fs_out_desc.bEndpointAddress;
+	if (gadget_is_dualspeed(c->cdev->gadget)) {
+		eem_hs_in_desc.bEndpointAddress =
+				eem_fs_in_desc.bEndpointAddress;
+		eem_hs_out_desc.bEndpointAddress =
+				eem_fs_out_desc.bEndpointAddress;
 
-	eem_ss_in_desc.bEndpointAddress = eem_fs_in_desc.bEndpointAddress;
-	eem_ss_out_desc.bEndpointAddress = eem_fs_out_desc.bEndpointAddress;
+		/* copy descriptors, and track endpoint copies */
+		f->hs_descriptors = usb_copy_descriptors(eem_hs_function);
+		if (!f->hs_descriptors)
+			goto fail;
+	}
 
-	status = usb_assign_descriptors(f, eem_fs_function, eem_hs_function,
-			eem_ss_function);
-	if (status)
-		goto fail;
+	if (gadget_is_superspeed(c->cdev->gadget)) {
+		eem_ss_in_desc.bEndpointAddress =
+				eem_fs_in_desc.bEndpointAddress;
+		eem_ss_out_desc.bEndpointAddress =
+				eem_fs_out_desc.bEndpointAddress;
+
+		/* copy descriptors, and track endpoint copies */
+		f->ss_descriptors = usb_copy_descriptors(eem_ss_function);
+		if (!f->ss_descriptors)
+			goto fail;
+	}
 
 	DBG(cdev, "CDC Ethernet (EEM): %s speed IN/%s OUT/%s\n",
 			gadget_is_superspeed(c->cdev->gadget) ? "super" :
@@ -325,7 +314,11 @@ static int eem_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
-	usb_free_all_descriptors(f);
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
+	if (f->hs_descriptors)
+		usb_free_descriptors(f->hs_descriptors);
+
 	if (eem->port.out_ep)
 		eem->port.out_ep->driver_data = NULL;
 	if (eem->port.in_ep)
@@ -334,6 +327,21 @@ fail:
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
 
 	return status;
+}
+
+static void
+eem_unbind(struct usb_configuration *c, struct usb_function *f)
+{
+	struct f_eem	*eem = func_to_eem(f);
+
+	DBG(c->cdev, "eem unbind\n");
+
+	if (gadget_is_superspeed(c->cdev->gadget))
+		usb_free_descriptors(f->ss_descriptors);
+	if (gadget_is_dualspeed(c->cdev->gadget))
+		usb_free_descriptors(f->hs_descriptors);
+	usb_free_descriptors(f->fs_descriptors);
+	kfree(eem);
 }
 
 static void eem_cmd_complete(struct usb_ep *ep, struct usb_request *req)
@@ -536,127 +544,54 @@ error:
 	return status;
 }
 
-static inline struct f_eem_opts *to_f_eem_opts(struct config_item *item)
-{
-	return container_of(to_config_group(item), struct f_eem_opts,
-			    func_inst.group);
-}
-
-/* f_eem_item_ops */
-USB_ETHERNET_CONFIGFS_ITEM(eem);
-
-/* f_eem_opts_dev_addr */
-USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(eem);
-
-/* f_eem_opts_host_addr */
-USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(eem);
-
-/* f_eem_opts_qmult */
-USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(eem);
-
-/* f_eem_opts_ifname */
-USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(eem);
-
-static struct configfs_attribute *eem_attrs[] = {
-	&f_eem_opts_dev_addr.attr,
-	&f_eem_opts_host_addr.attr,
-	&f_eem_opts_qmult.attr,
-	&f_eem_opts_ifname.attr,
-	NULL,
-};
-
-static struct config_item_type eem_func_type = {
-	.ct_item_ops	= &eem_item_ops,
-	.ct_attrs	= eem_attrs,
-	.ct_owner	= THIS_MODULE,
-};
-
-static void eem_free_inst(struct usb_function_instance *f)
-{
-	struct f_eem_opts *opts;
-
-	opts = container_of(f, struct f_eem_opts, func_inst);
-	if (opts->bound)
-		gether_cleanup(netdev_priv(opts->net));
-	else
-		free_netdev(opts->net);
-	kfree(opts);
-}
-
-static struct usb_function_instance *eem_alloc_inst(void)
-{
-	struct f_eem_opts *opts;
-
-	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
-	if (!opts)
-		return ERR_PTR(-ENOMEM);
-	mutex_init(&opts->lock);
-	opts->func_inst.free_func_inst = eem_free_inst;
-	opts->net = gether_setup_default();
-	if (IS_ERR(opts->net)) {
-		struct net_device *net = opts->net;
-		kfree(opts);
-		return ERR_CAST(net);
-	}
-
-	config_group_init_type_name(&opts->func_inst.group, "", &eem_func_type);
-
-	return &opts->func_inst;
-}
-
-static void eem_free(struct usb_function *f)
-{
-	struct f_eem *eem;
-	struct f_eem_opts *opts;
-
-	eem = func_to_eem(f);
-	opts = container_of(f->fi, struct f_eem_opts, func_inst);
-	kfree(eem);
-	mutex_lock(&opts->lock);
-	opts->refcnt--;
-	mutex_unlock(&opts->lock);
-}
-
-static void eem_unbind(struct usb_configuration *c, struct usb_function *f)
-{
-	DBG(c->cdev, "eem unbind\n");
-
-	usb_free_all_descriptors(f);
-}
-
-static struct usb_function *eem_alloc(struct usb_function_instance *fi)
+/**
+ * eem_bind_config - add CDC Ethernet (EEM) network link to a configuration
+ * @c: the configuration to support the network link
+ * Context: single threaded during gadget setup
+ *
+ * Returns zero on success, else negative errno.
+ *
+ * Caller must have called @gether_setup().  Caller is also responsible
+ * for calling @gether_cleanup() before module unload.
+ */
+int eem_bind_config(struct usb_configuration *c)
 {
 	struct f_eem	*eem;
-	struct f_eem_opts *opts;
+	int		status;
+
+	/* maybe allocate device-global string IDs */
+	if (eem_string_defs[0].id == 0) {
+
+		/* control interface label */
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		eem_string_defs[0].id = status;
+		eem_intf.iInterface = status;
+	}
 
 	/* allocate and initialize one new instance */
-	eem = kzalloc(sizeof(*eem), GFP_KERNEL);
+	eem = kzalloc(sizeof *eem, GFP_KERNEL);
 	if (!eem)
-		return ERR_PTR(-ENOMEM);
+		return -ENOMEM;
 
-	opts = container_of(fi, struct f_eem_opts, func_inst);
-	mutex_lock(&opts->lock);
-	opts->refcnt++;
-
-	eem->port.ioport = netdev_priv(opts->net);
-	mutex_unlock(&opts->lock);
 	eem->port.cdc_filter = DEFAULT_FILTER;
 
 	eem->port.func.name = "cdc_eem";
+	eem->port.func.strings = eem_strings;
 	/* descriptors are per-instance copies */
 	eem->port.func.bind = eem_bind;
 	eem->port.func.unbind = eem_unbind;
 	eem->port.func.set_alt = eem_set_alt;
 	eem->port.func.setup = eem_setup;
 	eem->port.func.disable = eem_disable;
-	eem->port.func.free_func = eem_free;
 	eem->port.wrap = eem_wrap;
 	eem->port.unwrap = eem_unwrap;
 	eem->port.header_len = EEM_HLEN;
 
-	return &eem->port.func;
+	status = usb_add_function(c, &eem->port.func);
+	if (status)
+		kfree(eem);
+	return status;
 }
 
-DECLARE_USB_FUNCTION_INIT(eem, eem_alloc_inst, eem_alloc);
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("David Brownell");

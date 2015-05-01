@@ -103,6 +103,7 @@
 #include "f_mbim.c"
 #include "f_ecm.c"
 #include "f_qc_ecm.c"
+#include "f_eem.c"
 #include "f_qc_rndis.c"
 #include "u_ether.c"
 #include "u_qc_ether.c"
@@ -902,6 +903,97 @@ static struct android_usb_function ecm_function = {
 	.bind_config = ecm_native_function_bind_config,
 	.unbind_config = ecm_native_function_unbind_config,
 	.attributes = ecm_native_function_attributes,
+};
+
+struct eem_function_config {
+	u8      ethaddr[ETH_ALEN];
+	char	manufacturer[256];
+};
+
+static int eem_function_init(struct android_usb_function *f,
+				struct usb_composite_dev *cdev)
+{
+	f->config = kzalloc(sizeof(struct eem_function_config), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+	return 0;
+}
+
+static void eem_function_cleanup(struct android_usb_function *f)
+{
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int eem_function_bind_config(struct android_usb_function *f,
+				struct usb_configuration *c)
+{
+	int ret;
+	struct eem_function_config *eem = f->config;
+
+	if (!eem) {
+		pr_err("%s: eem_pdata\n", __func__);
+		return -1;
+	}
+
+	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
+		eem->ethaddr[0], eem->ethaddr[1], eem->ethaddr[2],
+		eem->ethaddr[3], eem->ethaddr[4], eem->ethaddr[5]);
+
+	ret = gether_setup_name(c->cdev->gadget, eem->ethaddr, "usb"); 
+	if (ret) {
+		pr_err("%s: gether_setup failed\n", __func__);
+		return ret;
+	}
+
+	return eem_bind_config(c);
+}
+
+static void eem_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	gether_cleanup();
+}
+
+static ssize_t eem_ethaddr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct eem_function_config *eem = f->config;
+	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		eem->ethaddr[0], eem->ethaddr[1], eem->ethaddr[2],
+		eem->ethaddr[3], eem->ethaddr[4], eem->ethaddr[5]);
+}
+
+static ssize_t eem_ethaddr_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct eem_function_config *eem = f->config;
+
+	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		    (int *)&eem->ethaddr[0], (int *)&eem->ethaddr[1],
+		    (int *)&eem->ethaddr[2], (int *)&eem->ethaddr[3],
+		    (int *)&eem->ethaddr[4], (int *)&eem->ethaddr[5]) == 6)
+		return size;
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(eem_ethaddr, S_IRUGO | S_IWUSR, eem_ethaddr_show,
+					       eem_ethaddr_store);
+
+static struct device_attribute *eem_function_attributes[] = {
+	&dev_attr_eem_ethaddr,
+	NULL
+};
+
+static struct android_usb_function eem_function = {
+	.name		= "eem",
+	.init		= eem_function_init,
+	.cleanup	= eem_function_cleanup,
+	.bind_config	= eem_function_bind_config,
+	.unbind_config	= eem_function_unbind_config,
+	.attributes	= eem_function_attributes,
 };
 
 /* MBIM - used with BAM */
@@ -1927,6 +2019,7 @@ static struct android_usb_function *supported_functions[] = {
 	&mbim_function,
 	&ecm_function,
 	&ecm_qc_function,
+	&eem_function,
 #ifdef CONFIG_SND_PCM
 	&audio_function,
 #endif
