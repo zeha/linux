@@ -459,39 +459,52 @@ static void ulpi_init(struct msm_otg *motg)
 
 static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 {
-	int ret = 0;
+	int ret;
 
-	if (!motg->pdata->link_clk_reset)
-		return ret;
-
-	if (!IS_ERR(motg->clk)) {
-		ret = motg->pdata->link_clk_reset(motg->clk, assert);
+	if (assert) {
+		if (!IS_ERR(motg->clk)) {
+			ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
+		} else {
+			/* Using asynchronous block reset to the hardware */
+			dev_dbg(motg->phy.dev, "block_reset ASSERT\n");
+			clk_disable_unprepare(motg->pclk);
+			clk_disable_unprepare(motg->core_clk);
+			ret = clk_reset(motg->core_clk, CLK_RESET_ASSERT);
+		}
+		if (ret)
+			dev_err(motg->phy.dev, "usb hs_clk assert failed\n");
 	} else {
-		/* Using asynchronous block reset to the hardware */
-		dev_dbg(motg->phy.dev, "block_reset %s\n", assert ? "ASSERT" : "DEASSERT");
-		clk_disable_unprepare(motg->pclk);
-		clk_disable_unprepare(motg->core_clk);
-		ret = motg->pdata->link_clk_reset(motg->core_clk, assert);
+		if (!IS_ERR(motg->clk)) {
+			ret = clk_reset(motg->clk, CLK_RESET_DEASSERT);
+		} else {
+			dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
+			ret = clk_reset(motg->core_clk, CLK_RESET_DEASSERT);
+			ndelay(200);
+			clk_prepare_enable(motg->core_clk);
+			clk_prepare_enable(motg->pclk);
+		}
+		if (ret)
+			dev_err(motg->phy.dev, "usb hs_clk deassert failed\n");
 	}
-
-	if (ret)
-		dev_err(motg->phy.dev, "usb link clk reset %s failed\n",
-			assert ? "assert" : "deassert");
-
 	return ret;
 }
 
 static int msm_otg_phy_clk_reset(struct msm_otg *motg)
 {
-	int ret = 0;
+	int ret;
 
-	if (!motg->pdata->phy_clk_reset)
+	if (IS_ERR(motg->phy_reset_clk))
+		return 0;
+
+	ret = clk_reset(motg->phy_reset_clk, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(motg->phy.dev, "usb phy clk assert failed\n");
 		return ret;
-
-	ret = motg->pdata->phy_clk_reset(motg->phy_reset_clk);
+	}
+	usleep_range(10000, 12000);
+	ret = clk_reset(motg->phy_reset_clk, CLK_RESET_DEASSERT);
 	if (ret)
-		dev_err(motg->phy.dev, "usb phy clk reset failed\n");
-
+		dev_err(motg->phy.dev, "usb phy clk deassert failed\n");
 	return ret;
 }
 
@@ -879,7 +892,7 @@ static void pm_suspend_w(struct work_struct *w)
 /* SWISTOP */
 
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int msm_otg_suspend(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -4324,7 +4337,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	ret = usb_add_phy(&motg->phy, USB_PHY_TYPE_USB2);
 	if (ret) {
-		dev_err(&pdev->dev, "usb_add_phy failed\n");
+		dev_err(&pdev->dev, "usb_set_transceiver failed\n");
 		goto free_async_irq;
 	}
 
@@ -4648,11 +4661,13 @@ static int msm_otg_pm_resume(struct device *dev)
 }
 #endif
 
+#ifdef CONFIG_PM
 static const struct dev_pm_ops msm_otg_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_otg_pm_suspend, msm_otg_pm_resume)
 	SET_RUNTIME_PM_OPS(msm_otg_runtime_suspend, msm_otg_runtime_resume,
 				msm_otg_runtime_idle)
 };
+#endif
 
 static struct of_device_id msm_otg_dt_match[] = {
 	{	.compatible = "qcom,hsusb-otg",
@@ -4665,12 +4680,25 @@ static struct platform_driver msm_otg_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
 		.pm = &msm_otg_dev_pm_ops,
+#endif
 		.of_match_table = msm_otg_dt_match,
 	},
 };
 
-module_platform_driver_probe(msm_otg_driver, msm_otg_probe);
+static int __init msm_otg_init(void)
+{
+	return platform_driver_probe(&msm_otg_driver, msm_otg_probe);
+}
+
+static void __exit msm_otg_exit(void)
+{
+	platform_driver_unregister(&msm_otg_driver);
+}
+
+module_init(msm_otg_init);
+module_exit(msm_otg_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM USB transceiver driver");
