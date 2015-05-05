@@ -207,28 +207,6 @@ struct sierra_port_private {
    int dtr_state;
 };
 
-
-/*=========================================================================*/
-// Struct usb_serial_driver
-// Driver structure we register with the USB core
-/*=========================================================================*/
-static struct usb_driver GobiDriver =
-{
-   .name       = "GobiSerial",
-   .probe      = usb_serial_probe,
-   .disconnect = usb_serial_disconnect,
-   .id_table   = GobiVIDPIDTable,
-#ifdef CONFIG_PM
-   .suspend    = GobiSerialSuspend,
-   .resume     = usb_serial_resume,
-   .supports_autosuspend = true,
-#else
-   .suspend    = NULL,
-   .resume     = NULL,
-   .supports_autosuspend = false,
-#endif
-};
-
 static int Gobi_calc_interface(struct usb_serial *serial)
 {
    int interface;
@@ -390,13 +368,19 @@ static struct usb_serial_driver gGobiDevice =
    },
    .description         = "GobiSerial",
    .id_table            = GobiVIDPIDTable,
-   .usb_driver          = &GobiDriver,
    .num_ports           = NUM_BULK_EPS,
    .probe               = GobiProbe,
    .open                = GobiOpen,
    .dtr_rts             = Gobi_dtr_rts,
    .attach              = Gobi_startup,
    .release             = Gobi_release,
+#ifdef CONFIG_PM
+   .suspend    = GobiSerialSuspend,
+   .resume     = usb_serial_resume,
+#else
+   .suspend    = NULL,
+   .resume     = NULL,
+#endif
 };
 
 static struct usb_serial_driver * const serial_drivers[] = {
@@ -794,54 +778,7 @@ int GobiSerialSuspend(
 }
 #endif /* CONFIG_PM*/
 
-/*===========================================================================
-METHOD:
-   GobiInit (Free Method)
-
-DESCRIPTION:
-   Register the driver and device
-
-PARAMETERS:
-
-RETURN VALUE:
-   int - negative error code on failure
-         zero on success
-===========================================================================*/
-static int __init GobiInit( void )
-{
-   int nRetval = 0;
-   gpClose = NULL;
-
-   nRetval = usb_serial_register_drivers(&GobiDriver, serial_drivers);
-   if (nRetval == 0)
-   {
-      printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
-            DRIVER_DESC "\n");
-   }
-
-   return nRetval;
-}
-
-/*===========================================================================
-METHOD:
-   GobiExit (Free Method)
-
-DESCRIPTION:
-   Deregister the driver and device
-
-PARAMETERS:
-
-RETURN VALUE:
-===========================================================================*/
-static void __exit GobiExit( void )
-{
-   gpClose = NULL;
-   usb_serial_deregister_drivers(&GobiDriver, serial_drivers);
-}
-
-// Calling kernel module to init our driver
-module_init( GobiInit );
-module_exit( GobiExit );
+module_usb_serial_driver(serial_drivers, GobiVIDPIDTable);
 
 MODULE_VERSION( DRIVER_VERSION );
 MODULE_AUTHOR( DRIVER_AUTHOR );
