@@ -249,13 +249,13 @@ static int __init ehci_msm_init(void)
 	ehci_init_driver(&msm_hc_driver, &msm_overrides);
 	return platform_driver_register(&ehci_msm_driver);
 }
-module_init(ehci_msm_init);
+//module_init(ehci_msm_init);
 
 static void __exit ehci_msm_cleanup(void)
 {
 	platform_driver_unregister(&ehci_msm_driver);
 }
-module_exit(ehci_msm_cleanup);
+//module_exit(ehci_msm_cleanup);
 
 MODULE_DESCRIPTION("Qualcomm On-Chip EHCI Host Controller");
 MODULE_ALIAS("platform:msm-ehci");

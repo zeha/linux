@@ -49,6 +49,8 @@
 #include <mach/rpm-regulator.h>
 #include <linux/usb/ulpi.h>
 
+#include <asm/uaccess.h>
+
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
@@ -1013,10 +1015,10 @@ static int msm_hsic_resume_thread(void *data)
 	}
 
 	if (unlikely(ehci->debug)) {
-		if (!dbgp_reset_prep())
+		if (!dbgp_reset_prep(ehci_to_hcd(ehci)))
 			ehci->debug = NULL;
 		else
-			dbgp_external_startup();
+			dbgp_external_startup(ehci_to_hcd(ehci));
 	}
 
 	/* at least some APM implementations will try to deliver
@@ -1091,7 +1093,7 @@ resume_again:
 		} else {
 			dbg_log_event(NULL, "FPR: Tightloop", 0);
 			/* do the resume in a tight loop */
-			handshake(ehci, &ehci->regs->port_status[0],
+			ehci_handshake(ehci, &ehci->regs->port_status[0],
 				PORT_RESUME, 0, 22 * 1000);
 			ehci_writel(ehci, ehci_readl(ehci,
 				&ehci->regs->command) | CMD_RUN,
@@ -1159,7 +1161,7 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 	temp = 0;
 	if (ehci->async->qh_next.qh)
 		temp |= CMD_ASE;
-	if (ehci->periodic_sched)
+	if (ehci->periodic_count)
 		temp |= CMD_PSE;
 	if (temp) {
 		ehci->command |= temp;
@@ -1573,7 +1575,7 @@ static void ehci_hsic_msm_debugfs_cleanup(void)
 	debugfs_remove_recursive(ehci_hsic_msm_dbg_root);
 }
 
-static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
+static int ehci_hsic_msm_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
 	struct resource *res;
@@ -1789,7 +1791,7 @@ put_hcd:
 	return ret;
 }
 
-static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
+static int ehci_hsic_msm_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
@@ -1971,7 +1973,7 @@ static const struct dev_pm_ops msm_hsic_dev_pm_ops = {
 
 static struct platform_driver ehci_msm_hsic_driver = {
 	.probe	= ehci_hsic_msm_probe,
-	.remove	= __devexit_p(ehci_hsic_msm_remove),
+	.remove	= ehci_hsic_msm_remove,
 	.driver = {
 		.name = "msm_hsic_host",
 #ifdef CONFIG_PM
