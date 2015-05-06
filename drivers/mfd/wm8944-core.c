@@ -81,6 +81,7 @@ int wm8944_bulk_read(struct wm8944 *wm8944, unsigned short reg,
 int wm8944_reg_write(struct wm8944 *wm8944, unsigned short reg,
 		     unsigned short val)
 {
+	dev_dbg(wm8944->dev, "%s reg 0x%x val 0x%x\n", __func__, reg, val);
 	return regmap_write(wm8944->regmap, reg, val);
 }
 EXPORT_SYMBOL_GPL(wm8944_reg_write);
@@ -180,8 +181,7 @@ static int wm8944_suspend(struct device *dev)
 	/* Explicitly put the device into reset in case regulators
 	 * don't get disabled in order to ensure consistent restart.
 	 */
-	wm8944_reg_write(wm8944, WM8944_SOFTRESET,
-			 wm8944_reg_read(wm8944, WM8944_SOFTRESET));
+	wm8944_reg_write(wm8944, WM8944_SOFTRESET, 0);
 
 	regcache_cache_only(wm8944->regmap, true);
 	regcache_mark_dirty(wm8944->regmap);
@@ -302,6 +302,9 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 			ret);
 		return ret;
 	}
+
+	/* reset the codec to ensure that we're starting in stable state */
+	wm8944_reg_write(wm8944, WM8944_SOFTRESET, 0);
 
 	if (pdata) {
 		int i;

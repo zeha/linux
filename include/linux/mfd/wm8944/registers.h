@@ -249,10 +249,10 @@
 #define WM8944_BIAS_ENA_SHIFT                        3  /* BIAS_ENA */
 #define WM8944_BIAS_ENA_WIDTH                        1  /* BIAS_ENA */
 
-#define WM8944_VMID_ENA                         0x0004  /* VMID_ENA */
-#define WM8944_VMID_ENA_MASK                    0x0004  /* VMID_ENA */
-#define WM8944_VMID_ENA_SHIFT                        2  /* VMID_ENA */
-#define WM8944_VMID_ENA_WIDTH                        1  /* VMID_ENA */
+#define WM8944_VMID_BUF_ENA                     0x0004  /* VMID_BUF_ENA */
+#define WM8944_VMID_BUF_ENA_MASK                0x0004  /* VMID_BUF_ENA */
+#define WM8944_VMID_BUF_ENA_SHIFT                    2  /* VMID_BUF_ENA */
+#define WM8944_VMID_BUF_ENA_WIDTH                    1  /* VMID_BUF_ENA */
 
 #define WM8944_VMID_SEL_DIS                     0x0000  /* VMID_SEL */
 #define WM8944_VMID_SEL_2x50K                   0x0001  /* VMID_SEL */
@@ -350,9 +350,24 @@
 #define WM8944_MLCK_PU_SHIFT                        13  /* MLCK_PU */
 #define WM8944_MLCK_PU_WIDTH                         2  /* MLCK_PU */
 
+#define WM8944_SYSCLK_ENA                       0x0200  /* SYSCLK_ENA */
+#define WM8944_SYSCLK_ENA_MASK                  0x0200  /* SYSCLK_ENA */
+#define WM8944_SYSCLK_ENA_SHIFT                      9  /* SYSCLK_ENA */
+#define WM8944_SYSCLK_ENA_WIDTH                      1  /* SYSCLK_ENA */
+
+#define WM8944_SYSCLK_SRC                       0x0100  /* SYSCLK_SRC */
+#define WM8944_SYSCLK_SRC_MASK                  0x0100  /* SYSCLK_SRC */
+#define WM8944_SYSCLK_SRC_SHIFT                      8  /* SYSCLK_SRC */
+#define WM8944_SYSCLK_SRC_WIDTH                      1  /* SYSCLK_SRC */
+
 /*
  * R7 (0x7) - Clock
  */
+
+#define WM8944_VMID_FAST_START                  0x0800  /* VMID_FAST_START */
+#define WM8944_VMID_FAST_START_MASK             0x0800  /* VMID_FAST_START */
+#define WM8944_VMID_FAST_START_SHIFT                11  /* VMID_FAST_START */
+#define WM8944_VMID_FAST_START_WIDTH                 1  /* VMID_FAST_START */
 
 #define WM8944_STARTUP_BIAS_ENA                 0x0100  /* STARTUP_BIAS_ENA */
 #define WM8944_STARTUP_BIAS_ENA_MASK            0x0100  /* STARTUP_BIAS_ENA */
@@ -369,6 +384,11 @@
 #define WM8944_VMID_RAMP_MASK                   0x0060  /* VMID_RAMP */
 #define WM8944_VMID_RAMP_SHIFT                       5  /* VMID_RAMP */
 #define WM8944_VMID_RAMP_WIDTH                       2  /* VMID_RAMP */
+
+#define WM8944_VMID_ENA                         0x0010  /* VMID_ENA */
+#define WM8944_VMID_ENA_MASK                    0x0010  /* VMID_ENA */
+#define WM8944_VMID_ENA_SHIFT                        4  /* VMID_ENA */
+#define WM8944_VMID_ENA_WIDTH                        1  /* VMID_ENA */
 
 /*
  * R13 (0xD) - GPIO1 control
@@ -482,6 +502,26 @@
 /*
  * R42 (0x2A) - Output Ctrl
  */
+#define WM8944_SPKN_VMID_OP_ENA                 0x2000  /* SPKN_VMID_OP_ENA */
+#define WM8944_SPKN_VMID_OP_ENA_MASK            0x2000  /* SPKN_VMID_OP_ENA */
+#define WM8944_SPKN_VMID_OP_ENA_SHIFT               13  /* SPKN_VMID_OP_ENA */
+#define WM8944_SPKN_VMID_OP_ENA_WIDTH                1  /* SPKN_VMID_OP_ENA */
+
+#define WM8944_SPKP_VMID_OP_ENA                 0x1000  /* SPKP_VMID_OP_ENA */
+#define WM8944_SPKP_VMID_OP_ENA_MASK            0x1000  /* SPKP_VMID_OP_ENA */
+#define WM8944_SPKP_VMID_OP_ENA_SHIFT               12  /* SPKP_VMID_OP_ENA */
+#define WM8944_SPKP_VMID_OP_ENA_WIDTH                1  /* SPKP_VMID_OP_ENA */
+
+#define WM8944_LINE_VMID_OP_ENA                 0x0400  /* LINE_VMID_OP_ENA */
+#define WM8944_LINE_VMID_OP_ENA_MASK            0x0400  /* LINE_VMID_OP_ENA */
+#define WM8944_LINE_VMID_OP_ENA_SHIFT               10  /* LINE_VMID_OP_ENA */
+#define WM8944_LINE_VMID_OP_ENA_WIDTH                1  /* LINE_VMID_OP_ENA */
+
+#define WM8944_LINE_MUTE                        0x0100  /* LINE_MUTE */
+#define WM8944_LINE_MUTE_MASK                   0x0100  /* LINE_MUTE */
+#define WM8944_LINE_MUTE_SHIFT                       8  /* LINE_MUTE */
+#define WM8944_LINE_MUTE_WIDTH                       1  /* LINE_MUTE */
+
 #define WM8944_SPKN_DISCH                       0x0080  /* SPKN_DISCH */
 #define WM8944_SPKN_DISCH_MASK                  0x0080  /* SPKN_DISCH */
 #define WM8944_SPKN_DISCH_SHIFT                      7  /* SPKN_DISCH */
@@ -528,10 +568,28 @@
  * R53 (0x35) - LDO
  */
 
+#define WM8944_LDO_ENA                          0x8000  /* LDO_ENA */
+#define WM8944_LDO_ENA_MASK                     0x8000  /* LDO_ENA */
+#define WM8944_LDO_ENA_SHIFT                        15  /* LDO_ENA */
+#define WM8944_LDO_ENA_WIDTH                         1  /* LDO_ENA */
+
+#define WM8944_LDO_REF_SEL_FAST                 0x4000  /* LDO_REF_SEL_FAST */
+#define WM8944_LDO_REF_SEL_NORMAL               0x0000  /* LDO_REF_SEL_FAST */
+#define WM8944_LDO_REF_SEL_FAST_MASK            0x4000  /* LDO_REF_SEL_FAST */
+#define WM8944_LDO_REF_SEL_FAST_SHIFT               14  /* LDO_REF_SEL_FAST */
+#define WM8944_LDO_REF_SEL_FAST_WIDTH                1  /* LDO_REF_SEL_FAST */
+
 #define WM8944_LDO_OPFLT                        0x1000  /* LDO_OPFLT */
 #define WM8944_LDO_OPFLT_MASK                   0x1000  /* LDO_OPFLT */
 #define WM8944_LDO_OPFLT_SHIFT                      12  /* LDO_OPFLT */
 #define WM8944_LDO_OPFLT_WIDTH                       1  /* LDO_OPFLT */
+
+#define WM8944_LDO_BIAS_SRC_STARTUP             0x0020  /* LDO_BIAS_SRC */
+#define WM8944_LDO_BIAS_SRC_MASTER              0x0000  /* LDO_BIAS_SRC */
+#define WM8944_LDO_BIAS_SRC                     0x0020  /* LDO_BIAS_SRC */
+#define WM8944_LDO_BIAS_SRC_MASK                0x0020  /* LDO_BIAS_SRC */
+#define WM8944_LDO_BIAS_SRC_SHIFT                    5  /* LDO_BIAS_SRC */
+#define WM8944_LDO_BIAS_SRC_WIDTH                    1  /* LDO_BIAS_SRC */
 
 
 #endif

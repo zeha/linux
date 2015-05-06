@@ -27,7 +27,6 @@
  * No use made of gpio
  * L/HPF, 3D Surround, notch filter, re-tune EQ, DRC
  * digital mic
- * Fast VMID discharge for power down
  * Soft Start
  * jack detection
  * video buffer
@@ -63,6 +62,7 @@ struct wm8944_priv {
 	struct wm8944 *wm8944;
 	struct snd_soc_codec *codec;
 	unsigned int sysclk;
+	unsigned int sysclk_src;
 	enum snd_soc_control_type control_type;
 	void *control_data;
 	struct wm8944_pdata *pdata;
@@ -109,7 +109,6 @@ static const struct soc_enum wm8944_audio_intf_word_length_enum
 = SOC_ENUM_SINGLE(WM8944_IFACE, 2, 4, wm8944_audio_intf_word_length_text);
 
 static DECLARE_TLV_DB_SCALE(WM8944_spk_vol_tlv, -5700, 100, 0); //min = -57 dB , step = 1 dB, , mute = 0
-static DECLARE_TLV_DB_SCALE(WM8944_att_tlv, -600, 600, 0);    //min = -6 dB , step = 6 dB, , mute = 0
 static DECLARE_TLV_DB_SCALE(WM8944_inpga_vol_tlv, -1200, 75, 0);  //min = -12 dB , step = 0.75 dB, , mute = 0
 
 static DECLARE_TLV_DB_SCALE(WM8944_drc_ng_min_tlv, -3600, 600, 0); //min = -36 dB , step = 6 dB, , mute = 0
@@ -217,7 +216,7 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	SOC_SINGLE("Master Bias Enable Switch", WM8944_POWER1,
 		   WM8944_BIAS_ENA_SHIFT, 1, 0),
 	SOC_SINGLE("VMID Buffer Enable Switch", WM8944_POWER1,
-		   WM8944_VMID_ENA_SHIFT, 1, 0),
+		   WM8944_VMID_BUF_ENA_SHIFT, 1, 0),
 	SOC_SINGLE("Left ADC Enable Switch", WM8944_POWER1,
 		   WM8944_ADCL_ENA_SHIFT, 1, 0),
 
@@ -425,6 +424,50 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 #endif
 };
 
+static void vmid_prepare(struct snd_soc_codec *codec)
+{
+	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
+	enum wm8944_vmid_mode vmid_mode = wm8944->vmid_mode;
+
+	dev_dbg(codec->dev, "%s\n", __func__);
+
+	if( wm8944->vmid_refcount == 0) {
+		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
+				    WM8944_VMID_FAST_START_MASK |
+				    WM8944_STARTUP_BIAS_ENA_MASK |
+				    WM8944_BIAS_SRC_MASK |
+				    WM8944_VMID_RAMP_MASK,
+				    WM8944_VMID_FAST_START |
+				    WM8944_STARTUP_BIAS_ENA |
+				    WM8944_BIAS_SRC_STARTUP |
+				    (vmid_mode << WM8944_VMID_RAMP_SHIFT));
+
+		snd_soc_update_bits(codec, WM8944_LDO,
+				    WM8944_LDO_REF_SEL_FAST_MASK |
+				    WM8944_LDO_BIAS_SRC_MASK,
+				    WM8944_LDO_REF_SEL_FAST |
+				    WM8944_LDO_BIAS_SRC_STARTUP);
+
+		snd_soc_update_bits(codec, WM8944_LDO,
+				    WM8944_LDO_ENA_MASK,
+				    WM8944_LDO_ENA);
+
+		snd_soc_update_bits(codec, WM8944_POWER1,
+				    WM8944_BIAS_ENA_MASK |
+				    WM8944_VMID_BUF_ENA_MASK |
+				    WM8944_VMID_SEL_MASK,
+				    WM8944_BIAS_ENA |
+				    WM8944_VMID_BUF_ENA |
+				    WM8944_VMID_SEL_2x5K);
+
+		snd_soc_update_bits(codec, WM8944_OUTPUTCTL,
+				    WM8944_SPKN_DISCH_MASK |
+				    WM8944_SPKP_DISCH_MASK |
+				    WM8944_LINE_DISCH_MASK,
+				    0);
+	}
+}
+
 static void vmid_reference(struct snd_soc_codec *codec)
 {
 	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
@@ -439,20 +482,6 @@ static void vmid_reference(struct snd_soc_codec *codec)
 	if (wm8944->vmid_refcount == 1) {
 		enum wm8944_vmid_mode vmid_mode = wm8944->vmid_mode;
 
-		snd_soc_update_bits(codec, WM8944_OUTPUTCTL,
-				    WM8944_LINE_DISCH_MASK |
-				    WM8944_SPKN_DISCH_MASK |
-				    WM8944_SPKP_DISCH_MASK, 0);
-
-		/* Startup bias, VMID ramp & buffer */
-		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
-				    WM8944_BIAS_SRC_MASK |
-				    WM8944_STARTUP_BIAS_ENA_MASK |
-				    WM8944_VMID_RAMP_MASK,
-				    WM8944_BIAS_SRC_STARTUP |
-				    WM8944_STARTUP_BIAS_ENA |
-				    (vmid_mode << WM8944_VMID_RAMP_SHIFT));
-
 		switch (vmid_mode) {
 		default:
 			WARN_ON(0 == "Invalid VMID mode");
@@ -465,11 +494,16 @@ static void vmid_reference(struct snd_soc_codec *codec)
 			msleep(50);
 			break;
 		}
-		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
-				    WM8944_VMID_RAMP_MASK |
-				    WM8944_BIAS_SRC_MASK,
-				    2 << WM8944_VMID_RAMP_SHIFT);
 
+		snd_soc_update_bits(codec, WM8944_LDO,
+				    WM8944_LDO_REF_SEL_FAST_MASK |
+				    WM8944_LDO_BIAS_SRC_MASK,
+				    WM8944_LDO_REF_SEL_NORMAL |
+				    WM8944_LDO_BIAS_SRC_MASTER);
+
+		snd_soc_update_bits(codec, WM8944_POWER1,
+				    WM8944_VMID_SEL_MASK,
+				    WM8944_VMID_SEL_2x50K);
 	}
 }
 
@@ -483,28 +517,49 @@ static void vmid_dereference(struct snd_soc_codec *codec)
 		wm8944->vmid_refcount);
 
 	if (wm8944->vmid_refcount == 0) {
-		/* Start discharging VMID */
+		snd_soc_update_bits(codec, WM8944_LDO,
+				    WM8944_LDO_REF_SEL_FAST_MASK |
+				    WM8944_LDO_BIAS_SRC_MASK,
+				    WM8944_LDO_REF_SEL_FAST |
+				    WM8944_LDO_BIAS_SRC_STARTUP);
+
+		snd_soc_update_bits(codec, WM8944_POWER1,
+				    WM8944_VMID_SEL_MASK,
+				    WM8944_VMID_SEL_2x5K);
+
 		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
+				    WM8944_VMID_FAST_START_MASK |
+				    WM8944_VMID_RAMP_MASK |
 				    WM8944_BIAS_SRC_MASK,
-				    WM8944_BIAS_SRC_STARTUP );
+				    WM8944_VMID_FAST_START |
+				    (1<<WM8944_VMID_RAMP_SHIFT) |
+				    WM8944_BIAS_SRC_STARTUP);
+
+		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
+				    WM8944_VMID_ENA_MASK ,
+				    0);
 
 		msleep(500);
 
 		snd_soc_update_bits(codec, WM8944_OUTPUTCTL,
-				    WM8944_LINE_DISCH_MASK |
 				    WM8944_SPKN_DISCH_MASK |
-				    WM8944_SPKP_DISCH_MASK,
-				    WM8944_LINE_DISCH |
+				    WM8944_SPKP_DISCH_MASK |
+				    WM8944_LINE_DISCH_MASK,
+				    WM8944_SPKN_DISCH |
 				    WM8944_SPKP_DISCH |
-				    WM8944_SPKN_DISCH);
+				    WM8944_LINE_DISCH);
 
 		msleep(50);
 
-		/* Switch off startup biases */
-		snd_soc_update_bits(codec, WM8944_ADDCNTRL,
-				    WM8944_BIAS_SRC_MASK |
-				    WM8944_STARTUP_BIAS_ENA_MASK |
-				    WM8944_VMID_RAMP_MASK, 0);
+		snd_soc_update_bits(codec, WM8944_POWER2,
+				    WM8944_SPKN_OP_MUTE_MASK |
+				    WM8944_SPKP_OP_MUTE_MASK,
+				    WM8944_SPKN_OP_MUTE |
+				    WM8944_SPKP_OP_MUTE);
+
+		snd_soc_update_bits(codec, WM8944_OUTPUTCTL,
+				    WM8944_LINE_MUTE_MASK,
+				    WM8944_LINE_MUTE);
 	}
 
 	pm_runtime_put(codec->dev);
@@ -516,13 +571,96 @@ static int vmid_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 
 	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
+	case SND_SOC_DAPM_POST_PMU:
+		dev_dbg(codec->dev, "%s POST_PMU\n", __func__);
 		vmid_reference(codec);
 		break;
 
-	case SND_SOC_DAPM_POST_PMD:
+	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(codec->dev, "%s PRE_PMU\n", __func__);
+		vmid_prepare(codec);
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		dev_dbg(codec->dev, "%s PRE_PMD\n", __func__);
 		vmid_dereference(codec);
 		break;
+	}
+
+	return 0;
+}
+
+static int spkoutn_vdd_event(struct snd_soc_dapm_widget *w,
+		      struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(codec->dev, "%s PRE_PMU\n", __func__);
+		snd_soc_update_bits(codec, WM8944_POWER2,
+				    WM8944_SPKN_OP_ENA_MASK,
+				    WM8944_SPKN_OP_ENA);
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		dev_dbg(codec->dev, "%s POST_PMD\n", __func__);
+		snd_soc_update_bits(codec, WM8944_POWER2,
+				    WM8944_SPKN_OP_ENA_MASK, 0);
+		break;
+	}
+
+	return 0;
+}
+
+static int spkoutp_vdd_event(struct snd_soc_dapm_widget *w,
+		      struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		dev_dbg(codec->dev, "%s PRE_PMU\n", __func__);
+		snd_soc_update_bits(codec, WM8944_POWER2,
+				    WM8944_SPKP_OP_ENA_MASK,
+				    WM8944_SPKP_OP_ENA);
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		dev_dbg(codec->dev, "%s POST_PMD\n", __func__);
+		snd_soc_update_bits(codec, WM8944_POWER2,
+				    WM8944_SPKP_OP_ENA_MASK, 0);
+		break;
+	}
+
+	return 0;
+}
+
+static int configure_clock(struct snd_soc_codec *codec)
+{
+	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
+	int new, ret;
+
+	dev_dbg(codec->dev, "%s sysclk_src=%d\n", __func__, wm8944->sysclk_src);
+
+	new = (wm8944->sysclk_src - 1) << WM8944_SYSCLK_SRC_SHIFT;
+	ret = snd_soc_update_bits(codec, WM8944_CLOCK,
+				     WM8944_SYSCLK_SRC_MASK, new);
+	if (ret < 0)
+		dev_err(codec->dev, "%s, Failed to update codec register %d\n",
+			__func__, WM8944_CLOCK);
+
+	return 0;
+}
+
+static int clk_sys_event(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		return configure_clock(codec);
 	}
 
 	return 0;
@@ -612,13 +750,19 @@ static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 			    &wm8944_loopback_adc_dac_controls),
 	SND_SOC_DAPM_SWITCH("Interface Loopback", SND_SOC_NOPM, 0, 0,
 			    &wm8944_loopback_interface_controls),
-	SND_SOC_DAPM_SUPPLY("LDO", WM8944_LDO, 15, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("SPKOUTN VDD", WM8944_POWER2,
-			    WM8944_SPKN_SPKVDD_ENA_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_SUPPLY("SPKOUTP VDD", WM8944_POWER2,
-			    WM8944_SPKP_SPKVDD_ENA_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_SUPPLY("VMID", WM8944_ADDCNTRL, 4, 0, vmid_event,
+			    WM8944_SPKN_SPKVDD_ENA_SHIFT, 0, spkoutn_vdd_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("SPKOUTP VDD", WM8944_POWER2,
+			    WM8944_SPKP_SPKVDD_ENA_SHIFT, 0, spkoutp_vdd_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("VMID", WM8944_ADDCNTRL, WM8944_VMID_ENA_SHIFT, 0,
+			    vmid_event,
+			    SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMU |
+			    SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SUPPLY("SYS_CLK", WM8944_CLOCK,
+			    WM8944_SYSCLK_ENA_SHIFT, 0, clk_sys_event,
+			    SND_SOC_DAPM_PRE_PMU ),
 	SND_SOC_DAPM_MICBIAS("Mic Bias", WM8944_POWER1, WM8944_MICB_ENA_SHIFT,
 			     0),
 
@@ -634,10 +778,6 @@ static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 			 WM8944_SPK_PGA_ENA_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("Line Out", WM8944_POWER2,
 			 WM8944_OUT_ENA_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("SpeakerN Out", WM8944_POWER2,
-			 WM8944_SPKN_OP_ENA_SHIFT, 0, NULL, 0), // To do 1st
-	SND_SOC_DAPM_PGA("SpeakerP Out", WM8944_POWER2,
-			 WM8944_SPKP_OP_ENA_SHIFT, 0, NULL, 0), // To do 1st
 
 	SND_SOC_DAPM_OUTPUT("SPKOUTP"),
 	SND_SOC_DAPM_OUTPUT("SPKOUTN"),
@@ -669,6 +809,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"Line Mixer", "IN1 to Line Out Switch", "IN1"},
 	{"Line Mixer", "Input PGA to Line Out Switch", "Input PGA"},
 	{"Line Mixer", "AUX diff to Line Out Switch", "IN1"},
+	{"Line Mixer", NULL, "VMID"},
 
 	/* Speaker output mixer */
 	{"Speaker Mixer", "DAC to Speak PGA Switch", "DAC"},
@@ -677,23 +818,25 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"Speaker Mixer", "IN1 to Speak PGA Switch", "IN1"},
 	{"Speaker Mixer", "Input PGA to Speak PGA Switch", "Input PGA"},
 	{"Speaker Mixer", "AUX diff to Speak PGA Switch", "IN1"},
+	{"Speaker Mixer", NULL, "VMID"},
 
 	/* Speaker PGA */
 	{"Speaker PGA", NULL, "Speaker Mixer"},
+	{"Speaker PGA", NULL, "VMID"},
 
 	/* SPKOUTN Mixer */
 	{"SPKOUTN Mixer", "Speak PGA to Speaker N Switch", "Speaker PGA"},
 	{"SPKOUTN Mixer", "IN1 to Speaker N Switch", "IN1"},
+	{"SPKOUTN Mixer", NULL, "VMID"},
 
 	/* SPKOUTP Mixer */
 	{"SPKOUTP Mixer", "Speak PGA to Speaker P Switch", "Speaker PGA"},
 	{"SPKOUTP Mixer", "AUX to Speaker P Switch", "AUX"},
+	{"SPKOUTP Mixer", NULL, "VMID"},
 
 	/* Outputs */
-	{"SpeakerN Out", NULL, "SPKOUTN Mixer"},
-	{"SpeakerP Out", NULL, "SPKOUTP Mixer"},
-	{"SPKOUTN", NULL, "SpeakerN Out"},
-	{"SPKOUTP", NULL, "SpeakerP Out"},
+	{"SPKOUTN", NULL, "SPKOUTN Mixer"},
+	{"SPKOUTP", NULL, "SPKOUTP Mixer"},
 	{"LINEOUT", NULL, "Line Mixer"},
 
 	{"ADC", NULL, "Input PGA"},
@@ -709,10 +852,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ADC", NULL, "Interface Loopback"},
 
 	/* Power */
-	{"Mic Bias", NULL, "LDO"},
 	{"Mic Bias", NULL, "VMID"},
-	{"DAC", NULL, "LDO"},
-	{"ADC", NULL, "LDO"},
+	{"Mic Bias", NULL, "SYS_CLK"},
+	{"DAC", NULL, "SYS_CLK"},
+	{"ADC", NULL, "SYS_CLK"},
 	{"SPKOUTP", NULL, "SPKOUTP VDD"},
 	{"SPKOUTN", NULL, "SPKOUTN VDD"},
 };
@@ -734,8 +877,6 @@ static int wm8944_add_widgets(struct snd_soc_codec *codec)
 
 	return ret;
 }
-
-#define wm8944_reset(c) snd_soc_write(c, WM8944_SOFTRESET, 0);
 
 static int wm8944_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 {
@@ -874,6 +1015,8 @@ static int wm8944_mute(struct snd_soc_dai *dai, int mute)
 		0xFFBF;
 	int ret;
 
+	dev_dbg(dai->codec->dev, "%s mute=%d\n", __func__, mute);
+
 	if (mute) {
 		mute_dac_reg |= WM8944_DAC_MUTE;
 		mute_spk_reg |= WM8944_SPK_PGA_MUTE;
@@ -902,40 +1045,48 @@ static int wm8944_mute(struct snd_soc_dai *dai, int mute)
 static int wm8944_set_bias_level(struct snd_soc_codec *codec,
 				 enum snd_soc_bias_level level)
 {
-	// MIC BIAS = Disabled by default
-	u16 pwr_reg = snd_soc_read(codec, WM8944_POWER1) & 0x1FF0;
-	// VMID = Disabled by default
-
 	int ret = 0;
+
+	dev_dbg(codec->dev, "%s level=%d\n", __func__, level);
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
+		break;
+
 	case SND_SOC_BIAS_PREPARE:
-		pwr_reg |= (WM8944_BIAS_ENA | WM8944_VMID_ENA);
-		pwr_reg |= WM8944_VMID_SEL_2x50K;
-		ret = snd_soc_write(codec, WM8944_POWER1, pwr_reg );
 		break;
 
 	case SND_SOC_BIAS_STANDBY:
-		/* SWISTART */
-#if defined(CONFIG_SIERRA)
 		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
-			ret = snd_soc_cache_sync(codec);
-			if (ret < 0) {
-				dev_err(codec->dev,
-					"Failed to sync cache: %d\n", ret);
-				return ret;
-			}
+			snd_soc_update_bits(
+				codec, WM8944_OUTPUTCTL,
+				WM8944_SPKN_DISCH_MASK |
+				WM8944_SPKP_DISCH_MASK |
+				WM8944_LINE_DISCH_MASK |
+				WM8944_SPKN_VMID_OP_ENA_MASK |
+				WM8944_SPKP_VMID_OP_ENA_MASK |
+				WM8944_LINE_VMID_OP_ENA_MASK,
+				WM8944_SPKN_DISCH |
+				WM8944_SPKP_DISCH |
+				WM8944_LINE_DISCH |
+				WM8944_SPKN_VMID_OP_ENA |
+				WM8944_SPKP_VMID_OP_ENA |
+				WM8944_LINE_VMID_OP_ENA);
+
+			snd_soc_update_bits(codec, WM8944_POWER1,
+					    WM8944_VMID_BUF_ENA_MASK |
+					    WM8944_VMID_SEL_MASK,
+					    WM8944_VMID_BUF_ENA |
+					    WM8944_VMID_SEL_2x250K);
 		}
-#endif /* CONFIG_SIERRA */
-		/* SWISTOP */
-		pwr_reg |= (WM8944_BIAS_ENA | WM8944_VMID_ENA);
-		pwr_reg |= WM8944_VMID_SEL_2x250K;
-		ret = snd_soc_write(codec, WM8944_POWER1, pwr_reg);
 		break;
 
 	case SND_SOC_BIAS_OFF:
-		ret = snd_soc_write(codec, WM8944_POWER1, pwr_reg);
+		snd_soc_update_bits(codec, WM8944_POWER1,
+				    WM8944_VMID_BUF_ENA_MASK |
+				    WM8944_BIAS_ENA_MASK |
+				    WM8944_VMID_SEL_MASK,
+				    0);
 		break;
 	}
 
@@ -944,131 +1095,12 @@ static int wm8944_set_bias_level(struct snd_soc_codec *codec,
 	return ret;
 }
 
-#if 1
-static int wm8944_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
-			      int source, unsigned int freq_in,
-			      unsigned int freq_out)
-{
-	dev_dbg(codec_dai->codec->dev, "%s\n", __func__);
-	return 0;
-}
-#else
-struct pll_ {
-	unsigned int pre_scale:2;
-	unsigned int n:4;
-	unsigned int k;
-};
-
-static struct pll_ pll_div;
-
-/* The size in bits of the pll divide multiplied by 10
- * to allow rounding later */
-#define FIXED_PLL_SIZE ((1 << 24) * 10)
-static void pll_factors(unsigned int target, unsigned int source)
-{
-	unsigned long long Kpart;
-	unsigned int K, Ndiv, Nmod;
-	/* The left shift ist to avoid accuracy loss when right shifting */
-	Ndiv = target / source;
-
-	if (Ndiv > 12) {
-		source <<= 1;
-		/* Multiply by 2 */
-		pll_div.pre_scale = 0;
-		Ndiv = target / source;
-	}
-	else if (Ndiv < 3) {
-		source >>= 2;
-		/* Divide by 4 */
-		pll_div.pre_scale = 3;
-		Ndiv = target / source;
-	}
-	else if (Ndiv < 6) {
-		source >>= 1;
-		/* divide by 2 */
-		pll_div.pre_scale = 2;
-		Ndiv = target / source;
-	}
-	else
-		pll_div.pre_scale = 1;
-
-	if ((Ndiv < 6) || (Ndiv > 12))
-		printk(KERN_WARNING"WM8944 N value %d outwith recommended range!d\n", Ndiv);
-
-	pll_div.n = Ndiv;
-	Nmod = target % source;
-	Kpart = FIXED_PLL_SIZE * (long long)Nmod;
-
-	do_div(Kpart, source);
-
-	K = Kpart & 0xFFFFFFFF;
-
-	/* Check if we need to round */
-	if ((K % 10) >= 5)
-		K += 5;
-
-	// Move down to proper range now rounding is done
-	K /= 10;
-
-	pll_div.k = K;
-}
-
-/* Untested at the moment */
-static int wm8944_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
-			      int source, unsigned int freq_in,
-			      unsigned int freq_out)
-{
-	struct snd_soc_codec *codec = codec_dai->codec;
-	u16 reg;
-
-	dev_dbg(codec->dev, "WM8944_set_dai_pll - START: %d\n", ret);
-
-	/* Turn off PLL */
-	reg = snd_soc_read(codec, WM8944_POWER1);
-	snd_soc_write(codec, WM8944_POWER1, reg & 0x1df);
-
-	if (freq_in == 0 || freq_out == 0) {
-		/* Clock CODEC directly from MCLK */
-		reg = snd_soc_read(codec, WM8944_CLOCK);
-		snd_soc_write(codec, WM8944_CLOCK, reg & 0x0ff);
-		/* Pll power down */
-		snd_soc_write(codec, WM8944_FLLCTL1, (1 << 7));
-		return 0;
-	}
-
-	/* Pll is followed by a frequency divide by 4 */
-	pll_factors(freq_out*4, freq_in);
-	if (pll_div.k)
-		snd_soc_write(codec, WM8944_FLLCTL1, (pll_div.pre_scale << 4) |
-			      pll_div.n | (1 << 1));
-	else /* No factional component */
-		snd_soc_write(codec, WM8944_FLLCTL1,(pll_div.pre_scale << 4) |
-			      pll_div.n);
-
-	snd_soc_write(codec, WM8944_PLLK1, pll_div.k >> 18);
-	snd_soc_write(codec, WM8944_PLLK2, (pll_div.k >> 9) & 0x1ff);
-	snd_soc_write(codec, WM8944_PLLK3, pll_div.k & 0x1ff);
-	/* Enable the PLL */
-	reg = snd_soc_read(codec, WM8944_POWER1);
-	snd_soc_write(codec, WM8944_POWER1, reg | 0x020);
-
-	/* Run CODEC from PLL instead of MCLK */
-	reg = snd_soc_read(codec, WM8944_CLOCK);
-	snd_soc_write(codec, WM8944_CLOCK, reg | 0x100);
-
-	dev_dbg(codec->dev, "WM8944_set_dai_pll - OK: %d\n", ret);
-
-	return 0;
-}
-#endif
 
 static int wm8944_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 				 int clk_id, unsigned int freq, int dir)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
-	u16 reg;
-	int ret;
 
 	dev_dbg(codec->dev, "%s clk_id=%d freq=%d dir=%d, \n", __func__, clk_id,
 	       freq, dir);
@@ -1080,15 +1112,9 @@ static int wm8944_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	case 16934400:
 	case 18432000:
 		wm8944->sysclk = freq;
-		reg = snd_soc_read(codec, WM8944_CLOCK) & 0xFCFF;
-		if( clk_id == WM8944_SYSCLK_FLL ) {
-			reg |= (1<<8);
-		}
-		/* enable sysclk */
-		reg |= (1<<9);
+		wm8944->sysclk_src = clk_id;
 
-		ret = snd_soc_write(codec, WM8944_CLOCK, reg);
-		return ret;
+		return 0;
 	}
 	return -EINVAL;
 }
@@ -1139,7 +1165,6 @@ static struct snd_soc_dai_ops wm8944_dai_ops = {
 	.digital_mute = wm8944_mute,
 	.set_fmt      = wm8944_set_dai_fmt,
 	.set_clkdiv   = wm8944_set_dai_clkdiv,
-	//	.set_pll      = wm8944_set_dai_pll,
 };
 
 static struct snd_soc_dai_driver wm8944_dai = {
@@ -1173,7 +1198,7 @@ static int wm8944_suspend(struct device *dev)
 
 static int wm8944_resume(struct device *dev)
 {
-	dev_dbg(dev, KERN_DEBUG "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 	return 0;
 }
 #endif
@@ -1184,16 +1209,18 @@ static int wm8944_codec_suspend(struct snd_soc_codec *codec)
 {
 	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
 
+	dev_dbg(codec->dev, "%s\n", __func__);
 	/* Sync reg_cache with the hardware */
 	regcache_sync(wm8944->wm8944->regmap);
 
-	return wm8944_set_bias_level(codec, SND_SOC_BIAS_OFF);;
+	return wm8944_set_bias_level(codec, SND_SOC_BIAS_OFF);
 }
 
 static int wm8944_codec_resume(struct snd_soc_codec *codec)
 {
 	dev_dbg(codec->dev, "%s\n", __func__);
-	return 0;
+
+	return wm8944_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 }
 #else
 #define wm8944_codec_suspend NULL
@@ -1269,8 +1296,6 @@ static int wm8944_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to issue reset: %d\n", ret);
 		return ret;
 	}
-
-	wm8944_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
 	wm8944_handle_pdata(wm8944);
 
@@ -1394,7 +1419,7 @@ static int wm8944_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static const struct dev_pm_ops wm8944_pm_ops = {
 	.suspend = wm8944_suspend,
 	.resume  = wm8944_resume,
@@ -1405,7 +1430,7 @@ static struct platform_driver wm8944_codec_driver = {
 	.driver = {
 		.name = "wm8944-codec",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 		.pm = &wm8944_pm_ops,
 #endif
 	},

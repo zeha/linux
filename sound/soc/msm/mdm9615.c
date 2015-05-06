@@ -1076,7 +1076,7 @@ static const struct snd_soc_dapm_route common_audio_map_wm8944[] = {
 	{"IN1", NULL, "Mic Bias"},
 	{"Mic Bias", NULL, "ANCLeft Headset Mic"},
 
-	{"LDO", NULL, "MCLK"},
+	{"Mic Bias", NULL, "MCLK"},
 
 	/**
 	 * The digital Mic routes are setup considering
@@ -1723,6 +1723,9 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+#ifdef CONFIG_MFD_WM8944
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+#endif
 
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
@@ -1746,9 +1749,14 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 /* SWISTART */
 #ifdef CONFIG_MFD_WM8944
-	if(bssupport(BSFEATURE_WM8944) == true)
+	if(bssupport(BSFEATURE_WM8944) == true) {
 		snd_soc_dapm_add_routes(dapm, common_audio_map_wm8944,
 					ARRAY_SIZE(common_audio_map_wm8944));
+		snd_soc_dai_set_clkdiv(codec_dai, WM8944_BCLKDIV, 0);
+		snd_soc_dai_set_sysclk(codec_dai, WM8944_SYSCLK_MCLK,
+				       WM8944_EXT_CLK_RATE, 0);
+	}
+
 	else
 #endif
 /* SWISTOP */
@@ -2375,7 +2383,7 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	mdm9615_ar7_enable_codec_ext_clk(rtd->codec, 1, true);
 #endif
-#ifdef CONFIG_MFD_WM8944
+#if 0 //#ifdef CONFIG_MFD_WM8944
 	if(bssupport(BSFEATURE_WM8944) == true)
 	{
 		snd_soc_dai_set_clkdiv(codec_dai, WM8944_BCLKDIV, 0);
