@@ -33,11 +33,21 @@
 
 #include "msm_nand.h"
 
+/* Required for run-time Sierra Wireless platform discovery. */
+#include <linux/sierra_bsudefs.h>
+
 #if defined(CONFIG_MTD_MSM_NAND_DEVELOPER_DEBUG)
 #define print_devel_dbg	pr_info
 #else
 #define print_devel_dbg(fmt, ...)
 #endif
+
+/* If this is set, we must check failed writes. Note that on some platforms
+   correct reads are going to cause DMA failed writes errors as well. At this
+   time, I do not have DMA engine datasheet, and can't tell what's going on.
+   The safest thing to do is to leave platforms which were previously working
+   alone and selectively apply changes until documentation is available. */
+static unsigned char check_failed_writes = 0;
 
 unsigned long msm_nand_phys;
 unsigned long msm_nandc01_phys;
@@ -1149,18 +1159,25 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 		pageerr = 0;
 		rawerr = 0;
 		for (n = start_sector; n < cwperpage; n++) {
-#if 0 /* DM, FIXME: This piece of code is highly suspect, because we are getting 0x10 on correct reads as well. */
-		    if (dma_buffer->data.result[n].flash_status & 0x10) {
-			pr_err("%s: Write failed, n = %d, status = 0x%x\n", __func__, n, dma_buffer->data.result[n].flash_status);
-			rawerr = -EIO;
-			break;
+
+/* DM, FIXME: This piece of code is highly suspect, because we are getting 0x10
+ * on correct reads as well. However, on some platforms, the only way to enter
+ * if (rawerr) code bellow and rectify occurence of magic 0x54 is to enable
+ * check bellow. I have no idea why would this number show up on the flash after
+ * flash erase (maybe some kind of marker that I know nothing about ?).
+ */
+		    if(check_failed_writes) {
+		        if (dma_buffer->data.result[n].flash_status & 0x10) {
+		            rawerr = -EIO;
+		            break;
+		        }
 		    }
-#endif
+
 		    if (dma_buffer->data.result[n].flash_status & 0x100) {
-			pr_err("%s: Protection violation, n = %d, status = 0x%x\n",
-					__func__, n, dma_buffer->data.result[n].flash_status);
-			rawerr = -EIO;
-			break;
+		        pr_err("%s: Protection violation, n = %d, status = 0x%x\n",
+		                __func__, n, dma_buffer->data.result[n].flash_status);
+		        rawerr = -EIO;
+		        break;
 		    }
 		}
 
@@ -7606,11 +7623,28 @@ MODULE_ALIAS(DRIVER_NAME);
 
 static int __init msm_nand_init(void)
 {
+
+	enum bshwtype hwtype = BSHWUNKNOWN;
+
+	/*
+	 * Do things a bit differently depending on the platform we are running on.
+	 */
+	hwtype = bsgethwtype();
+	if ((hwtype==BSWP85XX) ||
+	    (hwtype==BSWP8548) ||
+	    (hwtype==BSWP8548G))
+	{
+	    /* WP85xx family device with problematic Micron flash operation */
+	    printk(KERN_INFO "%s: WP85 platform detected\n", __func__);
+	    check_failed_writes = 1;
+	}
+
 	return platform_driver_register(&msm_nand_driver);
 }
 
 static void __exit msm_nand_exit(void)
 {
+	check_failed_writes = 0;
 	platform_driver_unregister(&msm_nand_driver);
 }
 
