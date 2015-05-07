@@ -534,8 +534,7 @@ static void close_delayed_work(struct work_struct *work)
 	/* are we waiting on this codec DAI stream */
 	if (rtd->pop_wait == 1) {
 		rtd->pop_wait = 0;
-		snd_soc_dapm_stream_event(rtd,
-			codec_dai->driver->playback.stream_name,
+		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_PLAYBACK,
 			SND_SOC_DAPM_STREAM_STOP);
 	}
 
@@ -601,7 +600,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 		    !rtd->pmdown_time) {
 			/* powered down playback stream now */
 			snd_soc_dapm_stream_event(rtd,
-				codec_dai->driver->playback.stream_name,
+				SNDRV_PCM_STREAM_PLAYBACK,
 				SND_SOC_DAPM_STREAM_STOP);
 		} else {
 			/* start delayed pop wq here for playback streams */
@@ -613,8 +612,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	} else {
 		/* capture streams can be powered down now */
 		if (!codec_dai->capture_active)
-			snd_soc_dapm_stream_event(rtd,
-			codec_dai->driver->capture.stream_name,
+			snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_CAPTURE,
 			SND_SOC_DAPM_STREAM_STOP);
 	}
 
@@ -691,12 +689,12 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		snd_soc_dapm_stream_event(rtd,
-					  codec_dai->driver->playback.stream_name,
+					  SNDRV_PCM_STREAM_PLAYBACK,
 					  SND_SOC_DAPM_STREAM_START);
 	else {
 		if (codec_dai->capture_active == 1)
 			snd_soc_dapm_stream_event(rtd,
-					  codec_dai->driver->capture.stream_name,
+					  SNDRV_PCM_STREAM_CAPTURE,
 					  SND_SOC_DAPM_STREAM_START);
 	}
 

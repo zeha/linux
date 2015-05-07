@@ -780,11 +780,11 @@ static void soc_resume_deferred(struct work_struct *work)
 			continue;
 
 		if (driver->playback.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], driver->playback.stream_name,
+			snd_soc_dapm_stream_event(&card->rtd[i], SNDRV_PCM_STREAM_PLAYBACK,
 				SND_SOC_DAPM_STREAM_RESUME);
 
 		if (driver->capture.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], driver->capture.stream_name,
+			snd_soc_dapm_stream_event(&card->rtd[i], SNDRV_PCM_STREAM_CAPTURE,
 				SND_SOC_DAPM_STREAM_RESUME);
 	}
 

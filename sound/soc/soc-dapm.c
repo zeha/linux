@@ -3844,7 +3844,7 @@ static void soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
  *
  * Returns 0 for success else error.
  */
-void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, const char *stream,
+void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
 			      int event)
 {
 	struct snd_soc_card *card = rtd->card;
