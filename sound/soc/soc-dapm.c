@@ -3748,7 +3748,7 @@ static void widget_stream_event(struct snd_soc_dapm_context *dapm,
 		break;
 	}
 
-	dapm_power_widgets(dapm, event);
+	dapm_power_widgets(dapm->card, event);
 }
 
 
