@@ -2402,7 +2402,7 @@ int soc_dpcm_be_platform_suspend(struct snd_soc_pcm_runtime *fe)
 
 		struct snd_soc_pcm_runtime *be = dpcm_params->be;
 		struct snd_soc_platform *platform = be->platform;
-		struct snd_soc_platform_driver *drv = platform->driver;
+		const struct snd_soc_platform_driver *drv = platform->driver;
 		struct snd_soc_dai *dai = be->cpu_dai;
 
 		if (be->dai_link->ignore_suspend)
@@ -2423,7 +2423,7 @@ int soc_dpcm_be_platform_suspend(struct snd_soc_pcm_runtime *fe)
 
 		struct snd_soc_pcm_runtime *be = dpcm_params->be;
 		struct snd_soc_platform *platform = be->platform;
-		struct snd_soc_platform_driver *drv = platform->driver;
+		const struct snd_soc_platform_driver *drv = platform->driver;
 		struct snd_soc_dai *dai = be->cpu_dai;
 
 		if (be->dai_link->ignore_suspend)
@@ -2450,7 +2450,7 @@ int soc_dpcm_be_platform_resume(struct snd_soc_pcm_runtime *fe)
 
 		struct snd_soc_pcm_runtime *be = dpcm_params->be;
 		struct snd_soc_platform *platform = be->platform;
-		struct snd_soc_platform_driver *drv = platform->driver;
+		const struct snd_soc_platform_driver *drv = platform->driver;
 		struct snd_soc_dai *dai = be->cpu_dai;
 
 		if (be->dai_link->ignore_suspend)
@@ -2471,7 +2471,7 @@ int soc_dpcm_be_platform_resume(struct snd_soc_pcm_runtime *fe)
 
 		struct snd_soc_pcm_runtime *be = dpcm_params->be;
 		struct snd_soc_platform *platform = be->platform;
-		struct snd_soc_platform_driver *drv = platform->driver;
+		const struct snd_soc_platform_driver *drv = platform->driver;
 		struct snd_soc_dai *dai = be->cpu_dai;
 
 		if (be->dai_link->ignore_suspend)
