@@ -1842,11 +1842,11 @@ static int mdm9615_ar7_sec_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 static int mdm9615_mc7_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
    int err;
-   struct snd_soc_codec *codec = rtd->codec;
+   struct snd_soc_platform *platform = rtd->platform;
 
    struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-   err = snd_soc_add_platform_controls(codec, mdm9615_ar7_i2s_controls,
+   err = snd_soc_add_platform_controls(platform, mdm9615_ar7_i2s_controls,
        ARRAY_SIZE(mdm9615_ar7_i2s_controls));
    if (err < 0) {
        pr_err("returning loc 1 err = %d\n", err);
