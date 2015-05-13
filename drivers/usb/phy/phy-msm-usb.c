@@ -616,7 +616,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 		dev_err(phy->dev, "link reset failed\n");
 		return ret;
 	}
-	msleep(100);
+	mdelay(100);
 
 	ulpi_init(motg);
 
