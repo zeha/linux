@@ -53,6 +53,7 @@
 #include <mach/cpuidle.h>
 #include <mach/usb_bam.h>
 #include <mach/restart.h>
+#include <linux/timer.h>
 #include "timer.h"
 #include "devices.h"
 #include "board-9615.h"
@@ -73,6 +74,27 @@
 #define MSM_ION_AUDIO_SIZE	0xAF000
 #define MSM_ION_HEAP_NUM	3
 #define MSM_KERNEL_EBI_SIZE	0x51000
+
+#ifdef CONFIG_SIERRA
+
+/* LowPower_RESET timer timeout (in ms) */
+#define GPIO_CF3_LOW_POWER_RESET_TIMER_TOUT_MS	(100)
+
+/* LowPower_RESET pin state machine states. */
+typedef enum
+{
+	GPIO_CF3_LOW_POWER_RESET_STATE_LOW = 0,
+	GPIO_CF3_LOW_POWER_RESET_STATE_HIGH,
+	GPIO_CF3_LOW_POWER_RESET_STATE_END
+} GPIO_CF3_LOW_POWER_RESET_STATE_E;
+
+/* LowPower_RESET timer structure. */
+static struct timer_list gpio_cf3_low_power_reset_timer;
+
+/* LowPower_RESET pin callback. */
+static void gpio_cf3_low_power_reset_timer_callback(unsigned long state);
+
+#endif /* CONFIG_SIERRA */
 
 static struct memtype_reserve msm9615_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -1485,6 +1507,114 @@ static void __init mdm9615_allocate_memory_regions(void)
 	mdm9615_allocate_fb_region();
 }
 #endif
+
+#ifdef CONFIG_SIERRA
+
+/* Toggle LowPower_RESET pin. This method will set it up, toggling will happen
+   in timer callback. */
+int gpio_cf3_low_power_reset_toggle(void)
+{
+	int ret = -EACCES;
+
+	/* This is allowed for CF3 devices only. */
+	if (bssupport(BSFEATURE_CF3))
+	{
+		ret = 0;
+
+		printk(KERN_INFO "%s: Setting up LowPower_RESET pin toggle timer\n", __func__);
+
+		/* timer.function, timer.data */
+		setup_timer( &gpio_cf3_low_power_reset_timer,
+					  gpio_cf3_low_power_reset_timer_callback, 0 );
+
+
+		/* Drive controlling pin low. */
+		gpio_set_value(GPIO_CF3_LOW_POWER_RESET_PIN, 0);
+
+		/* Set current state. */
+		gpio_cf3_low_power_reset_timer.data = (unsigned long)GPIO_CF3_LOW_POWER_RESET_STATE_LOW;
+
+		/* Arm pin state timer. */
+		ret = mod_timer(&gpio_cf3_low_power_reset_timer,
+						 jiffies + msecs_to_jiffies(GPIO_CF3_LOW_POWER_RESET_TIMER_TOUT_MS));
+		if (ret) {
+			ret = -EPERM;
+		}
+	}
+
+	return ret;
+}
+
+/* Timer callback function. It will work for both low-to-high and high-to-low
+ * transitions.
+ */
+void gpio_cf3_low_power_reset_timer_callback(unsigned long state)
+{
+	unsigned char delete_timer = 0;
+
+	switch(state) {
+
+		case GPIO_CF3_LOW_POWER_RESET_STATE_LOW:
+		{
+			/* Drive pin high and end the procedure */
+			gpio_set_value(GPIO_CF3_LOW_POWER_RESET_PIN, 1);
+			gpio_cf3_low_power_reset_timer.data = GPIO_CF3_LOW_POWER_RESET_STATE_HIGH;
+			printk(KERN_INFO "%s: LowPower_RESET pin toggled high\n", __func__);
+
+			/* Do not arm timer, delete it. */
+			delete_timer++;
+		}
+		break;
+
+		case GPIO_CF3_LOW_POWER_RESET_STATE_HIGH:
+		{
+			/* Drive pin low and end the procedure */
+			gpio_set_value(GPIO_CF3_LOW_POWER_RESET_PIN, 0);
+			gpio_cf3_low_power_reset_timer.data = GPIO_CF3_LOW_POWER_RESET_STATE_LOW;
+			printk(KERN_INFO "%s: LowPower_RESET pin toggled low\n", __func__);
+
+			/* Do not arm timer, delete it. */
+			delete_timer++;
+		}
+		break;
+
+		default:
+		{
+			/* Do not arm the timer, delete it. */
+			delete_timer++;
+		}
+		break;
+   }
+
+	if(delete_timer) {
+		printk(KERN_INFO "%s: LowPower_RESET pin toggle timer deleted\n", __func__);
+		del_timer (&gpio_cf3_low_power_reset_timer);
+	}
+	else
+	{
+		int ret = 0;
+
+		/* Arm timer. */
+		ret = mod_timer(&gpio_cf3_low_power_reset_timer,
+						 jiffies + msecs_to_jiffies(GPIO_CF3_LOW_POWER_RESET_TIMER_TOUT_MS));
+		if(ret) {
+			/* Nothing we can do about it. */
+			printk(KERN_ERR "%s: LowPower_RESET pin toggle timer could not be armed, state=%d\n",
+						__func__, state);
+			del_timer (&gpio_cf3_low_power_reset_timer);
+		}
+	}
+}
+#else
+
+/* Mainline code will be much cleaner this way. */
+int gpio_cf3_low_power_reset_toggle(void)
+{
+	/* Not available. */
+	return (-EACCES);
+}
+
+#endif /* CONFIG_SIERRA */
 
 MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
 	.map_io = msm9615_map_io,

@@ -121,7 +121,7 @@ static struct gpiomux_setting sdcc2_suspend_cfg = {
 };
 #endif
 
-#ifdef CONFIG_SIERRA_INTERNAL_CODEC  
+#ifdef CONFIG_SIERRA_INTERNAL_CODEC
 static struct gpiomux_setting cdc_mclk = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -253,6 +253,46 @@ struct msm_gpiomux_config sd_card_det_config[] __initdata = {
 	},
 };
 
+/*
+ * Low power reset configuration
+ *
+ * Some boards (like Sierra Wireless MangOH) have two reset signals (reset in
+ * and application processor GPIO driven signal) ANDed to form active low
+ * system reset signal. When this signal is applied, it will reset number of
+ * peripherals including Arduino.
+ * Active configuration starts as low output. It needs to stay like that for
+ * at least 100ms. After that time, LowPower_RESET signal must be pulled high,
+ * and must stay in that state while device is operational.
+ * Required sink/source current is less than 1mA (1.8V/47K), so using 2mA drive
+ * setup is OK.
+ */
+#ifdef CONFIG_SIERRA
+static struct gpiomux_setting low_power_reset_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting low_power_reset_suspend_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+
+static struct msm_gpiomux_config low_power_reset_configs[] __initdata = {
+	{
+		.gpio     = GPIO_CF3_LOW_POWER_RESET_PIN,/* Low Power Reset */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &low_power_reset_active_config,
+			[GPIOMUX_SUSPENDED] = &low_power_reset_suspend_config,
+		},
+	},
+};
+
+#endif /* CONFIG_SIERRA */
+
 #ifdef CONFIG_LTC4088_CHARGER
 static struct msm_gpiomux_config
 	msm9615_ltc4088_charger_config[] __initdata = {
@@ -288,7 +328,7 @@ static struct msm_gpiomux_config
 #endif
 
 struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
-#ifdef CONFIG_SIERRA_GSBI2_I2C_GPIO 
+#ifdef CONFIG_SIERRA_GSBI2_I2C_GPIO
 	{
 		.gpio      = 4,	/* GSBI2 I2C QUP SCL */
 		.settings = {
@@ -304,7 +344,7 @@ struct msm_gpiomux_config msm9615_gsbi_configs[] __initdata = {
 	},
 #endif /* CONFIG_SIERRA_GSBI2_I2C_GPIO */
 
-#ifdef CONFIG_SIERRA_GSBI3_SPI 
+#ifdef CONFIG_SIERRA_GSBI3_SPI
 	{
 		.gpio      = 8,		/* GSBI3 QUP SPI_CLK */
 		.settings = {
@@ -510,6 +550,23 @@ int __init msm9615_init_gpiomux(void)
 	msm_gpiomux_install(msm9615_ebi2_lcdc_configs,
 			ARRAY_SIZE(msm9615_ebi2_lcdc_configs));
 #endif
+
+	/*
+	 * Install LowPower_RESET only for WP85xx device family. This also includes
+	 * at least one platform which is not from WP85 family. For complete list of
+	 * BSFEATURE_CF3 platforms please, take a look at the
+	 * arch/arm/mach-msm/board-9615.c:bssupport().
+	 */
+#ifdef CONFIG_SIERRA
+	if (bssupport(BSFEATURE_CF3))
+	{
+		msm_gpiomux_install(low_power_reset_configs,
+			ARRAY_SIZE(low_power_reset_configs));
+	}
+#endif
+
+	/* This call will fail if module family is not WP85, but we do not care. */
+	gpio_cf3_low_power_reset_toggle();
 
 	return 0;
 }
