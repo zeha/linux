@@ -15,13 +15,6 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/cdc.h>
 
-#define MAX_U_SERIAL_PORTS	4
-
-struct f_serial_opts {
-	struct usb_function_instance func_inst;
-	u8 port_num;
-};
-
 /*
  * One non-multiplexed "serial" I/O port ... there can be several of these
  * on any given USB peripheral device, if it provides enough endpoints.
@@ -50,6 +43,7 @@ struct gserial {
 	/* control signal callbacks*/
 	unsigned int (*get_dtr)(struct gserial *p);
 	unsigned int (*get_rts)(struct gserial *p);
+
 	/* notification callbacks */
 	void (*connect)(struct gserial *p);
 	void (*disconnect)(struct gserial *p);
@@ -66,10 +60,6 @@ struct gserial {
 struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags);
 void gs_free_req(struct usb_ep *, struct usb_request *req);
 
-/* management of individual TTY ports */
-int gserial_alloc_line(unsigned char *port_line);
-void gserial_free_line(unsigned char port_line);
-
 /* port setup/teardown is handled by gadget driver */
 int gserial_setup(struct usb_gadget *g, unsigned n_ports);
 void gserial_cleanup(void);
@@ -77,6 +67,7 @@ void gserial_cleanup(void);
 /* connect/disconnect is handled by individual functions */
 int gserial_connect(struct gserial *, u8 port_num);
 void gserial_disconnect(struct gserial *);
+
 /* sdio related functions */
 int gsdio_setup(struct usb_gadget *g, unsigned n_ports);
 int gsdio_connect(struct gserial *, u8 port_num);
@@ -87,6 +78,7 @@ int gsmd_connect(struct gserial *, u8 port_num);
 void gsmd_disconnect(struct gserial *, u8 portno);
 
 /* functions are bound to configurations by a config or gadget driver */
+int acm_bind_config(struct usb_configuration *c, u8 port_num);
 int gser_bind_config(struct usb_configuration *c, u8 port_num);
 int obex_bind_config(struct usb_configuration *c, u8 port_num);
 

@@ -28,6 +28,7 @@
  * do that for you.
  */
 #define gadget_is_at91(g)		(!strcmp("at91_udc", (g)->name))
+#define gadget_is_ci_hdrc_msm(g)	(!strcmp("ci_hdrc_msm", (g)->name))
 #define gadget_is_ci13xxx_msm_hsic(g)	(!strcmp("ci13xxx_msm_hsic", (g)->name))
 #define gadget_is_goku(g)		(!strcmp("goku_udc", (g)->name))
 #define gadget_is_musbhdrc(g)		(!strcmp("musb-hdrc", (g)->name))
@@ -35,6 +36,46 @@
 #define gadget_is_pxa(g)		(!strcmp("pxa25x_udc", (g)->name))
 #define gadget_is_pxa27x(g)		(!strcmp("pxa27x_udc", (g)->name))
 #define gadget_is_dwc3(g)		(!strcmp("dwc3-gadget", (g)->name))
+
+/**
+ * usb_gadget_controller_number - support bcdDevice id convention
+ * @gadget: the controller being driven
+ *
+ * Return a 2-digit BCD value associated with the peripheral controller,
+ * suitable for use as part of a bcdDevice value, or a negative error code.
+ *
+ * NOTE:  this convention is purely optional, and has no meaning in terms of
+ * any USB specification.  If you want to use a different convention in your
+ * gadget driver firmware -- maybe a more formal revision ID -- feel free.
+ *
+ * Hosts see these bcdDevice numbers, and are allowed (but not encouraged!)
+ * to change their behavior accordingly.  For example it might help avoiding
+ * some chip bug.
+ */
+static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
+{
+	if (gadget_is_net2280(gadget))
+		return 0x01;
+	if (gadget_is_pxa(gadget))
+		return 0x03;
+	if (gadget_is_goku(gadget))
+		return 0x06;
+	if (gadget_is_pxa27x(gadget))
+		return 0x11;;
+	if (gadget_is_at91(gadget))
+		return 0x13;
+	if (gadget_is_musbhdrc(gadget))
+		return 0x16;
+	if (gadget_is_ci_hdrc_msm(gadget))
+		return 0x28;
+	if (gadget_is_dwc3(gadget))
+		return 0x32;
+	if (gadget_is_ci13xxx_msm_hsic(gadget))
+		return 0x34;
+
+	return -ENOENT;
+}
+
 /**
  * gadget_supports_altsettings - return true if altsettings work
  * @gadget: the gadget in question

@@ -263,7 +263,7 @@ int usb_add_config(struct usb_composite_dev *,
 		struct usb_configuration *,
 		int (*)(struct usb_configuration *));
 
-void usb_remove_config(struct usb_composite_dev *,
+int usb_remove_config(struct usb_composite_dev *,
 		struct usb_configuration *);
 
 /* predefined index for usb_composite_driver */
@@ -312,6 +312,8 @@ enum {
  */
 struct usb_composite_driver {
 	const char				*name;
+	const char				*iProduct;
+	const char				*iManufacturer;
 	const struct usb_device_descriptor	*dev;
 	struct usb_gadget_strings		**strings;
 	enum usb_device_speed			max_speed;
@@ -328,7 +330,8 @@ struct usb_composite_driver {
 	struct usb_gadget_driver		gadget_driver;
 };
 
-extern int usb_composite_probe(struct usb_composite_driver *driver);
+extern int usb_composite_probe(struct usb_composite_driver *driver,
+			       int (*bind)(struct usb_composite_dev *cdev));
 extern void usb_composite_unregister(struct usb_composite_driver *driver);
 extern void usb_composite_setup_continue(struct usb_composite_dev *cdev);
 extern int composite_dev_prepare(struct usb_composite_driver *composite,
@@ -375,6 +378,7 @@ static inline struct usb_composite_driver *to_cdriver(
 struct usb_composite_dev {
 	struct usb_gadget		*gadget;
 	struct usb_request		*req;
+	unsigned			bufsiz;
 
 	struct usb_configuration	*config;
 
@@ -386,6 +390,9 @@ struct usb_composite_dev {
 	struct list_head		gstrings;
 	struct usb_composite_driver	*driver;
 	u8				next_string_id;
+	u8				manufacturer_override;
+	u8				product_override;
+	u8				serial_override;
 	char				*def_manufacturer;
 
 	/* the gadget driver won't enable the data pullup
