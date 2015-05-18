@@ -2549,7 +2549,9 @@ static int __init ubifs_init(void)
 	if (!ubifs_inode_slab)
 		return -ENOMEM;
 
-	register_shrinker(&ubifs_shrinker_info);
+	err = register_shrinker(&ubifs_shrinker_info);
+	if (err)
+		goto out_slab;
 
 	err = ubifs_compressors_init();
 	if (err)
@@ -2573,6 +2575,7 @@ out_compr:
 	ubifs_compressors_exit();
 out_shrinker:
 	unregister_shrinker(&ubifs_shrinker_info);
+out_slab:
 	kmem_cache_destroy(ubifs_inode_slab);
 	return err;
 }
