@@ -468,47 +468,20 @@ static int msm_routing_get_audio_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	unsigned short val;
-	struct snd_soc_dapm_update update;
-	int connect;
 
-	val = (ucontrol->value.integer.value[0] & mask);
-
-	mask = 0xf;
-	if (val)
-		val = mask;
-
-	connect = !!val;
-
-	if (invert)
-		val = mask - val;
-
-	mask <<= shift;
-	val <<= shift;
-
-	update.kcontrol = kcontrol;
-	update.reg = reg;
-	update.mask = mask;
-	update.val = val;
 
 	if (ucontrol->value.integer.value[0] &&
 	    msm_pcm_routing_route_is_set(mc->reg, mc->shift) == false) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 1);
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else if (!ucontrol->value.integer.value[0] &&
 		   msm_pcm_routing_route_is_set(mc->reg, mc->shift) == true) {
 		msm_pcm_routing_process_audio(mc->reg, mc->shift, 0);
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	return 1;
@@ -598,45 +571,17 @@ static int msm_routing_get_voice_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	unsigned short val;
-	struct snd_soc_dapm_update update;
-	int connect;
-
-	val = (ucontrol->value.integer.value[0] & mask);
-
-	mask = 0xf;
-	if (val)
-		val = mask;
-
-	connect = !!val;
-
-	if (invert)
-		val = mask - val;
-
-	mask <<= shift;
-	val <<= shift;
-
-	update.kcontrol = kcontrol;
-	update.reg = reg;
-	update.mask = mask;
-	update.val = val;
 
 	if (ucontrol->value.integer.value[0]) {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 1);
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 0);
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	return 1;
@@ -666,51 +611,23 @@ static int msm_routing_get_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	unsigned short val;
-	struct snd_soc_dapm_update update;
-	int connect;
-
-	val = (ucontrol->value.integer.value[0] & mask);
-
-	mask = 0xf;
-	if (val)
-		val = mask;
-
-	connect = !!val;
-
-	if (invert)
-		val = mask - val;
-
-	mask <<= shift;
-	val <<= shift;
-
-	update.kcontrol = kcontrol;
-	update.reg = reg;
-	update.mask = mask;
-	update.val = val;
 
 	if (ucontrol->value.integer.value[0]) {
 		mutex_lock(&routing_lock);
 		set_bit(mc->shift, &msm_bedais[mc->reg].fe_sessions);
 		mutex_unlock(&routing_lock);
 
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	} else {
 		mutex_lock(&routing_lock);
 		clear_bit(mc->shift, &msm_bedais[mc->reg].fe_sessions);
 		mutex_unlock(&routing_lock);
 
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	}
 
 	pr_debug("%s: reg %x shift %x val %ld\n", __func__, mc->reg, mc->shift,
@@ -731,45 +648,15 @@ static int msm_routing_get_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	unsigned short val;
-	struct snd_soc_dapm_update update;
-	int connect;
-
-	val = (ucontrol->value.integer.value[0] & mask);
-
-	mask = 0xf;
-	if (val)
-		val = mask;
-
-	connect = !!val;
-
-	if (invert)
-		val = mask - val;
-
-	mask <<= shift;
-	val <<= shift;
-
-	update.kcontrol = kcontrol;
-	update.reg = reg;
-	update.mask = mask;
-	update.val = val;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0])
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	else
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	fm_switch_enable = ucontrol->value.integer.value[0];
 	return 1;
 }
@@ -786,45 +673,15 @@ static int msm_routing_get_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	unsigned short val;
-	struct snd_soc_dapm_update update;
-	int connect;
-
-	val = (ucontrol->value.integer.value[0] & mask);
-
-	mask = 0xf;
-	if (val)
-		val = mask;
-
-	connect = !!val;
-
-	if (invert)
-		val = mask - val;
-
-	mask <<= shift;
-	val <<= shift;
-
-	update.kcontrol = kcontrol;
-	update.reg = reg;
-	update.mask = mask;
-	update.val = val;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0])
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1,0);
 	else
-		snd_soc_dapm_mixer_update_power(&codec->dapm, kcontrol, connect,
-				&update);
+		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0,0);
 	fm_pcmrx_switch_enable = ucontrol->value.integer.value[0];
 	return 1;
 }
