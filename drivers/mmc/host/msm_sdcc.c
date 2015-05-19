@@ -5611,9 +5611,12 @@ msmsdcc_probe(struct platform_device *pdev)
 }
 
 static int msmsdcc_remove(struct platform_device *pdev)
-	struct mmc_host *mmc = mmc_get_drvdata(pdev);
+{
+	struct mmc_host *mmc;
 	struct mmc_platform_data *plat;
 	struct msmsdcc_host *host;
+
+	mmc = mmc_get_drvdata(pdev);
 	if (!mmc)
 		return -ENXIO;
 
@@ -5999,9 +6002,9 @@ static int msmsdcc_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
-	.runtime_suspend = msmsdcc_runtime_suspend,
-	.runtime_resume  = msmsdcc_runtime_resume,
-	.runtime_idle    = msmsdcc_runtime_idle,
+	.runtime_suspend = NULL,
+	.runtime_resume  = NULL,
+	.runtime_idle    = NULL,
 	.suspend 	 = msmsdcc_pm_suspend,
 	.resume		 = msmsdcc_pm_resume,
 	.suspend_noirq	 = msmsdcc_suspend_noirq,
