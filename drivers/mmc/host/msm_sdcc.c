@@ -44,21 +44,21 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
- 
+
 #include <asm/cacheflush.h>
 #include <asm/div64.h>
 #include <asm/sizes.h>
 
 #include <asm/mach/mmc.h>
-#include <linux/platform_data/mmc-msm_sdcc.h>
+#include <mach/msm_iomap.h>
+#include <mach/clk.h>
 #include <mach/dma.h>
 #include <mach/sdio_al.h>
 #include <mach/mpm.h>
 #include <mach/msm_bus.h>
- 
-#include <mach/clk.h>
-#include "msm_sdcc_dml.h"
+
 #include "msm_sdcc.h"
+#include "msm_sdcc_dml.h"
 
 #define DRIVER_NAME "msm-sdcc"
 
@@ -87,6 +87,7 @@ static int msmsdcc_prep_xfer(struct msmsdcc_host *host, struct mmc_data
 
 static u64 dma_mask = DMA_BIT_MASK(32);
 static unsigned int msmsdcc_pwrsave = 1;
+
 static struct mmc_command dummy52cmd;
 static struct mmc_request dummy52mrq = {
 	.cmd = &dummy52cmd,
@@ -109,7 +110,7 @@ static const u32 tuning_block_64[] = {
 	0xF0FFF0FF, 0x3CCCFC0F, 0xCFCC33CC, 0xEEFFEFFF,
 	0xFDFFFDFF, 0xFFBFFFDF, 0xFFF7FFBB, 0xDE7B7FF7
 };
- 
+
 static const u32 tuning_block_128[] = {
 	0xFF00FFFF, 0x0000FFFF, 0xCCCCFFFF, 0xCCCC33CC,
 	0xCC3333CC, 0xFFFFCCCC, 0xFFFFEEFF, 0xFFEEEEFF,
@@ -120,8 +121,6 @@ static const u32 tuning_block_128[] = {
 	0xDDFFFFFF, 0xDDFFFFFF, 0xFFFFFFDD, 0xFFFFFFBB,
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
- 
-
 
 #if IRQ_DEBUG == 1
 static char *irq_status_bits[] = { "cmdcrcfail", "datcrcfail", "cmdtimeout",
@@ -211,7 +210,7 @@ static inline int msmsdcc_sps_restore_ep(struct msmsdcc_host *host,
 static inline int msmsdcc_sps_init(struct msmsdcc_host *host) { return 0; }
 static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
 #endif /* CONFIG_MMC_MSM_SPS_SUPPORT */
- 
+
 /**
  * Apply soft reset to all SDCC BAM pipes
  *
@@ -226,7 +225,6 @@ static inline void msmsdcc_sps_exit(struct msmsdcc_host *host) {}
 static void msmsdcc_sps_pipes_reset_and_restore(struct msmsdcc_host *host)
 {
 	int rc;
- 
 
 	/* Reset all SDCC BAM pipes */
 	rc = msmsdcc_sps_reset_ep(host, &host->sps.prod);
@@ -285,7 +283,6 @@ static void msmsdcc_soft_reset(struct msmsdcc_host *host)
 static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 {
 	int ret;
- 
 
 	/* Reset the controller */
 	ret = clk_reset(host->clk, CLK_RESET_ASSERT);
@@ -304,6 +301,7 @@ static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 	/* Give some delay for clock reset to propogate to controller */
 	msmsdcc_delay(host);
 }
+
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
 	if (host->sdcc_version) {
@@ -3345,7 +3343,7 @@ static int msmsdcc_disable(struct mmc_host *mmc)
 	if (host->plat->disable_runtime_pm)
 		return -ENOTSUPP;
 
-	rc = pm_runtime_put_sync(mmc->parent);
+	pm_runtime_put_sync(mmc->parent);
 
 	if (rc < 0) {
 		WARN(1, "%s: %s: failed with error %d\n", mmc_hostname(mmc),
@@ -5094,12 +5092,11 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->plat = plat;
 	host->mmc = mmc;
 	host->curr.cmd = NULL;
+
 	if (!plat->disable_bam && bam_memres && dml_memres && bam_irqres)
 		host->is_sps_mode = 1;
 	else if (dmares)
 		host->is_dma_mode = 1;
- 
-
 
 	host->base = ioremap(core_memres->start,
 			resource_size(core_memres));
@@ -5126,6 +5123,7 @@ msmsdcc_probe(struct platform_device *pdev)
 					   plat->embedded_sdio->funcs,
 					   plat->embedded_sdio->num_funcs);
 #endif
+
 	tasklet_init(&host->dma_tlet, msmsdcc_dma_complete_tlet,
 			(unsigned long)host);
 
@@ -5186,19 +5184,9 @@ msmsdcc_probe(struct platform_device *pdev)
 		goto clk_put;
 	}
 
-	ret = clk_prepare(host->pclk);
-	if (ret)
-		goto clk_put;
-
-	ret = clk_prepare(host->clk);
-	if (ret)
-		goto clk_unprepare_p;
-
-	/* Enable clocks */
 	ret = clk_prepare_enable(host->clk);
 	if (ret)
-		goto clk_unprepare;
-
+		goto clk_put;
 
 	host->clk_rate = clk_get_rate(host->clk);
 	if (!host->clk_rate)
@@ -5267,9 +5255,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->f_min = msmsdcc_get_min_sup_clk_rate(host);
 	mmc->f_max = msmsdcc_get_max_sup_clk_rate(host);
 	mmc->ocr_avail = plat->ocr_mask;
-
 	mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ;
 	mmc->caps |= plat->mmc_bus_width;
+
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
 
@@ -5371,12 +5359,12 @@ msmsdcc_probe(struct platform_device *pdev)
 			spin_unlock_irqrestore(&host->lock, flags);
 		}
 	}
- 
+
 	if (host->plat->mpm_sdiowakeup_int) {
 		wake_lock_init(&host->sdio_wlock, WAKE_LOCK_SUSPEND,
 				mmc_hostname(mmc));
 	}
- 
+
 	wake_lock_init(&host->sdio_suspend_wlock, WAKE_LOCK_SUSPEND,
 			mmc_hostname(mmc));
 	/*
@@ -5388,10 +5376,10 @@ msmsdcc_probe(struct platform_device *pdev)
 			host->oldstat = plat->status(mmc_dev(host->mmc));
 		else
 			host->oldstat = msmsdcc_slot_status(host);
- 
 
 		host->eject = !host->oldstat;
 	}
+
 	if (plat->status_irq) {
 		ret = request_threaded_irq(plat->status_irq, NULL,
 				  msmsdcc_platform_status_irq,
@@ -5408,6 +5396,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	} else if (!plat->status)
 		pr_err("%s: No card detect facilities available\n",
 		       mmc_hostname(mmc));
+
 	mmc_set_drvdata(pdev, mmc);
 
 	ret = pm_runtime_set_active(&(pdev)->dev);
@@ -5420,6 +5409,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * worrying about its children.
 	 */
 	pm_suspend_ignore_children(&(pdev)->dev, true);
+
 	/*
 	 * MMC/SD/SDIO bus suspend/resume operations are defined
 	 * only for the slots that will be used for non-removable
@@ -5447,7 +5437,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	host->idle_tout_ms = MSM_MMC_DEFAULT_IDLE_TIMEOUT;
 	setup_timer(&host->req_tout_timer, msmsdcc_req_tout_timer_hdlr,
 			(unsigned long)host);
- 
 
 	mmc_add_host(mmc);
 
@@ -5478,7 +5467,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	       host->eject);
 	pr_info("%s: Power save feature enable = %d\n",
 	       mmc_hostname(mmc), msmsdcc_pwrsave);
- 
+
 	if (host->is_dma_mode && host->dma.channel != -1
 			&& host->dma.crci != -1) {
 		pr_info("%s: DM non-cached buffer at %p, dma_addr 0x%.8x\n",
@@ -5491,6 +5480,7 @@ msmsdcc_probe(struct platform_device *pdev)
 			mmc_hostname(mmc));
 	} else
 		pr_info("%s: PIO transfer enabled\n", mmc_hostname(mmc));
+
 #if defined(CONFIG_DEBUG_FS)
 	msmsdcc_dbg_createhost(host);
 #endif
@@ -5537,7 +5527,6 @@ msmsdcc_probe(struct platform_device *pdev)
 		goto remove_idle_timeout_file;
 
  exit:
-
 	return 0;
 
  remove_idle_timeout_file:
@@ -5578,10 +5567,6 @@ msmsdcc_probe(struct platform_device *pdev)
  pm_qos_remove:
 	if (host->cpu_dma_latency)
 		pm_qos_remove_request(&host->pm_qos_req_dma);
- clk_unprepare:
-	clk_unprepare(host->clk);
- clk_unprepare_p:
-	clk_unprepare(host->pclk);
  clk_put:
 	clk_put(host->clk);
  pclk_disable:
@@ -5612,11 +5597,10 @@ msmsdcc_probe(struct platform_device *pdev)
 
 static int msmsdcc_remove(struct platform_device *pdev)
 {
-	struct mmc_host *mmc;
+	struct mmc_host *mmc = mmc_get_drvdata(pdev);
 	struct mmc_platform_data *plat;
 	struct msmsdcc_host *host;
 
-	mmc = mmc_get_drvdata(pdev);
 	if (!mmc)
 		return -ENXIO;
 
@@ -5648,7 +5632,7 @@ static int msmsdcc_remove(struct platform_device *pdev)
 		wake_lock_destroy(&host->sdio_wlock);
 		irq_set_irq_wake(plat->sdiowakeup_irq, 0);
 		free_irq(plat->sdiowakeup_irq, host);
- 	}
+	}
 
 	free_irq(host->core_irqres->start, host);
 	free_irq(host->core_irqres->start, host);
@@ -5686,7 +5670,7 @@ static int msmsdcc_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&host->early_suspend);
- #endif
+#endif
 	pm_runtime_disable(&(pdev)->dev);
 	pm_runtime_set_suspended(&(pdev)->dev);
 
@@ -5732,7 +5716,7 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 		rc = msmsdcc_setup_clocks(host, true);
 		if (rc)
 			goto out;
- 
+
 		if (!host->sdio_wakeupirq_disabled) {
 			disable_irq_nosync(host->plat->sdiowakeup_irq);
 			host->sdio_wakeupirq_disabled = 1;
@@ -5766,23 +5750,26 @@ int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable)
 	return 0;
 }
 #endif
- 
+
 #ifdef CONFIG_PM
 static int
 msmsdcc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
- 	int rc = 0;
+	int rc = 0;
 	unsigned long flags;
+
 	if (host->plat->is_sdio_al_client) {
 		rc = 0;
 		goto out;
 	}
+
 	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
 		host->sdcc_suspending = 1;
 		mmc->suspend_task = current;
+
 		/*
 		 * MMC core thinks that host is disabled by now since
 		 * runtime suspend is scheduled after msmsdcc_disable()
@@ -5802,7 +5789,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		if (unlikely(work_busy(&mmc->detect.work)))
 			rc = -EAGAIN;
 		else
- 			rc = mmc_suspend_host(mmc);
+			rc = mmc_suspend_host(mmc);
 		pm_runtime_put_noidle(dev);
 
 		if (!rc) {
@@ -5830,12 +5817,12 @@ msmsdcc_runtime_suspend(struct device *dev)
 		mmc->suspend_task = NULL;
 		if (rc && wake_lock_active(&host->sdio_suspend_wlock))
 			wake_unlock(&host->sdio_suspend_wlock);
- 	}
+	}
 	pr_debug("%s: %s: ends with err=%d\n", mmc_hostname(mmc), __func__, rc);
 out:
 	/* set bus bandwidth to 0 immediately */
 	msmsdcc_msm_bus_cancel_work_and_set_vote(host, NULL);
- 	return rc;
+	return rc;
 }
 
 static int
@@ -5844,12 +5831,11 @@ msmsdcc_runtime_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
- 
+
 	if (host->plat->is_sdio_al_client)
 		return 0;
 
 	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
-
 	if (mmc) {
 		if (mmc->card && mmc_card_sdio(mmc->card) &&
 				mmc_card_keep_power(mmc)) {
@@ -5869,7 +5855,6 @@ msmsdcc_runtime_resume(struct device *dev)
 		mmc->pm_flags = 0;
 		host->sdcc_suspended = false;
 		spin_unlock_irqrestore(&host->lock, flags);
- 
 
 		/*
 		 * After resuming the host wait for sometime so that
@@ -5883,7 +5868,7 @@ msmsdcc_runtime_resume(struct device *dev)
 		}
 
 		wake_unlock(&host->sdio_suspend_wlock);
- 	}
+	}
 	host->pending_resume = false;
 	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
 	return 0;
@@ -6002,9 +5987,9 @@ static int msmsdcc_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
-	.runtime_suspend = NULL,
-	.runtime_resume  = NULL,
-	.runtime_idle    = NULL,
+	.runtime_suspend = msmsdcc_runtime_suspend,
+	.runtime_resume  = msmsdcc_runtime_resume,
+	.runtime_idle    = msmsdcc_runtime_idle,
 	.suspend 	 = msmsdcc_pm_suspend,
 	.resume		 = msmsdcc_pm_resume,
 	.suspend_noirq	 = msmsdcc_suspend_noirq,
@@ -6015,7 +6000,6 @@ static const struct of_device_id msmsdcc_dt_match[] = {
 
 };
 MODULE_DEVICE_TABLE(of, msmsdcc_dt_match);
-
 
 static struct platform_driver msmsdcc_driver = {
 	.probe		= msmsdcc_probe,
