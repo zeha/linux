@@ -113,6 +113,8 @@ int snd_soc_set_runtime_hwparams(struct snd_pcm_substream *substream,
 	const struct snd_pcm_hardware *hw)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	if (!runtime)
+			return 0;
 	runtime->hw.info = hw->info;
 	runtime->hw.formats = hw->formats;
 	runtime->hw.period_bytes_min = hw->period_bytes_min;
@@ -395,11 +397,24 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	}
 
 	if (codec_dai->driver->ops && codec_dai->driver->ops->startup) {
-		ret = codec_dai->driver->ops->startup(substream, codec_dai);
-		if (ret < 0) {
-			dev_err(codec_dai->dev, "ASoC: can't open codec"
-				" %s: %d\n", codec_dai->name, ret);
-			goto codec_dai_err;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			ret = codec_dai->driver->ops->startup(substream,
+								codec_dai);
+			if (ret < 0) {
+				dev_err(codec_dai->dev, "can't open codec %s: %d\n",
+					codec_dai->name, ret);
+				goto codec_dai_err;
+			}
+		} else {
+			if (!codec_dai->capture_active) {
+				ret = codec_dai->driver->ops->startup(substream,
+								codec_dai);
+				if (ret < 0) {
+				dev_err(codec_dai->dev, "can't open codec %s: %d\n",
+					codec_dai->name, ret);
+					goto codec_dai_err;
+				}
+			}
 		}
 	}
 
@@ -868,6 +883,9 @@ static int soc_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (cpu_dai->driver->ops && cpu_dai->driver->ops->hw_free)
 		cpu_dai->driver->ops->hw_free(substream, cpu_dai);
 
+	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST)
+		snd_pcm_lib_free_pages(substream);
+
 	mutex_unlock(&rtd->pcm_mutex);
 	return 0;
 }
@@ -880,6 +898,7 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
+	if (codec_dai->driver->ops && codec_dai->driver->ops->trigger) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			ret = codec_dai->driver->ops->trigger(substream,
 						cmd, codec_dai);
@@ -893,6 +912,7 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 					return ret;
 			}
 		}
+	}
 
 	if (platform->driver->ops && platform->driver->ops->trigger) {
 		ret = platform->driver->ops->trigger(substream, cmd);
