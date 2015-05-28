@@ -1212,7 +1212,7 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
-static int __devinit wm8944_probe(struct platform_device *pdev)
+static int wm8944_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct wm8944_priv *wm8944;
@@ -1240,7 +1240,7 @@ static int __devinit wm8944_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit wm8944_remove(struct platform_device *pdev)
+static int wm8944_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
 #ifdef CONFIG_DEBUG_FS
@@ -1265,7 +1265,7 @@ static struct platform_driver wm8944_codec_driver = {
 #endif
 	},
 	.probe    = wm8944_probe,
-	.remove   = __devexit_p(wm8944_remove),
+	.remove   = wm8944_remove,
 };
 
 static int __init wm8944_codec_init(void)
