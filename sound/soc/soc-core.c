@@ -640,17 +640,17 @@ int snd_soc_suspend(struct device *dev)
 	}
 
 	for (i = 0; i < card->num_rtd; i++) {
+		struct snd_soc_dai_driver *driver = card->rtd[i].codec_dai->driver;
+
 		if (card->rtd[i].dai_link->ignore_suspend ||
 			card->rtd[i].dai_link->no_pcm)
 			continue;
 
-		snd_soc_dapm_stream_event(&card->rtd[i],
-					  SNDRV_PCM_STREAM_PLAYBACK,
-					  SND_SOC_DAPM_STREAM_SUSPEND);
+		snd_soc_dapm_stream_event(&card->rtd[i], driver->playback.stream_name,
+				SND_SOC_DAPM_STREAM_SUSPEND);
 
-		snd_soc_dapm_stream_event(&card->rtd[i],
-					  SNDRV_PCM_STREAM_CAPTURE,
-					  SND_SOC_DAPM_STREAM_SUSPEND);
+		snd_soc_dapm_stream_event(&card->rtd[i], driver->capture.stream_name,
+				SND_SOC_DAPM_STREAM_SUSPEND);
 	}
 
 	/* Recheck all analogue paths too */
@@ -780,12 +780,12 @@ static void soc_resume_deferred(struct work_struct *work)
 			continue;
 
 		if (driver->playback.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], SNDRV_PCM_STREAM_PLAYBACK,
-				SND_SOC_DAPM_STREAM_RESUME);
+			snd_soc_dapm_stream_event(&card->rtd[i], driver->playback.stream_name,
+					SND_SOC_DAPM_STREAM_RESUME);
 
 		if (driver->capture.stream_name != NULL)
-			snd_soc_dapm_stream_event(&card->rtd[i], SNDRV_PCM_STREAM_CAPTURE,
-				SND_SOC_DAPM_STREAM_RESUME);
+			snd_soc_dapm_stream_event(&card->rtd[i], driver->capture.stream_name,
+					SND_SOC_DAPM_STREAM_RESUME);
 	}
 
 	/* unmute any active DACs */

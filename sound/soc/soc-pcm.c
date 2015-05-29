@@ -132,6 +132,7 @@ int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
 	int event)
 {
 	struct snd_soc_dpcm *dpcm;
+	struct snd_soc_dai *codec_dai;
 
 	list_for_each_entry(dpcm, &fe->dpcm[dir].be_clients, list_be) {
 
@@ -140,10 +141,26 @@ int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
 		dev_dbg(be->dev, "ASoC: BE %s event %d dir %d\n",
 				be->dai_link->name, event, dir);
 
-		snd_soc_dapm_stream_event(be, dir, event);
+		codec_dai = be->codec_dai;
+		if((codec_dai != NULL) && (codec_dai->driver != NULL)) {
+			if (dir == SNDRV_PCM_STREAM_PLAYBACK)
+				snd_soc_dapm_stream_event(be,
+							codec_dai->driver->playback.stream_name, event);
+			else
+				snd_soc_dapm_stream_event(be,
+							codec_dai->driver->capture.stream_name, event);
+		}
 	}
 
-	snd_soc_dapm_stream_event(fe, dir, event);
+	codec_dai = fe->codec_dai;
+	if((codec_dai != NULL) && (codec_dai->driver != NULL)) {
+		if (dir == SNDRV_PCM_STREAM_PLAYBACK)
+			snd_soc_dapm_stream_event(fe,
+							codec_dai->driver->playback.stream_name, event);
+		else
+			snd_soc_dapm_stream_event(fe,
+							codec_dai->driver->capture.stream_name, event);
+	}
 
 	return 0;
 }
@@ -549,8 +566,9 @@ static void close_delayed_work(struct work_struct *work)
 	/* are we waiting on this codec DAI stream */
 	if (rtd->pop_wait == 1) {
 		rtd->pop_wait = 0;
-		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_PLAYBACK,
-			SND_SOC_DAPM_STREAM_STOP);
+		snd_soc_dapm_stream_event(rtd,
+					codec_dai->driver->playback.stream_name,
+					SND_SOC_DAPM_STREAM_STOP);
 	}
 
 	mutex_unlock(&rtd->pcm_mutex);
@@ -615,8 +633,8 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 		    !rtd->pmdown_time) {
 			/* powered down playback stream now */
 			snd_soc_dapm_stream_event(rtd,
-				SNDRV_PCM_STREAM_PLAYBACK,
-				SND_SOC_DAPM_STREAM_STOP);
+							codec_dai->driver->playback.stream_name,
+							SND_SOC_DAPM_STREAM_STOP);
 		} else {
 			/* start delayed pop wq here for playback streams */
 			rtd->pop_wait = 1;
@@ -627,8 +645,9 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	} else {
 		/* capture streams can be powered down now */
 		if (!codec_dai->capture_active)
-			snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_CAPTURE,
-			SND_SOC_DAPM_STREAM_STOP);
+			snd_soc_dapm_stream_event(rtd,
+						codec_dai->driver->capture.stream_name,
+						SND_SOC_DAPM_STREAM_STOP);
 	}
 
 	mutex_unlock(&rtd->pcm_mutex);
@@ -704,13 +723,13 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		snd_soc_dapm_stream_event(rtd,
-					  SNDRV_PCM_STREAM_PLAYBACK,
-					  SND_SOC_DAPM_STREAM_START);
+								codec_dai->driver->playback.stream_name,
+								SND_SOC_DAPM_STREAM_START);
 	else {
 		if (codec_dai->capture_active == 1)
 			snd_soc_dapm_stream_event(rtd,
-					  SNDRV_PCM_STREAM_CAPTURE,
-					  SND_SOC_DAPM_STREAM_START);
+								  codec_dai->driver->capture.stream_name,
+								  SND_SOC_DAPM_STREAM_START);
 	}
 
 	snd_soc_dai_digital_mute(codec_dai, 0, substream->stream);
