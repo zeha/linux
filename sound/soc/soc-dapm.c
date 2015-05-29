@@ -1261,11 +1261,11 @@ int snd_soc_dapm_dai_get_connected_widgets(struct snd_soc_dai *dai, int stream,
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		paths = dapm_get_playback_paths(&card->dapm, dai->playback_aif, list);
 		dapm_clear_walk_output(&card->dapm,
-				       &dai->playback_widget->sinks);
+				       &dai->playback_aif->sinks);
 	} else {
 		paths = dapm_get_capture_paths(&card->dapm, dai->capture_aif, list);
 		dapm_clear_walk_input(&card->dapm,
-				      &dai->capture_widget->sources);
+				      &dai->capture_aif->sources);
 	}
 
 	trace_snd_soc_dapm_connected(paths, stream);

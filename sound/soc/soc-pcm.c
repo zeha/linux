@@ -1111,33 +1111,19 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 	struct snd_soc_pcm_runtime *be;
 	int i;
 
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		for (i = 0; i < card->num_links; i++) {
-			be = &card->rtd[i];
-
-			if (!be->dai_link->no_pcm)
-				continue;
-
-			if (be->cpu_dai->playback_widget == widget ||
-				be->codec_dai->playback_widget == widget)
-				return be;
-		}
-	} else {
-
-		for (i = 0; i < card->num_links; i++) {
-			be = &card->rtd[i];
-
-			if (!be->dai_link->no_pcm)
-				continue;
-
-			if (be->cpu_dai->capture_widget == widget ||
-				be->codec_dai->capture_widget == widget)
-				return be;
-		}
+	if (!widget->sname) {
+		dev_err(card->dev, "widget %s has no stream\n", widget->name);
+		return NULL;
 	}
 
-	dev_err(card->dev, "ASoC: can't get %s BE for %s\n",
-		stream ? "capture" : "playback", widget->name);
+	for (i = 0; i < card->num_links; i++) {
+		be = &card->rtd[i];
+
+		if (!strcmp(widget->sname, be->dai_link->stream_name))
+			return be;
+	}
+
+	dev_err(card->dev, "can't get BE for %s\n", widget->name);
 	return NULL;
 }
 
@@ -1234,50 +1220,50 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 static int dpcm_add_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	struct snd_soc_dapm_widget_list **list_)
 {
+
 	struct snd_soc_card *card = fe->card;
 	struct snd_soc_dapm_widget_list *list = *list_;
 	struct snd_soc_pcm_runtime *be;
+	enum snd_soc_dapm_type be_type;
 	int i, new = 0, err;
+
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		be_type = snd_soc_dapm_aif_out;
+	else
+		be_type = snd_soc_dapm_aif_in;
 
 	/* Create any new FE <--> BE connections */
 	for (i = 0; i < list->num_widgets; i++) {
+		if (list->widgets[i]->id == be_type) {
+			/* is there a valid BE rtd for this widget */
+			be = dpcm_get_be(card, list->widgets[i], stream);
+			if (!be) {
+				dev_err(fe->dev, "ASoC: no BE found for %s\n",
+						list->widgets[i]->name);
+				continue;
+			}
 
-		switch (list->widgets[i]->id) {
-		case snd_soc_dapm_dai_in:
-		case snd_soc_dapm_dai_out:
-			break;
-		default:
-			continue;
-		}
+			/* make sure BE is a real BE */
+			if (!be->dai_link->no_pcm)
+				continue;
 
-		/* is there a valid BE rtd for this widget */
-		be = dpcm_get_be(card, list->widgets[i], stream);
-		if (!be) {
-			dev_err(fe->dev, "ASoC: no BE found for %s\n",
+			/* don't connect if FE is not running */
+			if (!fe->dpcm[stream].runtime && !fe->fe_compr)
+				continue;
+
+			/* newly connected FE and BE */
+			err = dpcm_be_connect(fe, be, stream);
+			if (err < 0) {
+				dev_err(fe->dev, "ASoC: can't connect %s\n",
 					list->widgets[i]->name);
-			continue;
+				break;
+			} else if (err == 0) /* already connected */
+				continue;
+
+			/* new */
+			be->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_BE;
+			new++;
 		}
-
-		/* make sure BE is a real BE */
-		if (!be->dai_link->no_pcm)
-			continue;
-
-		/* don't connect if FE is not running */
-		if (!fe->dpcm[stream].runtime && !fe->fe_compr)
-			continue;
-
-		/* newly connected FE and BE */
-		err = dpcm_be_connect(fe, be, stream);
-		if (err < 0) {
-			dev_err(fe->dev, "ASoC: can't connect %s\n",
-				list->widgets[i]->name);
-			break;
-		} else if (err == 0) /* already connected */
-			continue;
-
-		/* new */
-		be->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_BE;
-		new++;
 	}
 
 	dev_dbg(fe->dev, "ASoC: found %d new BE paths\n", new);
