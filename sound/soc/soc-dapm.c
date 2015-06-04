@@ -3888,13 +3888,15 @@ void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	const char *stream, int event)
 {
 	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_card *card = rtd->card;
 
 	if (stream == NULL)
 		return;
 
-	mutex_lock(&codec->mutex);
+	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
 	soc_dapm_stream_event(&codec->dapm, stream, event);
-	mutex_unlock(&codec->mutex);
+	mutex_unlock(&card->dapm_mutex);
+
 }
 
 //void snd_soc_dapm_codec_stream_event(struct snd_soc_codec *codec,
