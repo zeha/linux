@@ -2744,7 +2744,7 @@ config SIERRA_ANT_DETECTION
 	  Use Sierra antenna detection. If unsure, say Y here.
 
 config SIERRA_GPIO_WAKEN
-	depends on USB_CI13XXX_MSM && SIERRA_PLATFORM_FEATURES
+	depends on USB_CHIPIDEA && SIERRA_PLATFORM_FEATURES
 	tristate "Sierra WAKE_N pin support"
 	default y
 	help

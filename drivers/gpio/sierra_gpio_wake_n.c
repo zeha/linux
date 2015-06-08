@@ -107,7 +107,7 @@ release_gpio:
 	return ret;
 }
 
-static int __devexit wake_n_remove(struct platform_device *pdev)
+static int wake_n_remove(struct platform_device *pdev)
 {
 	pr_info("wake_n_remove");
 	gpio_free(wake_n_pdata.gpio);
@@ -117,14 +117,14 @@ static int __devexit wake_n_remove(struct platform_device *pdev)
 
 static struct platform_driver wake_n_driver = {
     .probe = wake_n_probe,
-    .remove = __devexit_p(wake_n_remove),
+    .remove = wake_n_remove,
     .driver = {
         .name = DRIVER_NAME,
         .owner = THIS_MODULE,
     },
 };
 
-static int __init wake_n_init(void)
+static int wake_n_init(void)
 {
     return platform_driver_register(&wake_n_driver);
 }
