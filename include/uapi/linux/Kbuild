@@ -350,6 +350,7 @@ header-y += serial_core.h
 header-y += serial_reg.h
 header-y += serio.h
 header-y += shm.h
+header-y += sierra_i2cdev.h
 header-y += signal.h
 header-y += signalfd.h
 header-y += snmp.h
