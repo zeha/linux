@@ -17,6 +17,114 @@
 
 #define MSM_USB_BASE	(ci->hw_bank.abs)
 
+#define MDM9X15_WAKE_GPIO_WORKAROUND
+#ifdef MDM9X15_WAKE_GPIO_WORKAROUND
+#include <linux/gpio.h>
+struct ci_hdrc_msm_context {
+	int wake_gpio;
+	int irq;
+	bool wake_irq_state;
+};
+
+static void ci_hdrc_msm_suspend(struct ci_hdrc *ci)
+{
+	struct ci_hdrc_msm_context *c;
+
+	c = (struct ci_hdrc_msm_context*)ci->platdata->context;
+	if (c && c->irq && !c->wake_irq_state) {
+	        enable_irq_wake(c->irq);
+	        enable_irq(c->irq);
+	        c->wake_irq_state = true;
+	}
+	if (ci->transceiver)
+		usb_phy_set_suspend(ci->transceiver, 1);
+}
+
+static void ci_hdrc_msm_resume(struct ci_hdrc *ci)
+{
+	struct ci_hdrc_msm_context *c;
+
+	c = (struct ci_hdrc_msm_context*)ci->platdata->context;
+	if (c && c->irq && c->wake_irq_state) {
+	        disable_irq_wake(c->irq);
+#ifndef CONFIG_SIERRA_USB_OTG
+	        disable_irq(c->irq);
+#else
+	        disable_irq_nosync(c->irq);
+#endif
+	        c->wake_irq_state = false;
+	}
+	if (ci->transceiver)
+		usb_phy_set_suspend(ci->transceiver, 0);
+}
+
+static irqreturn_t ci_hdrc_msm_resume_irq(int irq, void *data)
+{
+	struct ci_hdrc *ci = (struct ci_hdrc *)data;
+
+	if (ci->transceiver && ci->vbus_active && ci->suspended)
+	        usb_phy_set_suspend(ci->transceiver, 0);
+	else if (!ci->suspended)
+	        ci_hdrc_msm_resume(ci);
+
+	return IRQ_HANDLED;
+}
+
+#ifndef CONFIG_SIERRA_USB_OTG
+#define WAKE_GPIO_IRQFLAGS (IRQF_TRIGGER_HIGH | IRQF_ONESHOT)
+#else
+#define WAKE_GPIO_IRQFLAGS (IRQF_TRIGGER_RISING | IRQF_ONESHOT)
+#endif
+static int ci_hdrc_msm_install_wake_gpio(struct ci_hdrc *ci)
+{
+	struct resource *res;
+	struct ci_hdrc_msm_context *c;
+	int ret = 0;
+
+	c = (struct ci_hdrc_msm_context*)kmalloc(sizeof(*c), GFP_KERNEL);
+	if (!c) {
+		pr_err("%s: cannot allocate %d context bytes\n",
+			__func__, sizeof(*c));
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(to_platform_device(ci->dev),
+	                                   IORESOURCE_IO, "USB_RESUME");
+	if (!res) {
+	        pr_err("%s: no USB_RESUME GPIO\n", __func__);
+	        return -ENXIO;
+	}
+	c->wake_gpio = res->start;
+	gpio_request(c->wake_gpio, "USB_RESUME");
+	gpio_direction_input(c->wake_gpio);
+	c->irq = gpio_to_irq(c->wake_gpio);
+	if (c->irq < 0) {
+	        dev_err(ci->dev, "no interrupt for GPIO%d\n", c->wake_gpio);
+	        return -ENXIO;
+	}
+
+	ret = request_irq(c->irq, ci_hdrc_msm_resume_irq,
+	        WAKE_GPIO_IRQFLAGS, "usb resume", ci);
+	if (ret < 0) {
+		gpio_free(c->wake_gpio);
+		kfree(c);
+		/* just in case... */
+		ci->platdata->context = NULL;
+	        dev_err(ci->dev, "cannot register USB resume IRQ%d\n", c->irq);
+	        return ret;
+	}
+	disable_irq(c->irq);
+	c->wake_irq_state = false;
+	ci->platdata->context = c;
+
+	return ret;
+}
+#else
+static inline void ci_hdrc_msm_suspend(struct ci_hdrc *ci) {}
+static inline void ci_hdrc_msm_resume(struct ci_hdrc *ci) {}
+static inline int ci_hdrc_msm_install_wake_gpio(struct ci_hdrc *ci) {return 0;}
+#endif
+
 static void ci_hdrc_msm_notify_event(struct ci_hdrc *ci, unsigned event)
 {
 	struct device *dev = ci->gadget.dev.parent;
@@ -36,6 +144,14 @@ static void ci_hdrc_msm_notify_event(struct ci_hdrc *ci, unsigned event)
 		 */
 		usb_phy_notify_disconnect(ci->transceiver, USB_SPEED_UNKNOWN);
 		break;
+	case CI_HDRC_CONTROLLER_SUSPEND_EVENT:
+		dev_dbg(dev, "CI_HDRC_CONTROLLER_SUSPEND_EVENT received\n");
+		ci_hdrc_msm_suspend(ci);
+	        break;
+	case CI_HDRC_CONTROLLER_RESUME_EVENT:
+		dev_dbg(dev, "CI_HDRC_CONTROLLER_RESUME_EVENT received\n");
+		ci_hdrc_msm_resume(ci);
+	        break;
 	default:
 		dev_dbg(dev, "unknown ci_hdrc event\n");
 		break;
@@ -50,6 +166,7 @@ static struct ci_hdrc_platform_data ci_hdrc_msm_platdata = {
 				  CI_HDRC_DISABLE_STREAMING,
 
 	.notify_event		= ci_hdrc_msm_notify_event,
+	.context		= NULL,
 };
 
 static int ci_hdrc_msm_probe(struct platform_device *pdev)
@@ -67,6 +184,9 @@ static int ci_hdrc_msm_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, plat_ci);
+
+	/* USB wakeup work-around for MDM9615 */
+	ci_hdrc_msm_install_wake_gpio(platform_get_drvdata(plat_ci));
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);

@@ -28,8 +28,13 @@ struct ci_hdrc_platform_data {
 	enum usb_dr_mode	dr_mode;
 #define CI_HDRC_CONTROLLER_RESET_EVENT		0
 #define CI_HDRC_CONTROLLER_STOPPED_EVENT	1
+#define CI_HDRC_CONTROLLER_SUSPEND_EVENT	2
+#define CI_HDRC_CONTROLLER_REMOTE_WAKEUP_EVENT	3
+#define CI_HDRC_CONTROLLER_RESUME_EVENT		4
+
 	void	(*notify_event) (struct ci_hdrc *ci, unsigned event);
 	struct regulator	*reg_vbus;
+	void	*context;		/* private data */
 };
 
 /* Default offset of capability registers */

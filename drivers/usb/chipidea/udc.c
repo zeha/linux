@@ -723,6 +723,15 @@ __acquires(ci->lock)
 	int retval;
 
 	spin_unlock(&ci->lock);
+
+	if (ci->suspended) {
+		if (ci->platdata->notify_event)
+			ci->platdata->notify_event(ci,
+			CI_HDRC_CONTROLLER_RESUME_EVENT);
+		ci->driver->resume(&ci->gadget);
+		ci->suspended = 0;
+	}
+
 	if (ci->gadget.speed != USB_SPEED_UNKNOWN) {
 		if (ci->driver)
 			ci->driver->disconnect(&ci->gadget);
@@ -1743,6 +1752,9 @@ static irqreturn_t udc_irq(struct ci_hdrc *ci)
 				USB_SPEED_HIGH : USB_SPEED_FULL;
 			if (ci->suspended && ci->driver->resume) {
 				spin_unlock(&ci->lock);
+				if (ci->platdata->notify_event)
+					ci->platdata->notify_event(ci,
+					CI_HDRC_CONTROLLER_RESUME_EVENT);
 				ci->driver->resume(&ci->gadget);
 				spin_lock(&ci->lock);
 				ci->suspended = 0;
@@ -1758,6 +1770,9 @@ static irqreturn_t udc_irq(struct ci_hdrc *ci)
 				ci->suspended = 1;
 				spin_unlock(&ci->lock);
 				ci->driver->suspend(&ci->gadget);
+				if (ci->platdata->notify_event)
+					ci->platdata->notify_event(ci,
+					CI_HDRC_CONTROLLER_SUSPEND_EVENT);
 				spin_lock(&ci->lock);
 			}
 		}
