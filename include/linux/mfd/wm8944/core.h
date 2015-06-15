@@ -37,6 +37,9 @@ struct regmap;
 #define WM8944_IRQ_GP2       13
 #define WM8944_IRQ_TEMP      15
 
+#define WM8944_INTERFACE_TYPE_UNKNOWN  -1
+#define WM8944_INTERFACE_TYPE_NONE      0
+#define WM8944_INTERFACE_TYPE_I2C       1
 
 struct wm8944 {
 	//struct mutex irq_lock;
@@ -92,5 +95,6 @@ static inline void wm8944_free_irq(struct wm8944 *wm8944, int irq, void *data)
 
 int wm8944_irq_init(struct wm8944 *wm8944);
 void wm8944_irq_exit(struct wm8944 *wm8944);
+int wm8944_get_intf_type(void);
 
 #endif

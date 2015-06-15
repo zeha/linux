@@ -219,6 +219,10 @@
  * Field Definitions.
  */
 
+/*
+ * R0 (0x0) - Software Reset/Chip ID
+ */
+#define WM8944_CHIP_ID                          0x6264  /* CHIP_ID */
 
 /*
  * R2 (0x2) - Power Management1

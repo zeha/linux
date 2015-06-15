@@ -37,6 +37,20 @@
 
 #include <linux/sierra_bsudefs.h>
 
+static int wm8944_intf = WM8944_INTERFACE_TYPE_UNKNOWN;
+
+/**
+ * @brief wm8944_get_intf_type: Get interface type
+ *
+ * @return  1:I2C, 0:None, -1:Unknown
+ */
+int wm8944_get_intf_type(void)
+{
+	return wm8944_intf;
+}
+EXPORT_SYMBOL_GPL(wm8944_get_intf_type);
+
+
 /**
  * wm8944_reg_read: Read a single WM8944 register.
  *
@@ -276,6 +290,11 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 		goto err_enable;
 	}
 
+	if (ret != WM8944_CHIP_ID) {
+		dev_err(wm8944->dev, "Bad chip ID (0x%x)\n", ret);
+		goto err_enable;
+	}
+
 	devname = "WM8944";
 
 	ret = wm8944_reg_read(wm8944, WM8944_CHIPVERSION);
@@ -352,6 +371,7 @@ static int wm8944_device_init(struct wm8944 *wm8944, int irq)
 
 	pm_runtime_enable(wm8944->dev);
 	pm_runtime_idle(wm8944->dev);
+	wm8944_intf = WM8944_INTERFACE_TYPE_I2C;
 	printk(KERN_DEBUG "%s OK\n",__func__);
 	return 0;
 
@@ -362,7 +382,7 @@ err_enable:
 	regulator_bulk_free(wm8944->num_supplies, wm8944->supplies);
 err:
 	mfd_remove_devices(wm8944->dev);
-
+	wm8944_intf = WM8944_INTERFACE_TYPE_NONE;
 	printk(KERN_DEBUG "%s - Failed to add children: %d\n",__func__, ret);
 
 	return ret;

@@ -37,6 +37,7 @@
 #ifdef CONFIG_MFD_WM8944
 #include "../codecs/wm8944.h"
 #include <linux/mfd/wm8944/registers.h>
+#include <linux/mfd/wm8944/core.h>
 #endif
 #endif
 #include <mach/gpiomux.h>
@@ -4364,7 +4365,9 @@ static struct snd_soc_dai_link mdm9615_dai_ar7[] = {
 };
 
 #ifdef CONFIG_MFD_WM8944
-static struct snd_soc_dai_link mdm9615_dai_ar8[] = {
+/* Applies to the class of devices that have (or may have) a I2C/I2S connection
+ * to a WM8944: AR8652, AR7554RD, AR7552RD, and CF3 */
+static struct snd_soc_dai_link mdm9615_dai_ar8_common[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MDM9615 Media1",
@@ -4696,6 +4699,32 @@ static struct snd_soc_dai_link mdm9615_dai_ar8[] = {
 		.ops = &mdm9615_ar7_sec_auxpcm_be_ops,
 	},
 	{
+		.name = LPASS_BE_SEC_I2S_RX,
+		.stream_name = "Secondary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.4",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_hw_params_fixup = msm9615_i2s_rx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_I2S_TX,
+		.stream_name = "Secondary I2S Capture",
+		.cpu_dai_name = "msm-dai-q6.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_TX,
+		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
+};
+static struct snd_soc_dai_link mdm9615_dai_ar8_wm8944[] = {
+	{
 		.name = LPASS_BE_PRI_I2S_RX,
 		.stream_name = "Primary I2S Playback",
 		.cpu_dai_name = "msm-dai-q6.0",
@@ -4724,35 +4753,42 @@ static struct snd_soc_dai_link mdm9615_dai_ar8[] = {
 		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
 		.ops = &msm9615_i2s_be_ops,
 	},
-	{
-		.name = LPASS_BE_SEC_I2S_RX,
-		.stream_name = "Secondary I2S Playback",
-		.cpu_dai_name = "msm-dai-q6.4",
+};
+static struct snd_soc_dai_link mdm9615_dai_ar8_nocodec[] = {
+		{
+		.name = LPASS_BE_PRI_I2S_RX,
+		.stream_name = "Primary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.0",
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
 		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_id = MSM_BACKEND_DAI_PRI_I2S_RX,
+		.init = &mdm9615_mc7_i2s_audrx_init,
 		.be_hw_params_fixup = msm9615_i2s_rx_be_hw_params_fixup,
 		.ops = &msm9615_i2s_be_ops,
 	},
 	{
-		.name = LPASS_BE_SEC_I2S_TX,
-		.stream_name = "Secondary I2S Capture",
-		.cpu_dai_name = "msm-dai-q6.5",
+		.name = LPASS_BE_PRI_I2S_TX,
+		.stream_name = "Primary I2S Capture",
+		.cpu_dai_name = "msm-dai-q6.1",
 		.platform_name = "msm-pcm-routing",
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
 		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_SEC_I2S_TX,
+		.be_id = MSM_BACKEND_DAI_PRI_I2S_TX,
 		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
 		.ops = &msm9615_i2s_be_ops,
 	},
 };
+
+static struct snd_soc_dai_link mdm9615_dai_ar8[
+					 ARRAY_SIZE(mdm9615_dai_ar8_common) +
+					 ARRAY_SIZE(mdm9615_dai_ar8_wm8944)];
 #endif
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -5080,7 +5116,7 @@ static int __init mdm9615_audio_init(void)
 
 #ifdef CONFIG_SND_SOC_WM8944
 	else
-		pr_info("%s(): Interface Type = I2C (wm8944)\n", __func__);
+		pr_info("%s(): Interface Type (wm8944) = %d\n", __func__, wm8944_get_intf_type());
 #endif
 #endif
 
@@ -5093,10 +5129,25 @@ static int __init mdm9615_audio_init(void)
 	case BSWP85XX:
 	case BSWP8548:
 	case BSWP8548G:
-		pr_info( KERN_DEBUG "%s - AR8, AR7554RD and AR7552RD configuration", __func__);
+		pr_info("%s - AR8, AR755xRD and CF3 configuration\n", __func__);
 #if defined(CONFIG_MFD_WM8944)
-		snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
-			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
+  		memcpy(mdm9615_dai_ar8, mdm9615_dai_ar8_common,
+  			sizeof(mdm9615_dai_ar8_common));
+  		if( wm8944_get_intf_type() > WM8944_INTERFACE_TYPE_NONE ) /* wm8944 was found */
+  		{
+  			snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
+  			memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
+  				mdm9615_dai_ar8_wm8944,
+  		        sizeof(mdm9615_dai_ar8_wm8944));
+  		}
+  		else
+  		{
+  			snd_soc_card_mdm9615.name = "mdm9615-nocodec-snd-card";
+  			memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
+  				mdm9615_dai_ar8_nocodec,
+  		        sizeof(mdm9615_dai_ar8_nocodec));
+  		}
+		snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
 		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar8);
 #endif
 		break;
