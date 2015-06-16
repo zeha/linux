@@ -799,7 +799,29 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		uint32_t fifo_reg;
 
 		if (dev->gsbi) {
-			writel_relaxed(0x2 << 4, dev->gsbi);
+
+			unsigned short val;
+
+			/* MDM8215(M), MDM8615M, MDM8110M, MDM9x15(M) Software Interface
+			 * 80-N5423-2 Rev. L, section 15.2
+			 * Read what's already in GSBI5 CTRL register. dev->gsbi is virtual
+			 * and points to MSM_GSBI5_PHYS (take a look  at the qup_i2c_probe
+			 * and note where gsbi_mem points to). GSBI5 CTRL register is
+			 * 16 bit register, hence readw/writew.
+			 */
+			val = readw_relaxed(dev->gsbi);
+
+#ifdef CONFIG_SIERRA_GSBI5_I2C_UART
+			/* GSBI5 must support both UART2 and I2C. Therefore, GSBI5_CTRL
+			 * PROTOCOL_CODE field must be set to 110.
+			 */
+			writew_relaxed(val | 0x60, dev->gsbi);
+#else
+			/* GSBI5 must support I2C only. Therefore, GSBI5_CTRL
+			 * PROTOCOL_CODE field must be set to 010.
+			 */
+			writew_relaxed(val | 0x20, dev->gsbi);
+#endif
 			/* GSBI memory is not in the same 1K region as other
 			 * QUP registers. mb() here ensures that the GSBI
 			 * register is updated in correct order and that the
