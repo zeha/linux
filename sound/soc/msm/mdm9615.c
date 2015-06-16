@@ -522,6 +522,8 @@ static void mdm9615_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 	{
 		/* For CF3, PMIC GPIO 5 is used to control MCU reset */
 		top_and_bottom_spk_pamp_gpio = 0xFFFFFFFF;
+		pr_debug("%s: not implemented on CF3\n", __func__);
+		return;
 	}
 #endif /* CONFIG_SIERRA */
 
@@ -559,6 +561,8 @@ static void mdm9615_ext_spk_power_amp_on(u32 spk)
 	{
 		/* For CF3, PMIC GPIO 5 is used to control MCU reset */
 		top_and_bottom_spk_pamp_gpio = 0xFFFFFFFF;
+		pr_debug("%s: not implemented on CF3\n", __func__);
+		return;
 	}
 #endif /* CONFIG_SIERRA */
 
@@ -599,6 +603,8 @@ static void mdm9615_ext_spk_power_amp_off(u32 spk)
 	{
 		/* For CF3, PMIC GPIO 5 is used to control MCU reset */
 		top_and_bottom_spk_pamp_gpio = 0xFFFFFFFF;
+		pr_debug("%s: not implemented on CF3\n", __func__);
+		return;
 	}
 #endif /* CONFIG_SIERRA */
 
@@ -4996,9 +5002,13 @@ static int __init mdm9615_audio_init(void)
 	case BSAR8652:
 	case BSAR7554RD:
 	case BSAR7552RD:
+	case BSWP75XX:
+	case BSWP85XX:
+	case BSWP8548:
+	case BSWP8548G:
 		pr_info( KERN_DEBUG "%s - AR8, AR7554RD and AR7552RD configuration", __func__);
 #if defined(CONFIG_MFD_WM8944)
-		snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card",
+		snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
 		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar8);
 #endif
