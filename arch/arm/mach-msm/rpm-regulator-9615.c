@@ -175,7 +175,7 @@ static struct vreg vregs[] = {
 
 	LVS(LVS1, "8018_lvs1", "8018_lvs1_pc"),
 
-	CORNER(VDD_DIG_CORNER, VOLTAGE_CORNER, "vbus", corner),
+	CORNER(VDD_DIG_CORNER, VOLTAGE_CORNER, "vdd_dig_corner", corner),
 };
 
 static const char *pin_control_label[] = {

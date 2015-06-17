@@ -140,6 +140,7 @@ VREG_CONSUMERS(EXT_2P95V) = {
 };
 VREG_CONSUMERS(VDD_DIG_CORNER) = {
 	REGULATOR_SUPPLY("hsusb_vdd_dig",	"msm_otg"),
+	REGULATOR_SUPPLY("vbus",		"msm_hsusb"),
 	REGULATOR_SUPPLY("hsic_vdd_dig",	"msm_hsic_peripheral"),
 	REGULATOR_SUPPLY("hsic_vdd_dig",	"msm_hsic_host"),
 };
