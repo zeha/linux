@@ -1194,10 +1194,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 		/* Change based on 80-N5423-14 */
 		/* Disabling MPP Pin (set the MPP as an input) */
 		if (pdata->vdd_min_enable)
-		{
-			gpio_request(pdata->vdd_min_enable,"PHY_RESUME");
 			gpio_direction_input(pdata->vdd_min_enable);
-		}
+
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
