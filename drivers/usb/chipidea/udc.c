@@ -86,8 +86,8 @@ static int hw_device_state(struct ci_hdrc *ci, u32 dma)
 			     USBi_UI|USBi_UEI|USBi_PCI|USBi_URI|USBi_SLI);
 		hw_write(ci, OP_USBCMD, USBCMD_RS, USBCMD_RS);
 	} else {
-		hw_write(ci, OP_USBINTR, ~0, 0);
 		hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
+		hw_write(ci, OP_USBINTR, ~0, 0);
 	}
 	return 0;
 }
@@ -1490,7 +1490,8 @@ static int ci_udc_vbus_session(struct usb_gadget *_gadget, int is_active)
 		if (is_active) {
 			pm_runtime_get_sync(&_gadget->dev);
 			hw_device_reset(ci, USBMODE_CM_DC);
-			hw_device_state(ci, ci->ep0out->qh.dma);
+			if(ci->softconnect)
+				hw_device_state(ci, ci->ep0out->qh.dma);
 			dev_dbg(ci->dev, "Connected to host\n");
 		} else {
 			if (ci->driver)
@@ -1545,13 +1546,19 @@ static int ci_udc_pullup(struct usb_gadget *_gadget, int is_on)
 {
 	struct ci_hdrc *ci = container_of(_gadget, struct ci_hdrc, gadget);
 
+	ci->softconnect = is_on;
+
 	if (!ci->vbus_active)
 		return -EOPNOTSUPP;
 
 	if (is_on)
-		hw_write(ci, OP_USBCMD, USBCMD_RS, USBCMD_RS);
+	{
+		hw_device_state(ci, ci->ep0out->qh.dma);
+	}
 	else
-		hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
+	{
+		hw_device_state(ci,0);
+	}
 
 	return 0;
 }
@@ -1653,7 +1660,6 @@ static int ci_udc_start(struct usb_gadget *gadget,
 	struct ci_hdrc *ci = container_of(gadget, struct ci_hdrc, gadget);
 	unsigned long flags;
 	int retval = -ENOMEM;
-
 	if (driver->disconnect == NULL)
 		return -EINVAL;
 
@@ -1678,7 +1684,9 @@ static int ci_udc_start(struct usb_gadget *gadget,
 		return retval;
 	}
 
-	retval = hw_device_state(ci, ci->ep0out->qh.dma);
+	if(ci->softconnect)
+		retval = hw_device_state(ci, ci->ep0out->qh.dma);
+
 	spin_unlock_irqrestore(&ci->lock, flags);
 	if (retval)
 		pm_runtime_put_sync(&ci->gadget.dev);

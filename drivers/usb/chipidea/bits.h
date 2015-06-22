@@ -101,6 +101,8 @@
 #define USBMODE_CM_DC         (0x02UL <<  0)
 #define USBMODE_SLOM          BIT(3)
 #define USBMODE_CI_SDIS       BIT(4)
+#define USBCMD_ITC(n)         (n << 16) /* n = 0, 1, 2, 4, 8, 16, 32, 64 */
+#define USBCMD_ITC_MASK       (0xFF << 16)
 
 /* ENDPTCTRL */
 #define ENDPTCTRL_RXS         BIT(0)

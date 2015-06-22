@@ -304,6 +304,9 @@ int hw_device_reset(struct ci_hdrc *ci, u32 mode)
 	/* HW >= 2.3 */
 	hw_write(ci, OP_USBMODE, USBMODE_SLOM, USBMODE_SLOM);
 
+	if (ci->platdata->flags & CI_HDRC_DUAL_ROLE_NOT_OTG)
+			hw_write(ci, OP_USBCMD, USBCMD_ITC_MASK, USBCMD_ITC(0));
+
 	if (hw_read(ci, OP_USBMODE, USBMODE_CM) != mode) {
 		pr_err("cannot enter in %s mode", ci_role(ci)->name);
 		pr_err("lpm = %i", ci->hw_bank.lpm);
@@ -552,6 +555,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	ci->platdata = dev->platform_data;
 	ci->imx28_write_fix = !!(ci->platdata->flags &
 		CI_HDRC_IMX28_WRITE_FIX);
+	ci->softconnect = 1;
 
 	ret = hw_device_init(ci, base);
 	if (ret < 0) {

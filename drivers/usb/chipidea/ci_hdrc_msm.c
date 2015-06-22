@@ -131,13 +131,13 @@ static void ci_hdrc_msm_notify_event(struct ci_hdrc *ci, unsigned event)
 
 	switch (event) {
 	case CI_HDRC_CONTROLLER_RESET_EVENT:
-		dev_dbg(dev, "CI_HDRC_CONTROLLER_RESET_EVENT received\n");
+		dev_info(dev, "CI_HDRC_CONTROLLER_RESET_EVENT received\n");
 		writel(0, USB_AHBBURST);
 		writel(0, USB_AHBMODE);
 		usb_phy_init(ci->transceiver);
 		break;
 	case CI_HDRC_CONTROLLER_STOPPED_EVENT:
-		dev_dbg(dev, "CI_HDRC_CONTROLLER_STOPPED_EVENT received\n");
+		dev_info(dev, "CI_HDRC_CONTROLLER_STOPPED_EVENT received\n");
 		/*
 		 * Put the transceiver in non-driving mode. Otherwise host
 		 * may not detect soft-disconnection.
@@ -145,15 +145,15 @@ static void ci_hdrc_msm_notify_event(struct ci_hdrc *ci, unsigned event)
 		usb_phy_notify_disconnect(ci->transceiver, USB_SPEED_UNKNOWN);
 		break;
 	case CI_HDRC_CONTROLLER_SUSPEND_EVENT:
-		dev_dbg(dev, "CI_HDRC_CONTROLLER_SUSPEND_EVENT received\n");
+		dev_info(dev, "CI_HDRC_CONTROLLER_SUSPEND_EVENT received\n");
 		ci_hdrc_msm_suspend(ci);
 	        break;
 	case CI_HDRC_CONTROLLER_RESUME_EVENT:
-		dev_dbg(dev, "CI_HDRC_CONTROLLER_RESUME_EVENT received\n");
+		dev_info(dev, "CI_HDRC_CONTROLLER_RESUME_EVENT received\n");
 		ci_hdrc_msm_resume(ci);
 	        break;
 	default:
-		dev_dbg(dev, "unknown ci_hdrc event\n");
+		dev_info(dev, "unknown ci_hdrc event\n");
 		break;
 	}
 }
@@ -162,9 +162,9 @@ static struct ci_hdrc_platform_data ci_hdrc_msm_platdata = {
 	.name			= "ci_hdrc_msm",
 	.capoffset		= DEF_CAPOFFSET,
 	.flags			= CI_HDRC_REGS_SHARED |
-				  CI_HDRC_REQUIRE_TRANSCEIVER |
+				  CI_HDRC_REQUIRE_TRANSCEIVER | CI_HDRC_DUAL_ROLE_NOT_OTG |
 				  CI_HDRC_DISABLE_STREAMING,
-
+	.dr_mode 			= USB_DR_MODE_PERIPHERAL,
 	.notify_event		= ci_hdrc_msm_notify_event,
 	.context		= NULL,
 };

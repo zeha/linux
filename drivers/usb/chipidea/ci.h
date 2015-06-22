@@ -202,6 +202,7 @@ struct ci_hdrc {
 	struct usb_hcd			*hcd;
 	struct dentry			*debugfs;
 	bool				id_event;
+	int                 softconnect; /* is pull-up enable allowed */
 	bool				b_sess_valid_event;
 	bool				imx28_write_fix;
 };
