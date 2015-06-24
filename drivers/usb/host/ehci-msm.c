@@ -38,8 +38,6 @@
 
 #define MSM_USB_BASE (hcd->regs)
 
-static struct hc_driver __read_mostly msm_hc_driver;
-
 static struct usb_phy *phy;
 
 static int ehci_msm_reset(struct usb_hcd *hcd)
@@ -61,8 +59,55 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 	/* Disable streaming mode and select host mode */
 	writel(0x13, USB_USBMODE);
 
+	ehci_port_power(ehci, 1);
 	return 0;
 }
+
+static struct hc_driver msm_hc_driver = {
+	.description		= hcd_name,
+	.product_desc		= "Qualcomm On-Chip EHCI Host Controller",
+	.hcd_priv_size		= sizeof(struct ehci_hcd),
+
+	/*
+	 * generic hardware linkage
+	 */
+	.irq			= ehci_irq,
+	.flags			= HCD_USB2 | HCD_MEMORY,
+
+	.reset			= ehci_msm_reset,
+	.start			= ehci_run,
+
+	.stop			= ehci_stop,
+	.shutdown		= ehci_shutdown,
+
+	/*
+	 * managing i/o requests and associated device resources
+	 */
+	.urb_enqueue		= ehci_urb_enqueue,
+	.urb_dequeue		= ehci_urb_dequeue,
+	.endpoint_disable	= ehci_endpoint_disable,
+	.endpoint_reset		= ehci_endpoint_reset,
+	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
+
+	/*
+	 * scheduling support
+	 */
+	.get_frame_number	= ehci_get_frame,
+
+	/*
+	 * root hub support
+	 */
+	.hub_status_data	= ehci_hub_status_data,
+	.hub_control		= ehci_hub_control,
+	.relinquish_port	= ehci_relinquish_port,
+	.port_handed_over	= ehci_port_handed_over,
+
+	/*
+	 * PM support
+	 */
+	.bus_suspend		= ehci_bus_suspend,
+	.bus_resume		= ehci_bus_resume,
+};
 
 static int ehci_msm_probe(struct platform_device *pdev)
 {
@@ -127,7 +172,6 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	}
 
 	hcd->phy = phy_l;
-	//hcd_to_ehci(hcd)->transceiver = phy;
 	device_init_wakeup(&pdev->dev, 1);
 
 	pm_runtime_enable(&pdev->dev);
@@ -150,7 +194,6 @@ static int ehci_msm_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	//hcd_to_ehci(hcd)->transceiver = NULL;
 	otg_set_host(hcd->phy->otg, NULL);
 
 	/* FIXME: need to call usb_remove_hcd() here? */
@@ -195,7 +238,9 @@ static int ehci_msm_pm_suspend(struct device *dev)
 	if (!hcd->rh_registered)
 		return 0;
 
-	return ehci_suspend(hcd, do_wakeup);
+	ehci_suspend(hcd, do_wakeup);
+
+	return usb_phy_set_suspend(phy, 1);
 }
 
 static int ehci_msm_pm_resume(struct device *dev)
@@ -209,7 +254,6 @@ static int ehci_msm_pm_resume(struct device *dev)
 	
 	ehci_resume(hcd, false);
 
-	return 0;
 	return usb_phy_set_suspend(phy, 0);
 }
 #endif
@@ -220,11 +264,6 @@ static const struct dev_pm_ops ehci_msm_dev_pm_ops = {
 				ehci_msm_runtime_idle)
 };
 
-static struct of_device_id msm_ehci_dt_match[] = {
-	{ .compatible = "qcom,ehci-host", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, msm_ehci_dt_match);
 
 static struct platform_driver ehci_msm_driver = {
 	.probe	= ehci_msm_probe,
@@ -232,31 +271,5 @@ static struct platform_driver ehci_msm_driver = {
 	.driver = {
 		   .name = "msm_hsusb_host",
 		   .pm = &ehci_msm_dev_pm_ops,
-		   .of_match_table = msm_ehci_dt_match,
 	},
 };
-
-static const struct ehci_driver_overrides msm_overrides __initdata = {
-	.reset = ehci_msm_reset,
-};
-
-static int __init ehci_msm_init(void)
-{
-	if (usb_disabled())
-		return -ENODEV;
-
-	pr_info("%s: " "Qualcomm On-Chip EHCI Host Controller" "\n", "ehci-msm");
-	ehci_init_driver(&msm_hc_driver, &msm_overrides);
-	return platform_driver_register(&ehci_msm_driver);
-}
-//module_init(ehci_msm_init);
-
-static void __exit ehci_msm_cleanup(void)
-{
-	platform_driver_unregister(&ehci_msm_driver);
-}
-//module_exit(ehci_msm_cleanup);
-
-MODULE_DESCRIPTION("Qualcomm On-Chip EHCI Host Controller");
-MODULE_ALIAS("platform:msm-ehci");
-MODULE_LICENSE("GPL");
