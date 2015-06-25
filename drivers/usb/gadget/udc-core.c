@@ -407,7 +407,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
 			goto found;
 	}
 
-	pr_debug("couldn't find an available UDC\n");
+	pr_err("usb_gadget_probe_driver: couldn't find an available UDC\n");
 	mutex_unlock(&udc_lock);
 	return -ENODEV;
 found:

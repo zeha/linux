@@ -175,6 +175,10 @@ static int ci_hdrc_msm_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "ci_hdrc_msm_probe\n");
 
+	struct ci_hdrc_platform_data_android *pdata_android =
+			(struct ci_hdrc_platform_data_android*) pdev->dev.platform_data;
+	ci_hdrc_msm_platdata.usb_core_id = pdata_android->usb_core_id;
+
 	plat_ci = ci_hdrc_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
 				&ci_hdrc_msm_platdata);
