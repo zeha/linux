@@ -35,6 +35,11 @@ struct ci_hdrc_platform_data {
 	void	(*notify_event) (struct ci_hdrc *ci, unsigned event);
 	struct regulator	*reg_vbus;
 	void	*context;		/* private data */
+	u8		usb_core_id;
+};
+
+struct ci_hdrc_platform_data_android {
+	u8		usb_core_id;
 };
 
 /* Default offset of capability registers */

@@ -1809,6 +1809,7 @@ static int udc_start(struct ci_hdrc *ci)
 	ci->gadget.max_speed    = USB_SPEED_HIGH;
 	ci->gadget.is_otg       = 0;
 	ci->gadget.name         = ci->platdata->name;
+	ci->gadget.usb_core_id 	= ci->platdata->usb_core_id;
 
 	INIT_LIST_HEAD(&ci->gadget.ep_list);
 

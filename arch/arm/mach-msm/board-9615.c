@@ -29,6 +29,7 @@
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
 #include <linux/usb/android.h>
+#include <linux/usb/chipidea.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/leds.h>
@@ -1154,7 +1155,7 @@ USB_DP, while MC7304 DV1 and other products all use MPP_01 for this purpose */
 }
 #endif /* CONFIG_SIERRA */
 
-static struct ci13xxx_platform_data msm_peripheral_pdata = {
+static struct ci_hdrc_platform_data_android msm_peripheral_pdata = {
 	.usb_core_id = 0,
 };
 
