@@ -3110,7 +3110,7 @@ static void smsm_driver_state_notify(uint32_t state, void *data)
 int smd_core_init(void)
 {
 	int r;
-	unsigned long flags = IRQF_TRIGGER_RISING;
+	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND;
 	SMD_INFO("smd_core_init()\n");
 
 	r = request_irq(INT_A9_M2A_0, smd_modem_irq_handler,
