@@ -1211,7 +1211,6 @@ static int ehci_hub_control (
 			 */
 			temp &= ~PORT_WKCONN_E;
 			temp |= PORT_WKDISC_E | PORT_WKOC_E;
-			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
 			if (ehci->susp_sof_bug)
 				ehci_writel(ehci, temp, status_reg);
 			else

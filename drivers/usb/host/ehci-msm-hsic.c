@@ -1152,7 +1152,9 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 
 	dbg_log_event(NULL, "FPR: Wokeup", 0);
 	spin_lock_irq(&ehci->lock);
-	(void) ehci_readl(ehci, &ehci->regs->command);
+
+	/* EHCI code likes to cache the last command */
+	ehci->command = ehci_readl(ehci, &ehci->regs->command);
 
 	temp = 0;
 	if (ehci->async->qh_next.qh)
