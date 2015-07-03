@@ -923,6 +923,15 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* SWISTOP */
 	if (intf == ac_header_desc.baInterfaceNr[0]) {
 		if (alt == 1) {
+			if(!in_ep->desc)
+			{
+				err = config_ep_by_speed(f->config->cdev->gadget, f, in_ep);
+				if(err){
+					in_ep->desc = NULL;
+					pr_err("config_ep_by_speed failes for ep %s, result %d\n",in_ep->name, err);
+					return err;
+				}
+			}
 			err = usb_ep_enable(in_ep);
 			if (err) {
 				/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */	
@@ -974,6 +983,15 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		audio->alt_intf[0] = alt;
 	} else if (intf == ac_header_desc.baInterfaceNr[1]) {
 		if (alt == 1) {
+			if(!out_ep->desc)
+			{
+				err = config_ep_by_speed(f->config->cdev->gadget, f, out_ep);
+				if(err){
+					out_ep->desc = NULL;
+					pr_err("config_ep_by_speed failes for ep %s, result %d\n",out_ep->name, err);
+					return err;
+				}
+			}
 			err = usb_ep_enable(out_ep);
 			if (err) {
 				/* SWISTART - SBM 14027 QTI confirmed this is only a warning message, which can be removed */
