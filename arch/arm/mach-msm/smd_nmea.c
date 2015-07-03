@@ -94,7 +94,7 @@ static void nmea_work_func(struct work_struct *ws)
         }
         else
         {
-          printk(KERN_ERR "NMEA read driver miss interrupt, abandon current buff\n");
+          printk(KERN_DEBUG "NMEA read driver miss interrupt, abandon current buff\n");
           smd_use=0;
 
         }
