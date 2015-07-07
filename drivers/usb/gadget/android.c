@@ -1164,6 +1164,11 @@ static void serial_function_cleanup(struct android_usb_function *f)
 	gserial_cleanup();
 }
 
+static void serial_function_disable(struct android_usb_function *f)
+{
+	gserial_cleanup();
+}
+
 static int serial_function_bind_config(struct android_usb_function *f,
 					struct usb_configuration *c)
 {
@@ -1213,6 +1218,7 @@ out:
 static struct android_usb_function serial_function = {
 	.name		= "serial",
 	.cleanup	= serial_function_cleanup,
+	.disable	= serial_function_disable,
 	.bind_config	= serial_function_bind_config,
 	.attributes	= serial_function_attributes,
 };
