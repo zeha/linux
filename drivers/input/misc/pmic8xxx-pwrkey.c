@@ -168,6 +168,13 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	struct pmic8xxx_pwrkey *pwrkey;
 	const struct pm8xxx_pwrkey_platform_data *pdata =
 					dev_get_platdata(&pdev->dev);
+/* SWISTART */
+#if defined(CONFIG_SIERRA_PWRKEY)
+	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND;
+#else
+	unsigned long flags = IRQF_TRIGGER_RISING;
+#endif
+/* SWISTOP */
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "power key platform data not supplied\n");
@@ -229,7 +236,7 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 /* SWISTOP */
 
 	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
-		IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
+		 flags, "pmic8xxx_pwrkey_press", pwrkey);
 	if (err < 0) {
 		dev_dbg(&pdev->dev, "Can't get %d IRQ for pwrkey: %d\n",
 				 key_press_irq, err);
