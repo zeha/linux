@@ -881,6 +881,18 @@ static ssize_t export_store(struct class *class,
 
 /*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO
+		/* Check if RI gpio is owned by APP core
+		 * In this case, create the gpio11 for RI management
+		 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER */
+		if( 1 == bsgetriowner() ) {
+			pr_info( "gpio_export: RI owner is APP\n" );
+			ext_gpio[GPIO_RI].function = EMBEDED_HOST;
+		}
+		else {
+			pr_info( "gpio_export: RI owner is Modem\n" );
+			ext_gpio[GPIO_RI].function = UNALLOCATED;
+		}
+
 		int_gpio = ext_map_gpio(gpio);
 		if(int_gpio < 0)
 			return int_gpio;
