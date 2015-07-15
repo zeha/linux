@@ -618,7 +618,7 @@ static int _hardware_dequeue(struct ci_hw_ep *hwep, struct ci_hw_req *hwreq)
 	hwreq->req.actual += actual;
 
 	if (hwreq->req.status)
-		return hwreq->req.status;
+		hwreq->req.actual = 0;
 
 	return hwreq->req.actual;
 }
