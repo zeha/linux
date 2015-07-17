@@ -947,12 +947,28 @@ __acquires(hwep->lock)
 	struct ci_hw_req *hwreq, *hwreqtemp;
 	struct ci_hw_ep *hweptemp = hwep;
 	int retval = 0;
+	int req_dequeue = 1;
 
 	list_for_each_entry_safe(hwreq, hwreqtemp, &hwep->qh.queue,
 			queue) {
+dequeue:
 		retval = _hardware_dequeue(hwep, hwreq);
-		if (retval < 0)
+		if (retval < 0) {
+			/*
+			 * FIXME: don't know exact delay
+			 * required for HW to update dTD status
+			 * bits. This is a temporary workaround till
+			 * HW designers come back on this.
+			 */
+			if (retval == -EBUSY && req_dequeue &&
+				(hwep->dir == 0 || hwep->num == 0)) {
+				req_dequeue = 0;
+				udelay(10);
+				goto dequeue;
+			}
 			break;
+		}
+		req_dequeue = 0;
 		list_del_init(&hwreq->queue);
 		if (hwreq->req.complete != NULL) {
 			spin_unlock(hwep->lock);
@@ -1165,7 +1181,7 @@ static int ep_enable(struct usb_ep *ep,
 	struct ci_hw_ep *hwep = container_of(ep, struct ci_hw_ep, ep);
 	int retval = 0;
 	unsigned long flags;
-	u32 cap = 0;
+	unsigned mult = 0;
 
 	if (ep == NULL || desc == NULL)
 		return -EINVAL;
@@ -1183,24 +1199,26 @@ static int ep_enable(struct usb_ep *ep,
 	hwep->num  = usb_endpoint_num(desc);
 	hwep->type = usb_endpoint_type(desc);
 
-	hwep->ep.maxpacket = usb_endpoint_maxp(desc) & 0x07ff;
-	hwep->ep.mult = QH_ISO_MULT(usb_endpoint_maxp(desc));
+	hwep->ep.maxpacket = usb_endpoint_maxp(desc);
 
-	if (hwep->type == USB_ENDPOINT_XFER_CONTROL)
-		cap |= QH_IOS;
+	hwep->qh.ptr->cap = 0;
 
-	cap |= QH_ZLT;
-	cap |= (hwep->ep.maxpacket << __ffs(QH_MAX_PKT)) & QH_MAX_PKT;
-	/*
-	 * For ISO-TX, we set mult at QH as the largest value, and use
-	 * MultO at TD as real mult value.
-	 */
-	if (hwep->type == USB_ENDPOINT_XFER_ISOC && hwep->dir == TX)
-		cap |= 3 << __ffs(QH_MULT);
+	if (hwep->type == USB_ENDPOINT_XFER_CONTROL) {
+		hwep->qh.ptr->cap |=  QH_IOS;
+	} else if (hwep->type == USB_ENDPOINT_XFER_ISOC) {
+		hwep->qh.ptr->cap &= ~QH_MULT;
+		mult = ((hwep->ep.maxpacket >> QH_MULT_SHIFT) + 1) & 0x03;
+		hwep->qh.ptr->cap |= (mult << __ffs(QH_MULT));
+	} else {
+		hwep->qh.ptr->cap |= QH_ZLT;
+	}
 
-	hwep->qh.ptr->cap = cpu_to_le32(cap);
+	hwep->qh.ptr->cap |=
+		(hwep->ep.maxpacket << __ffs(QH_MAX_PKT)) & QH_MAX_PKT;
+	hwep->qh.ptr->td.next |= TD_TERMINATE;   /* needed? */
 
-	hwep->qh.ptr->td.next |= cpu_to_le32(TD_TERMINATE);   /* needed? */
+	/* complete all the updates to ept->head before enabling endpoint*/
+	mb();
 
 	/*
 	 * Enable endpoints in the HW other than ep0 as ep0
