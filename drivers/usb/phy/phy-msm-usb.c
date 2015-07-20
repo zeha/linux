@@ -956,6 +956,12 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
+	if ((readl_relaxed(USB_PORTSC) & PORT_RESUME))
+		return -EBUSY;
+
+	if (phy->state == OTG_STATE_B_PERIPHERAL && !test_bit(A_BUS_SUSPEND, &motg->inputs))
+		return -EBUSY;
+
 	disable_irq(motg->irq);
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
 		!test_bit(ID, &motg->inputs);
