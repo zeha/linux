@@ -305,7 +305,7 @@ static struct smack_known *smk_fetch(const char *name, struct inode *ip,
  *
  * Returns the new blob or NULL if there's no memory available
  */
-struct inode_smack *new_inode_smack(struct smack_known *skp)
+static struct inode_smack *new_inode_smack(struct smack_known *skp)
 {
 	struct inode_smack *isp;
 
