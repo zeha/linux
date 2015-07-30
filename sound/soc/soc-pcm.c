@@ -131,35 +131,18 @@ EXPORT_SYMBOL_GPL(snd_soc_set_runtime_hwparams);
 int dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir,
 	int event)
 {
-	struct snd_soc_dpcm *dpcm;
-	struct snd_soc_dai *codec_dai;
+	struct snd_soc_dpcm *dpcm_params;
 
-	list_for_each_entry(dpcm, &fe->dpcm[dir].be_clients, list_be) {
+	snd_soc_dapm_rtd_stream_event(fe, dir, event);
 
-		struct snd_soc_pcm_runtime *be = dpcm->be;
+	list_for_each_entry(dpcm_params, &fe->dpcm[dir].be_clients, list_be) {
 
-		dev_dbg(be->dev, "ASoC: BE %s event %d dir %d\n",
+		struct snd_soc_pcm_runtime *be = dpcm_params->be;
+
+		dev_dbg(be->dev, "pm: BE %s event %d dir %d\n",
 				be->dai_link->name, event, dir);
 
-		codec_dai = be->codec_dai;
-		if((codec_dai != NULL) && (codec_dai->driver != NULL)) {
-			if (dir == SNDRV_PCM_STREAM_PLAYBACK)
-				snd_soc_dapm_stream_event(be,
-							codec_dai->driver->playback.stream_name, event);
-			else
-				snd_soc_dapm_stream_event(be,
-							codec_dai->driver->capture.stream_name, event);
-		}
-	}
-
-	codec_dai = fe->codec_dai;
-	if((codec_dai != NULL) && (codec_dai->driver != NULL)) {
-		if (dir == SNDRV_PCM_STREAM_PLAYBACK)
-			snd_soc_dapm_stream_event(fe,
-							codec_dai->driver->playback.stream_name, event);
-		else
-			snd_soc_dapm_stream_event(fe,
-							codec_dai->driver->capture.stream_name, event);
+		snd_soc_dapm_rtd_stream_event(be, dir, event);
 	}
 
 	return 0;
@@ -343,29 +326,6 @@ static void soc_pcm_init_runtime_hw(struct snd_pcm_runtime *runtime,
 	hw->rate_min = max(hw->rate_min, codec_stream->rate_min);
 	hw->rate_max = min_not_zero(hw->rate_max, cpu_stream->rate_max);
 	hw->rate_max = min_not_zero(hw->rate_max, codec_stream->rate_max);
-}
-
-/*
- * stream event, send event to FE and all active BEs.
- */
-int soc_dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
-	int dir, const char *stream, int event)
-{
-	struct snd_soc_dpcm *dpcm_params;
-
-	snd_soc_dapm_rtd_stream_event(fe, dir, event);
-
-	list_for_each_entry(dpcm_params, &fe->dpcm[dir].be_clients, list_be) {
-
-		struct snd_soc_pcm_runtime *be = dpcm_params->be;
-
-		dev_dbg(be->dev, "pm: BE %s stream %s event %d dir %d\n",
-				be->dai_link->name, stream, event, dir);
-
-		snd_soc_dapm_rtd_stream_event(be, dir, event);
-	}
-
-	return 0;
 }
 
 /*
@@ -2683,6 +2643,22 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		if (capture)
 			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream->private_data = rtd;
 		goto out;
+	}
+
+	/* setup any hostless PCMs - i.e. no host IO is performed */
+	if (rtd->dai_link->no_host_mode) {
+		if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
+			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream->hw_no_buffer = 1;
+			snd_soc_set_runtime_hwparams(
+					pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream,
+				&no_host_hardware);
+		}
+		if (pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
+			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream->hw_no_buffer = 1;
+			snd_soc_set_runtime_hwparams(
+					pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream,
+				&no_host_hardware);
+		}
 	}
 
 	/* ASoC PCM operations */

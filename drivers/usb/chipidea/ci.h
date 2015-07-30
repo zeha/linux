@@ -54,6 +54,8 @@ enum ci_hw_regs {
 	OP_LAST = OP_ENDPTCTRL + ENDPT_MAX / 2,
 };
 
+#define CAP_ENDPTPIPEID     (0x0BCUL)
+
 /******************************************************************************
  * STRUCTURES
  *****************************************************************************/
@@ -188,10 +190,12 @@ struct ci_hdrc {
 	struct ci_hw_ep			*ep0out, *ep0in;
 
 	struct usb_request		*status;
+	void                    *status_buf;/* GET_STATUS buffer */
 	bool				setaddr;
 	u8				address;
 	u8				remote_wakeup;
 	u8				suspended;
+	u8              configured;  /* is device configured */
 	u8				test_mode;
 
 	struct ci_hdrc_platform_data	*platdata;
@@ -239,6 +243,30 @@ static inline void ci_role_stop(struct ci_hdrc *ci)
 	ci->role = CI_ROLE_END;
 
 	ci->roles[role]->stop(ci);
+}
+
+/**
+ * hw_opread: reads from register bitfield
+ * @addr: address relative to OP offset plus content
+ * @mask: bitfield mask
+ *
+ * This function returns register bitfield data
+ */
+static u32 hw_opread(struct ci_hdrc *ci, u32 addr, u32 mask)
+{
+	return ioread32(addr + ci->hw_bank.op) & mask;
+}
+
+/**
+ * hw_opwrite: writes to register bitfield
+ * @addr: address relative to OP offset plus content
+ * @mask: bitfield mask
+ * @data: new data
+ */
+static void hw_opwrite(struct ci_hdrc *ci, u32 addr, u32 mask, u32 data)
+{
+	iowrite32(hw_opread(ci,addr, ~mask) | (data & mask),
+		  addr + ci->hw_bank.op);
 }
 
 /**

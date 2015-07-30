@@ -19,6 +19,14 @@
 #define RX        0  /* similar to USB_DIR_OUT but can be used as an index */
 #define TX        1  /* similar to USB_DIR_IN  but can be used as an index */
 
+/* UDC private data:
+ *  16MSb - Vendor ID | 16 LSb Vendor private data
+ */
+#define CI_REQ_VENDOR_ID(id)  (id & 0xFFFF0000UL)
+
+#define MSM_ETD_TYPE			BIT(1)
+#define MSM_EP_PIPE_ID_RESET_VAL	0x1F001F
+
 /* DMA layout of transfer descriptors */
 struct ci_hw_td {
 	/* 0 */
@@ -51,6 +59,7 @@ struct ci_hw_qh {
 #define QH_ZLT                BIT(29)
 #define QH_MULT               (0x0003UL << 30)
 #define QH_ISO_MULT(x)		((x >> 11) & 0x03)
+#define QH_MULT_SHIFT         11
 	/* 1 */
 	u32 curr;
 	/* 2 - 8 */
