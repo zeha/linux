@@ -41,6 +41,7 @@
 #endif
 #endif
 #include <mach/gpiomux.h>
+#include <mach/msm_xo.h>
 
 static void  install_codec_i2s_gpio(void);
 
@@ -478,6 +479,8 @@ static int mdm9615_auxpcm_frame = AFE_PCM_CFG_FRM_256BPF;
 static struct clk *codec_clk;
 static int clk_users;
 
+static struct msm_xo_voter *xo_handle_a1;
+
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
@@ -708,6 +711,8 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
+	int rc;
+
 	pr_info("%s: enable = %d\n", __func__, enable);
 	if (enable) {
 		clk_users++;
@@ -743,8 +748,16 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 #if defined(CONFIG_MFD_WM8944)
 		if(bssupport(BSFEATURE_WM8944) == true)
 		{
-			clk_set_rate(codec_clk, WM8944_EXT_CLK_RATE);
-			clk_prepare_enable(codec_clk);
+			if (!bssupport(BSFEATURE_CF3))
+			{
+				clk_set_rate(codec_clk, WM8944_EXT_CLK_RATE);
+				clk_prepare_enable(codec_clk);
+			}
+			else
+			{
+				rc = msm_xo_mode_vote(xo_handle_a1, MSM_XO_MODE_ON);
+				pr_debug("%s() msm_xo_mode_vote on, rc=%d\n", __func__, rc);
+			}
 		}
 #endif
 #endif
@@ -768,7 +781,15 @@ static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 #endif /* #ifdef CONFIG_WCD9310_CODEC */
 			}
 #endif /* #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC) */
-			clk_disable_unprepare(codec_clk);
+			if (!bssupport(BSFEATURE_CF3))
+			{
+				clk_disable_unprepare(codec_clk);
+			}
+			else
+			{
+				rc = msm_xo_mode_vote(xo_handle_a1, MSM_XO_MODE_OFF);
+				pr_debug("%s() msm_xo_mode_vote off, rc=%d\n", __func__, rc);
+			}
 		}
 	}
 	return 0;
@@ -792,6 +813,8 @@ static int mdm9615_mclk_event(struct snd_soc_dapm_widget *w,
 static int mdm9615_ar7_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
+	int rc;
+
 	pr_info("%s: enable = %d\n", __func__, enable);
 
 	if (enable) {
@@ -806,8 +829,16 @@ static int mdm9615_ar7_enable_codec_ext_clk(struct snd_soc_codec *codec, int ena
 			clk_users--;
 			return -EINVAL;
 		}
-		clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
-		clk_prepare_enable(codec_clk);
+		if (!bssupport(BSFEATURE_CF3))
+		{
+			clk_set_rate(codec_clk, TABLA_EXT_CLK_RATE);
+			clk_prepare_enable(codec_clk);
+		}
+		else
+		{
+			rc = msm_xo_mode_vote(xo_handle_a1, MSM_XO_MODE_ON);
+			pr_debug("%s() msm_xo_mode_vote on, rc=%d\n", __func__, rc);
+		}
 	} else {
 		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
 		if (clk_users == 0)
@@ -816,7 +847,15 @@ static int mdm9615_ar7_enable_codec_ext_clk(struct snd_soc_codec *codec, int ena
 		if (!clk_users) {
 			pr_debug("%s: disabling clk_users = %d\n",
 					 __func__, clk_users);
-			clk_disable_unprepare(codec_clk);
+			if (!bssupport(BSFEATURE_CF3))
+			{
+				clk_disable_unprepare(codec_clk);
+			}
+			else
+			{
+				rc = msm_xo_mode_vote(xo_handle_a1, MSM_XO_MODE_OFF);
+				pr_debug("%s() msm_xo_mode_vote off, rc=%d\n", __func__, rc);
+			}
 		}
 	}
 	return 0;
@@ -1554,6 +1593,10 @@ static int mdm9615_ar7_sec_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
           ARRAY_SIZE(mdm9615_ar7_dapm_widgets));
 
   codec_clk = clk_get(cpu_dai->dev, "sec_pcm_clk");
+  if (bssupport(BSFEATURE_CF3))
+  {
+	xo_handle_a1 = msm_xo_get( MSM_XO_TCXO_A1, "cf3_mclk");
+  }
 
   return 0;
 }
@@ -2639,7 +2682,6 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
-
 #if !defined(CONFIG_SIERRA_INTERNAL_CODEC) && !defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	if (hs_detect_use_gpio) {
 		pr_debug("%s: GPIO Headset detection enabled\n", __func__);

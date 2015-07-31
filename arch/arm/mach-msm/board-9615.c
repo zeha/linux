@@ -249,7 +249,6 @@ static struct pm8xxx_gpio_init pm8018_gpios_cf3[] __initdata = {
 	PM8018_GPIO_OUTPUT(3, 1, HIGH), /* CODEC ON, temporary until Trac#2839 */
 	PM8018_GPIO_OUTPUT(4, 0, LOW),  /* USB_VBUS_EN */
 	PM8018_GPIO_OUTPUT(5, 0, LOW), /* CTRL_MCU_RESET for CF3 */
-	PM8018_GPIO_INPUT(6, PM_GPIO_PULL_UP_30), /* XO_OUT_A1_EN, pulled up so XO_OUT_A1 is ON by default. Temporary until Trac#2929 */
 };
 #endif
 
