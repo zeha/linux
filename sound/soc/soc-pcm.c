@@ -1059,10 +1059,27 @@ void dpcm_be_disconnect(struct snd_soc_pcm_runtime *fe, int stream)
 	}
 }
 
-///// from 3.4 start
+/*
+ *  Function ported from Qualcomm adaptation of the 3.4 kernel
+ */
+static struct snd_soc_dapm_widget *be_get_widget(struct snd_soc_card *card,
+		struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dapm_widget *widget;
 
+	list_for_each_entry(widget, &card->widgets, list) {
 
-///// from 3.4 end
+		if (!widget->sname)
+			continue;
+
+		if (!strcmp(widget->sname, rtd->dai_link->stream_name))
+			return widget;
+	}
+
+	dev_err(card->dev, "can't get widget for %s\n",
+			rtd->dai_link->stream_name);
+	return NULL;
+}
 
 /* get BE for DAI widget and stream */
 static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
@@ -1143,6 +1160,8 @@ int dpcm_path_get(struct snd_soc_pcm_runtime *fe,
 static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	struct snd_soc_dapm_widget_list **list_)
 {
+	struct snd_soc_card *card = fe->card;
+
 	struct snd_soc_dpcm *dpcm;
 	struct snd_soc_dapm_widget_list *list = *list_;
 	struct snd_soc_dapm_widget *widget;
@@ -1151,26 +1170,25 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	/* Destroy any old FE <--> BE connections */
 	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be) {
 
-		/* is there a valid CPU DAI widget for this BE */
-		widget = rtd_get_cpu_widget(dpcm->be, stream);
-
-		/* prune the BE if it's no longer in our active list */
-		if (widget && widget_in_list(list, widget))
+		/* is there a valid widget for this BE */
+		widget = be_get_widget(card, dpcm->be);
+		if (!widget) {
+			dev_err(fe->dev, "ASoC: no widget found for %s\n",
+					dpcm->be->dai_link->name);
 			continue;
-
-		/* is there a valid CODEC DAI widget for this BE */
-		widget = rtd_get_codec_widget(dpcm->be, stream);
+		}
 
 		/* prune the BE if it's no longer in our active list */
-		if (widget && widget_in_list(list, widget))
+		if (widget_in_list(list, widget))
 			continue;
 
 		dev_dbg(fe->dev, "ASoC: pruning %s BE %s for %s\n",
-			stream ? "capture" : "playback",
-			dpcm->be->dai_link->name, fe->dai_link->name);
+			stream ? "capture" : "playback", dpcm->be->dai_link->name,
+			fe->dai_link->name);
 		dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
 		dpcm->be->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_BE;
 		prune++;
+
 	}
 
 	dev_dbg(fe->dev, "ASoC: found %d old BE paths for pruning\n", prune);
