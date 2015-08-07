@@ -69,6 +69,7 @@ struct wm8944_priv {
 	int vmid_refcount;
 	enum wm8944_vmid_mode vmid_mode;
 	int codec_initializing;
+	struct work_struct work;
 };
 
 
@@ -693,6 +694,15 @@ static void power_off_seq(struct snd_soc_codec *codec)
 
 }
 
+static void wm8944_work(struct work_struct *work)
+{
+	struct wm8944_priv *priv = container_of(work, struct wm8944_priv,work);
+	struct snd_soc_codec *codec = priv->codec;
+
+	dev_dbg(codec->dev, " %s wm8944_work +++ \n", __func__);
+	power_off_seq(codec);
+
+}
 
 static void vmid_dereference(struct snd_soc_codec *codec)
 {
@@ -1215,7 +1225,7 @@ static int wm8944_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 			/* PCM stream event */
 			dev_dbg(codec->dev," %s  PCM Stop cmd =%d ,stream %d ", __func__, cmd,substream->stream);
 			wm8944->codec_initializing = 0;
-			power_off_seq(codec);
+			schedule_work(&wm8944->work);
 		}
 		break;
 	}
@@ -1584,6 +1594,9 @@ static int wm8944_probe(struct platform_device *pdev)
 
 	wm8944->wm8944 = dev_get_drvdata(pdev->dev.parent);
 	wm8944->pdata = dev_get_platdata(pdev->dev.parent);
+
+
+	INIT_WORK(&wm8944->work, wm8944_work);
 
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wm8944,
 				     &wm8944_dai, 1);
