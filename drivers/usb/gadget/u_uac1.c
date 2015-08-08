@@ -59,7 +59,8 @@ MODULE_PARM_DESC(sample_rate, "Sample rate for playback and capture");
 
 static struct gaudio *the_card;
 
-static bool audio_reinit;
+static bool audio_reinit_capture;
+static bool audio_reinit_playback;
 
 /*-------------------------------------------------------------------------*/
 
@@ -152,7 +153,7 @@ int pcm_period_size(struct snd_pcm_hw_params *params)
 /**
  * Set default hardware params
  */
-static int playback_prepare_params(struct gaudio_snd_dev *snd)
+static int playback_prepare_hw_params(struct gaudio_snd_dev *snd)
 {
 	struct snd_pcm_substream *substream = snd->substream;
 	struct snd_pcm_hw_params *params;
@@ -244,7 +245,7 @@ static int playback_prepare_params(struct gaudio_snd_dev *snd)
 	return 0;
 }
 
-static int capture_prepare_params(struct gaudio_snd_dev *snd)
+static int capture_prepare_hw_params(struct gaudio_snd_dev *snd)
 {
 	struct snd_pcm_substream *substream = snd->substream;
 	struct snd_pcm_runtime   *runtime = substream->runtime;
@@ -328,8 +329,10 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 
 	result = snd_pcm_kernel_ioctl(substream,
 			SNDRV_PCM_IOCTL_SW_PARAMS, swparams);
-	if (result < 0)
+	if (result < 0) {
 		pr_err("SNDRV_PCM_IOCTL_SW_PARAMS failed: %d\n", (int)result);
+		kfree(swparams);
+	}
 
 	kfree(swparams);
 	kfree(params);
@@ -431,7 +434,7 @@ static int capture_default_hw_params(struct gaudio_snd_dev *snd)
 	return 0;
 }
 
-static int gaudio_open_streams(void)
+static int gaudio_open_playback_streams(void)
 {
 	struct gaudio_snd_dev *snd;
 	int res = 0;
@@ -445,30 +448,46 @@ static int gaudio_open_streams(void)
 
 	/* Open PCM playback device and setup substream */
 	snd = &the_card->playback;
-	res = playback_prepare_params(snd);
+	res = playback_prepare_hw_params(snd);
 	if (res) {
 		pr_err("Setting playback params failed: err %d", res);
-		return res;
+	/*	return res; */
 	}
 
 	pr_debug("Initialized playback params");
 
-	/* Open PCM capture device and setup substream */
-	snd = &the_card->capture;
-	res = capture_prepare_params(snd);
-	if (res) {
-		pr_err("Setting capture params failed: err %d", res);
-		return res;
+	return 0;
+}
+
+static int gaudio_open_capture_streams(void)
+{
+	struct gaudio_snd_dev *snd;
+	int res = 0;
+
+	if (!the_card) {
+		pr_err("%s: Card is NULL", __func__);
+		return -ENODEV;
 	}
 
-	pr_info("Initialized capture params");
+	pr_debug("Initialize hw params");
 
-	return 0;
+	/* Open PCM capture device and setup substream */
+	snd = &the_card->capture;
+	res = capture_prepare_hw_params(snd);
+	if (res) {
+                pr_err("Setting capture params failed: err %d", res);
+        /*        return res; */
+        }
+
+        pr_info("Initialized capture params");
+
+        return 0;
 }
 
 void u_audio_clear(void)
 {
-	audio_reinit = false;
+	audio_reinit_capture = false;
+	audio_reinit_playback = false;
 }
 
 /**
@@ -489,13 +508,13 @@ static size_t u_audio_playback(struct gaudio *card, void *buf, size_t count)
 		return 0;
 	}
 
-	if (!audio_reinit) {
-		err = gaudio_open_streams();
+	if (!audio_reinit_playback) {
+		err = gaudio_open_playback_streams();
 		if (err) {
 			pr_err("Failed to init audio streams");
 			return 0;
 		}
-		audio_reinit = 1;
+		audio_reinit_playback = 1;
 	}
 try_again:
 	if (runtime->status->state == SNDRV_PCM_STATE_XRUN ||
@@ -543,13 +562,13 @@ static size_t u_audio_capture(struct gaudio *card, void *buf, size_t count)
 	struct snd_pcm_substream *substream = snd->substream;
 	struct snd_pcm_runtime   *runtime = substream->runtime;
 
-	if (!audio_reinit) {
-		err = gaudio_open_streams();
+	if (!audio_reinit_capture) {
+		err = gaudio_open_capture_streams();
 		if (err) {
 			pr_err("Failed to init audio streams: err %d", err);
 			return 0;
 		}
-		audio_reinit = 1;
+		audio_reinit_capture = 1;
 	}
 
 try_again:
@@ -654,7 +673,7 @@ static int gaudio_open_snd_dev(struct gaudio *card)
 	res = playback_default_hw_params(snd);
 	if (res) {
 		pr_err("Setting playback HW params failed: err %d", res);
-		return res;
+	/*	return res; */
 	}
 
 	/* Open PCM capture device and setup substream */
