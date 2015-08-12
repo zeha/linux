@@ -183,11 +183,7 @@ struct __packed bcboottoappmsg
  *
  * Purpose:  To provide a structure to share the resoure assigned state .
  *
- * Members:
- *           bcstartmarker - marker indicating the start of this structure
- *           bcgpioflag    - external gpio owner flag.
- *           bcuartfun     - UART1 and UART2 function
- *           bcendmarker   - marker indicating the end of this structure
+ * Members:  See inline comments below
  *
  * Note:     1. Both markers must contain BC_VALID_BOOT_MSG_MARKER for the
  *              contents to be considered valid.
@@ -201,10 +197,12 @@ struct __packed bccoworkmsg
   uint32_t bcstartmarker;    /* indicates start of structure */
   uint16_t bcgpioflag;       /* external gpio owner flag. */
   uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
-  uint8_t  bcriowner;        /* RI owner*/
+  uint8_t  bcriowner;        /* RI owner */
   uint8_t  bcsleepind;       /* Sleep inidcation function */
-  uint8_t  bcreserved_u8[2]; /* The unused memory for uint 8*/
-  uint32_t bcreserved[12];   /* The unused memory */
+  uint8_t  bcresettype;      /* reset type */
+  uint32_t bcgpioflag_ext;   /* Extension of External GPIO owner flags (bits 16-47) */
+  uint8_t  bcreserved_u8[1]; /* The unused memory for uint 8 */
+  uint32_t bcreserved[11];   /* The unused memory */
   uint32_t bcendmarker;      /* indicates end of structure */
 };
 

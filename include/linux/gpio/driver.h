@@ -120,7 +120,7 @@ struct gpio_chip {
 #endif
 /*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	unsigned mask;
+	u64 mask;
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
 /*SWISTOP*/
 };
