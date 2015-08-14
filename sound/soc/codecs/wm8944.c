@@ -261,7 +261,7 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	SOC_SINGLE("ZC Timeout Clock Switch", WM8944_ADDCNTRL, 0, 1, 0),
 	//
 
-#ifdef DEBUG_REGISTER_ACCESS
+#if DEBUG_REGISTER_ACCESS
 	//	SOC_SINGLE_EXT("reg00", SND_SOC_NOPM, 0, 65535, 0,  WM8944_get_reset,
 	//		       WM8944_set_reset), /* R0  - Chip Revision Id1  */
 	SOC_SINGLE("reg01", 0x01, 0, 65535, 0),  /* R1  - Chip Revision Id2 (RO) */
@@ -428,22 +428,22 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 
 static int wm8944_unmute(struct snd_soc_codec *codec)
 {
+	u16 i,volume;
 	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
 	u16 mute_dac_reg = snd_soc_read(codec, WM8944_DACVOL) & 0xFEFF;
-	u16 mute_spk_reg = snd_soc_read(codec, WM8944_SPEAKVOL) & 0xFFBF;
 	u16 mute_adcall_reg = snd_soc_read(codec, WM8944_ADCCTL1) & 0xFEFF;
 	u16 mute_inpga_reg = snd_soc_read(codec, WM8944_INPUTPGAGAINCTL) & 0xFFBF;
 
 	dev_dbg(codec->dev, " %s unmute +++ \n", __func__);
 
-	snd_soc_write(codec, WM8944_DACVOL, mute_dac_reg);
+	/*  Set DAC mute  and  DAC volume 0 */
+	snd_soc_write(codec, WM8944_DACVOL, 0x0100);
 	snd_soc_update_bits(codec, WM8944_POWER2,
 				    WM8944_SPK_MIX_MUTE_MASK,
 				    0);
 
-	snd_soc_write(codec, WM8944_SPEAKVOL, mute_spk_reg);
-
-	msleep(10);
+	/* Unmute Speak PGA and set volume as -57dB */
+	snd_soc_write(codec, WM8944_SPEAKVOL, 0x40);
 
 	/* Unmute SPKP and SPKN */
 	dev_dbg(codec->dev, " %s unmute spk_mix,spk vol,dac \n", __func__);
@@ -452,10 +452,22 @@ static int wm8944_unmute(struct snd_soc_codec *codec)
 				    WM8944_SPKN_OP_MUTE_MASK,
 				    0);
 
+	msleep(10);
+
 	snd_soc_write(codec, WM8944_ADCCTL1, mute_adcall_reg);
 	snd_soc_write(codec, WM8944_INPUTPGAGAINCTL, mute_inpga_reg);
 
+	/* Increase speaker volume from  -12dB to 0dB, step 1 */
+	for(i=1,volume =0x2D; i<13;i++)
+	{
+		snd_soc_write(codec, WM8944_SPEAKVOL, volume + i);
+	}
+
+	/* Unmute DAC ,DAC volume set as 0dB */
+	snd_soc_write(codec, WM8944_DACVOL, 0x00C0);
 	wm8944->codec_initializing = 0;
+
+	dev_dbg(codec->dev, " %s unmute --- \n", __func__);
 
 	return 0;
 }
@@ -599,7 +611,7 @@ static void vmid_reference(struct snd_soc_codec *codec)
 			WARN_ON(0 == "Invalid VMID mode");
 		case WM8944_VMID_SLOW:
 		case WM8944_VMID_NORMAL:
-			msleep(400);
+			msleep(100);
 			break;
 
 		case WM8944_VMID_FAST:
@@ -625,6 +637,38 @@ static void vmid_reference(struct snd_soc_codec *codec)
 	}
 }
 
+static void power_off_mute_seq(struct snd_soc_codec *codec)
+{
+	u16 mute_dac_reg = snd_soc_read(codec, WM8944_DACVOL) & 0xFEFF;
+	u16 mute_adcall_reg = snd_soc_read(codec, WM8944_ADCCTL1) & 0xFEFF;
+	u16 mute_inpga_reg = snd_soc_read(codec, WM8944_INPUTPGAGAINCTL) & 0xFFBF;
+	int ret;
+	u16 i, volume;
+
+	dev_dbg(codec->dev, "%s mute +++ \n", __func__);
+
+	mute_dac_reg |= WM8944_DAC_MUTE;
+	mute_adcall_reg |= WM8944_ADC_MUTE_ALL;
+	mute_inpga_reg |= WM8944_INPGA_MUTE;
+
+	/* Decrease the volume from 0dB to -12dB ,step 1 */
+	for(i=1,volume=0x39; i<13; i++)
+	{
+		snd_soc_write(codec, WM8944_SPEAKVOL, volume-i);
+	}
+
+	/* Set DAC mute and volume as 0 - mute */
+	snd_soc_write(codec, WM8944_DACVOL, 0x0100);
+	snd_soc_write(codec, WM8944_ADCCTL1, mute_adcall_reg);
+	snd_soc_write(codec, WM8944_INPUTPGAGAINCTL, mute_inpga_reg);
+
+	/* Mute spk_pga and set volume as -57dB */
+	snd_soc_write(codec, WM8944_SPEAKVOL, 0x40);
+
+	dev_dbg(codec->dev, "%s mute  --- \n", __func__);
+
+}
+
 static void power_off_seq(struct snd_soc_codec *codec)
 {
 
@@ -632,6 +676,8 @@ static void power_off_seq(struct snd_soc_codec *codec)
 	enum wm8944_vmid_mode vmid_mode = wm8944->vmid_mode;
 
 	dev_dbg(codec->dev, "power_off_seq now +++ \n");
+
+	power_off_mute_seq(codec);
 
 	/* Select LDO for fast start up */
 	snd_soc_update_bits(codec, WM8944_LDO,
@@ -654,6 +700,7 @@ static void power_off_seq(struct snd_soc_codec *codec)
 		    WM8944_BIAS_SRC_STARTUP);
 
 	/* Disable VMID */
+	dev_dbg(codec->dev, "power_off_seq disable vmid \n");
 	snd_soc_update_bits(codec, WM8944_ADDCNTRL,
 		    WM8944_VMID_ENA_MASK ,
 		    0);
@@ -689,6 +736,8 @@ static void power_off_seq(struct snd_soc_codec *codec)
 		    WM8944_SPKN_OP_ENA_MASK|
 		    WM8944_SPKP_OP_ENA_MASK,
 		    0);
+
+	wm8944->codec_initializing =0;
 
 	dev_dbg(codec->dev, "power_off_seq now --- \n");
 
@@ -753,15 +802,10 @@ static int spkoutn_vdd_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		dev_dbg(codec->dev, "%s PRE_PMU\n", __func__);
-		snd_soc_update_bits(codec, WM8944_POWER2,
-				    WM8944_SPKN_OP_ENA_MASK,
-				    WM8944_SPKN_OP_ENA);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
 		dev_dbg(codec->dev, "%s POST_PMD\n", __func__);
-		snd_soc_update_bits(codec, WM8944_POWER2,
-				    WM8944_SPKN_OP_ENA_MASK, 0);
 		break;
 	}
 
@@ -776,15 +820,10 @@ static int spkoutp_vdd_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		dev_dbg(codec->dev, "%s PRE_PMU\n", __func__);
-		snd_soc_update_bits(codec, WM8944_POWER2,
-				    WM8944_SPKP_OP_ENA_MASK,
-				    WM8944_SPKP_OP_ENA);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
 		dev_dbg(codec->dev, "%s POST_PMD\n", __func__);
-		snd_soc_update_bits(codec, WM8944_POWER2,
-				    WM8944_SPKP_OP_ENA_MASK, 0);
 		break;
 	}
 
@@ -905,13 +944,13 @@ static const struct snd_soc_dapm_widget wm8944_dapm_widgets[] = {
 			    &wm8944_loopback_adc_dac_controls),
 	SND_SOC_DAPM_SWITCH("Interface Loopback", SND_SOC_NOPM, 0, 0,
 			    &wm8944_loopback_interface_controls),
-	SND_SOC_DAPM_SUPPLY("SPKOUTN VDD", WM8944_POWER2,
-			    WM8944_SPKN_SPKVDD_ENA_SHIFT, 0, spkoutn_vdd_event,
+	SND_SOC_DAPM_SUPPLY("SPKOUTN VDD", SND_SOC_NOPM,
+			    0, 0, spkoutn_vdd_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY("SPKOUTP VDD", WM8944_POWER2,
-			    WM8944_SPKP_SPKVDD_ENA_SHIFT, 0, spkoutp_vdd_event,
+	SND_SOC_DAPM_SUPPLY("SPKOUTP VDD", SND_SOC_NOPM,
+			    0, 0, spkoutp_vdd_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY("VMID", WM8944_ADDCNTRL, WM8944_VMID_ENA_SHIFT, 0,
+	SND_SOC_DAPM_SUPPLY("VMID", WM8944_ADDCNTRL, SND_SOC_NOPM, 0,
 			    vmid_event,
 			    SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
@@ -1224,7 +1263,7 @@ static int wm8944_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 		{ 
 			/* PCM stream event */
 			dev_dbg(codec->dev," %s  PCM Stop cmd =%d ,stream %d ", __func__, cmd,substream->stream);
-			wm8944->codec_initializing = 0;
+			wm8944->codec_initializing = 1;
 			schedule_work(&wm8944->work);
 		}
 		break;
