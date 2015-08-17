@@ -2649,6 +2649,7 @@ struct yaffs_options {
 	int empty_lost_and_found;
 	int empty_lost_and_found_overridden;
 	int disable_summary;
+	int force_oobsize_check;
 };
 
 #define MAX_OPT_LEN 30
@@ -2707,6 +2708,8 @@ static int yaffs_parse_options(struct yaffs_options *options,
 		} else if (!strcmp(cur_opt, "no-checkpoint")) {
 			options->skip_checkpoint_read = 1;
 			options->skip_checkpoint_write = 1;
+		} else if (!strcmp(cur_opt, "force-oobsize-check")) {
+			options->force_oobsize_check = 1;
 		} else {
 			printk(KERN_INFO "yaffs: Bad mount option \"%s\"\n",
 			       cur_opt);
@@ -2823,9 +2826,30 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 		yaffs_version = 2;
 	}
 
-	if (mtd->oobavail < sizeof(struct yaffs_packed_tags2) ||
-	    options.inband_tags)
+	/*
+	   Check if YAFFS2 tags could fit into OOB area. If not, tags must be stored
+	   inband. Currently, YAFFS2 tags have two parts: tags part and tags ECC part.
+	   Tags part is 16 bytes, and ECC part is 12 bytes long. If 2K page flash part
+	   is used (SWIR WP85), OOB area is 16 bytes long. It is obvious that full
+	   tags structure could not fit in there.
+
+	   However, YAFFS2 in Yocto 1.6 kernel (3.4.91), does not check for OOB size,
+	   therefore allowing for OOB area overflow. Even though this is a bug, we
+	   need to be backwards compatible, and need to emulate previous YAFFS2
+	   behaviour. As long as we are not using ECC on YAFFS2 tags, we should be
+	   OK.
+	*/
+	if ((mtd->oobavail < sizeof(struct yaffs_packed_tags2)) && (options.force_oobsize_check != 0)) {
+		/* Force inband tags, because they cannot fit in OOB area. */
+		yaffs_trace(YAFFS_TRACE_ALWAYS, "tags cannot fit into oob area, forcing inband");
 		inband_tags = 1;
+	}
+
+	/* If user explicitly requested inband tags, so be it. */
+	if(options.inband_tags) {
+		yaffs_trace(YAFFS_TRACE_ALWAYS, "forcing inband, user reauested");
+		inband_tags = 1;
+	}
 
 	/* Added NCB 26/5/2006 for completeness */
 	if (yaffs_version == 2 && !inband_tags
