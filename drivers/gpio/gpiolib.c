@@ -17,12 +17,9 @@
 
 #include "gpiolib.h"
 
-/*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 #include <linux/sierra_bsudefs.h>
-#include <linux/sierra_bsuproto.h>
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 
 
 #define CREATE_TRACE_POINTS
@@ -91,99 +88,133 @@ static LIST_HEAD(gpio_chips);
 static DEFINE_IDR(dirent_idr);
 #endif
 
-/*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
-#define NR_EXT_GPIOS 10
-#define GPIO_RI NR_EXT_GPIOS
-
-typedef enum
-{
-  UNALLOCATED = 0,
-  ECALL_GPIO,
-  ANT_SEL_GPIO,
-  EXT_SIM2_DET,
-  GENERAL_GPIO,
-  EMBEDED_HOST = 16,
-  MAX_FUN,
-}ar_ext_gpio_funtction;
+/* Define use cases for GPIO - Unallocated GPIO cannot be
+ * exposed in sysfs */
+#define FUNCTION_UNALLOCATED   0
+#define FUNCTION_EMBEDDED_HOST 1
 
 struct ext_gpio_map{
 	int ext_num;
 	int gpio_num;
 	unsigned function;
 };
-struct ext_gpio_map ext_gpio[]={
-	{1,80,UNALLOCATED},
-	{2,73,UNALLOCATED},
-	{3,30,UNALLOCATED},
-	{4,29,UNALLOCATED},
-	{5,4,UNALLOCATED},
-	{6,72,UNALLOCATED},
-	{7,21,UNALLOCATED},
-	{8,60,UNALLOCATED},
-	{9,45,UNALLOCATED},
-	{10,40,UNALLOCATED},
+
+/* AR has 10 standard GPIO + RI at the end of the table */
+#define NR_EXT_GPIOS_AR  10
+#define GPIO_RI NR_EXT_GPIOS_AR
+static struct ext_gpio_map ext_gpio_ar[NR_EXT_GPIOS_AR + 1]={
+	{1, 80,FUNCTION_UNALLOCATED},
+	{2, 73,FUNCTION_UNALLOCATED},
+	{3, 30,FUNCTION_UNALLOCATED},
+	{4, 29,FUNCTION_UNALLOCATED},
+	{5,  4,FUNCTION_UNALLOCATED},
+	{6, 72,FUNCTION_UNALLOCATED},
+	{7, 21,FUNCTION_UNALLOCATED},
+	{8 ,60,FUNCTION_UNALLOCATED},
+	{9, 45,FUNCTION_UNALLOCATED},
+	{10,40,FUNCTION_UNALLOCATED},
 	/* gpio used for RI */
-	{11,66,UNALLOCATED},
+	{11,66,FUNCTION_UNALLOCATED}
 };
 
+#define NR_EXT_GPIOS_CF3 13
+static struct ext_gpio_map ext_gpio_cf3[NR_EXT_GPIOS_CF3]={
+	{2, 59,FUNCTION_UNALLOCATED},
+	{6, 66,FUNCTION_UNALLOCATED},
+	{7, 79,FUNCTION_UNALLOCATED},
+	{8, 29,FUNCTION_UNALLOCATED},
+	{13,84,FUNCTION_UNALLOCATED},
+	{21,50,FUNCTION_UNALLOCATED},
+	{22,49,FUNCTION_UNALLOCATED},
+	{23,54,FUNCTION_UNALLOCATED},
+	{24,61,FUNCTION_UNALLOCATED},
+	{25,73,FUNCTION_UNALLOCATED},
+	{32,30,FUNCTION_UNALLOCATED},
+	{33,78,FUNCTION_UNALLOCATED},
+	/* GPIOs 34-37 not supported yet */
+	{42,80,FUNCTION_UNALLOCATED}
+};
 
-struct gpio_chip gpio_ext_chip = {
+/* Product specific assignments in gpiolib_sysfs_init() */
+static struct ext_gpio_map *ext_gpio = NULL;
+static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
-		.ngpio  = NR_EXT_GPIOS,
 };
-int ext_map_gpio(int offset)
+
+/**
+ * gpio_map_ext_to_int() - Return the internal GPIO number for an
+ *                         external GPIO pin definition
+ * @offset: The external GPIO pin number
+ * Context: After gpiolib_sysfs_init has setup the gpio device
+ *
+ * Returns a negative number if the offset is not a recognized GPIO number
+ * or if the access to the GPIO is prohibited.
+ *
+ */
+static int gpio_map_ext_to_int(int offset)
 {
 	int i;
-	for(i = 0; i < ARRAY_SIZE(ext_gpio); i++)
+
+	if (ext_gpio != NULL)
 	{
-		if(offset == ext_gpio[i].ext_num)
+		for(i = 0; i < gpio_ext_chip.ngpio; i++)
 		{
-			if(EMBEDED_HOST == ext_gpio[i].function)
-			{
-				return ext_gpio[i].gpio_num;
-			}
-			else
-			{
-				pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
-				return -1;
+			if(offset == ext_gpio[i].ext_num)
+		{
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				{
+					return ext_gpio[i].gpio_num;
+				}
+				else
+				{
+					pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
+					return -1;
+				}
 			}
 		}
 	}
-	if(i == ARRAY_SIZE(ext_gpio))
-	{
-		pr_err("Can not find GPIO%d", offset);
-	}
+	pr_err("Can not find GPIO%d", offset);
 	return -1;
 }
 
-int gpio_map_ext(int offset)
+/**
+ * gpio_map_int_to_ext() - Return the external GPIO number for an
+ *                         internal GPIO pin definition
+ * @offset: The internal (i.e. MDM) GPIO pin number
+ * Context: After gpiolib_sysfs_init has setup the gpio device
+ *
+ * Returns a negative number if the offset is not a recognized GPIO number
+ * or if the access to the GPIO is prohibited.
+ *
+ */
+static int gpio_map_int_to_ext(int offset)
 {
 	int i;
-	for(i = 0; i < ARRAY_SIZE(ext_gpio); i++)
+
+	if (ext_gpio != NULL)
 	{
-		if(offset == ext_gpio[i].gpio_num)
+		for(i = 0; i < gpio_ext_chip.ngpio; i++)
 		{
-			if(EMBEDED_HOST == ext_gpio[i].function)
+		if(offset == ext_gpio[i].gpio_num)
 			{
-				return ext_gpio[i].ext_num;
-			}
-			else
-			{
-				pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
-				return -1;
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				{
+					return ext_gpio[i].ext_num;
+				}
+				else
+				{
+					pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
+					return -1;
+				}
 			}
 		}
 	}
-	if(i == ARRAY_SIZE(ext_gpio))
-	{
-		pr_err("Can not find GPIO%d", offset);
-	}
+	pr_err("Can not find GPIO%d", offset);
 	return -1;
 }
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 
 
 static int gpiod_request(struct gpio_desc *desc, const char *label);
@@ -828,28 +859,24 @@ static ssize_t chip_ngpio_show(struct device *dev,
 }
 static DEVICE_ATTR(ngpio, 0444, chip_ngpio_show, NULL);
 
-/*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 static ssize_t chip_mask_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	const struct gpio_chip	*chip = dev_get_drvdata(dev);
 
-	return sprintf(buf, "0x%x\n", chip->mask);
+	return sprintf(buf, "0x%08x%08x\n", (u32)(chip->mask>>32)&0xFFFFFFFF, (u32)chip->mask&0xFFFFFFFF);
 }
 static DEVICE_ATTR(mask, 0444, chip_mask_show, NULL);
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 
 static const struct attribute *gpiochip_attrs[] = {
 	&dev_attr_base.attr,
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
-/*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 	&dev_attr_mask.attr,
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 	NULL,
 };
 
@@ -870,34 +897,34 @@ static ssize_t export_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
-/*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO	
 	int int_gpio = -1;
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 	status = kstrtol(buf, 0, &gpio);
 	if (status < 0)
 		goto done;
 
-/*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO
+	if(bssupport(BSFEATURE_AR))
+	{
 		/* Check if RI gpio is owned by APP core
 		 * In this case, create the gpio11 for RI management
 		 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER */
 		if( 1 == bsgetriowner() ) {
 			pr_info( "gpio_export: RI owner is APP\n" );
-			ext_gpio[GPIO_RI].function = EMBEDED_HOST;
+			ext_gpio[GPIO_RI].function = FUNCTION_EMBEDDED_HOST;
 		}
 		else {
 			pr_info( "gpio_export: RI owner is Modem\n" );
-			ext_gpio[GPIO_RI].function = UNALLOCATED;
+			ext_gpio[GPIO_RI].function = FUNCTION_UNALLOCATED;
 		}
+	}
 
-		int_gpio = ext_map_gpio(gpio);
-		if(int_gpio < 0)
-			return int_gpio;
+	int_gpio = gpio_map_ext_to_int(gpio);
+	if(int_gpio < 0)
+		return int_gpio;
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
+
 	desc = gpio_to_desc(gpio);
 	/* reject invalid GPIOs */
 	if (!desc) {
@@ -909,7 +936,6 @@ static ssize_t export_store(struct class *class,
 	 * request and export were done on behalf of userspace, so
 	 * they may be undone on its behalf too.
 	 */
-/*SWISTART*/
 #ifdef CONFIG_SIERRA_EXT_GPIO
 	status = gpio_request(int_gpio, "sysfs");
 	if (status < 0){
@@ -936,7 +962,6 @@ static ssize_t export_store(struct class *class,
 	else
 		set_bit(FLAG_SYSFS, &desc->flags);
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 done:
 	if (status)
 		pr_debug("%s: status %d\n", __func__, status);
@@ -950,17 +975,15 @@ static ssize_t unexport_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
-/*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO	
 	int int_gpio = -1;
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
 	status = kstrtol(buf, 0, &gpio);
 	if (status < 0)
 		goto done;
-/*SWISTART*/ 
+
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	int_gpio = ext_map_gpio(gpio);
+	int_gpio = gpio_map_ext_to_int(gpio);
 	if(int_gpio < 0)
 		return int_gpio;
 
@@ -997,7 +1020,7 @@ static ssize_t unexport_store(struct class *class,
 		gpiod_free(desc);
 	}
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
+
 done:
 	if (status)
 		pr_debug("%s: status %d\n", __func__, status);
@@ -1074,17 +1097,15 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	if (desc->chip->names && desc->chip->names[offset])
 		ioname = desc->chip->names[offset];
 
-/*SWISTART*/ 
 #ifdef CONFIG_SIERRA_EXT_GPIO
 		dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
-		        desc, ioname ? ioname : "gpio%u", gpio_map_ext(offset));
+		        desc, ioname ? ioname : "gpio%u", gpio_map_int_to_ext(offset));
 #else
 	
 	dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
 			    desc, ioname ? ioname : "gpio%u",
 			    desc_to_gpio(desc));
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/ 
 
 	if (IS_ERR(dev)) {
 		status = PTR_ERR(dev);
@@ -1335,31 +1356,56 @@ static int __init gpiolib_sysfs_init(void)
 	 * registered, and so arch_initcall() can always gpio_export().
 	 */
 	spin_lock_irqsave(&gpio_lock, flags);
-/*SWISTART*/
+
 #ifdef CONFIG_SIERRA_EXT_GPIO
+	/* Assign product specific GPIO mapping */
+	if (bssupport(BSFEATURE_CF3))
+	{
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_CF3;
+		ext_gpio = ext_gpio_cf3;
+	}
+	else if (bssupport(BSFEATURE_AR))
+	{
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+		ext_gpio = ext_gpio_ar;
+	}
+	else
+	{
+		pr_info( "No sysfs entries for gpio on unsupported product family" );
+		gpio_ext_chip.ngpio = 0;
+	}
+
 	gpio_ext_chip.mask = bsgetgpioflag();
+	/* bit X in mask represents GPIO_(X+1) */
 	for(gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
 	{
-		if(gpio_ext_chip.mask & (0x0001 << gpio))
+		if(gpio_ext_chip.mask & (0x1ULL << (ext_gpio[gpio].ext_num - 1)))
 		{
-			ext_gpio[gpio].function = EMBEDED_HOST;
+			ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
 		}
 		else
 		{
-			ext_gpio[gpio].function = UNALLOCATED;
+			ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
 		}
 	}
-	gpio_ext_chip.dev = gpio_desc[0].chip->dev;
 
 	/* Check if RI gpio is owned by APP core
 	 * In this case, create the gpio11 for RI management
 	 */
-	status = gpiochip_export(&gpio_ext_chip);
 	/* RI owner: 1 APP , 0 Modem. See AT!RIOWNER */
-	if( 1 == bsgetriowner() ) {
-		pr_info( "RI owner is APP/Linux\n" );
-		ext_gpio[GPIO_RI].function = EMBEDED_HOST;
+	if(bssupport(BSFEATURE_AR))
+	{
+		/* Increment ngpio to account for RI */
+		gpio_ext_chip.ngpio++;
+		if (1 == bsgetriowner())
+		{
+			pr_info( "RI owner is APP/Linux\n" );
+			ext_gpio[GPIO_RI].function = FUNCTION_EMBEDDED_HOST;
+		}
 	}
+
+	gpio_ext_chip.dev = gpio_desc[0].chip->dev;
+	status = gpiochip_export(&gpio_ext_chip);
 #else
 	for (gpio = 0; gpio < ARCH_NR_GPIOS; gpio++) {
 		struct gpio_chip	*chip;
@@ -1373,7 +1419,7 @@ static int __init gpiolib_sysfs_init(void)
 		spin_lock_irqsave(&gpio_lock, flags);
 	}
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-/*SWISTOP*/
+
 	spin_unlock_irqrestore(&gpio_lock, flags);
 
 	return status;

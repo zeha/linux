@@ -911,7 +911,7 @@ bool bscheckcoworkmsgmsk(void)
  *
  * Name:     bsgetgpioflag()
  *
- * Purpose:  Returns the external gpio owner flag
+ * Purpose:  Returns the concatenation of external gpio owner flags
  *
  * Parms:    none
  *
@@ -922,19 +922,29 @@ bool bscheckcoworkmsgmsk(void)
  * Notes:
  *
  ************/
-uint16_t bsgetgpioflag(void)
+uint64_t bsgetgpioflag(void)
 {
   volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+  uint64_t result = 0;
+  uint8_t *p;
 
   if (bscheckcoworkmsgmsk() == true)
   {
-    return mp->bcgpioflag;
+    /* Add lower bits */
+    result = (uint64_t)(mp->bcgpioflag & 0x0000FFFF);
+
+    /* Add the extension flags, bits 16-47 */
+    p = &mp->bcgpioflag_ext;
+    result += (uint64_t)*p++ << 16;
+    result += (uint64_t)*p++ << 24;
+    result += (uint64_t)*p++ << 32;
+    result += (uint64_t)*p++ << 40;
   }
   else
   {
     pr_err("Cooperative mode message read procedure failed.");
-    return 0;
   }
+  return result;
 }
 EXPORT_SYMBOL(bsgetgpioflag);
 

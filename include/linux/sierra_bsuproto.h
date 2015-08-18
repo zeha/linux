@@ -21,7 +21,7 @@ extern uint8_t bsgethwrev(void);
 extern uint32_t bsgetmanufacturingcode(void);
 extern bool bssupport(enum bsfeature feature);
 extern uint32_t bsreadboottoappflag(void);
-extern uint16_t bsgetgpioflag(void);
+extern uint64_t bsgetgpioflag(void);
 extern bool bsuart4modem(uint uart_num );
 extern int8_t bsgetuartfun(uint);
 extern int8_t bsgetriowner(void);
