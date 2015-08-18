@@ -185,35 +185,50 @@ int add_deserialization_func(void *ctxt, int type,
 				      struct decode_context *));
 #else
 
-#define ipc_log_context_create(max_num_pages, modname) NULL
+static void *ipc_log_context_create(int max_num_pages, const char *modname)
+{ return NULL; }
 
-#define msg_encode_start(ectxt, type) { }
+static void msg_encode_start(struct encode_context *ectxt, uint32_t type) { }
 
-#define tsv_timestamp_write(ectxt) -EINVAL
+static int tsv_timestamp_write(struct encode_context *ectxt)
+{ return -EINVAL; }
 
-#define tsv_pointer_write(ectxt, pointer) -EINVAL
+static int tsv_pointer_write(struct encode_context *ectxt, void *pointer)
+{ return -EINVAL; }
 
-#define tsv_int32_write(ectxt, n) -EINVAL
+static int tsv_int32_write(struct encode_context *ectxt, int32_t n)
+{ return -EINVAL; }
 
-#define tsv_byte_array_write(ectxt, data, data_size) -EINVAL
+static int tsv_byte_array_write(struct encode_context *ectxt,
+			 void *data, int data_size)
+{ return -EINVAL; }
 
-#define msg_encode_end(ectxt) { }
+static void msg_encode_end(struct encode_context *ectxt) { }
 
-#define ipc_log_write(ctxt, ectxt) { }
+static void ipc_log_write(void *ctxt, struct encode_context *ectxt) { }
 
-#define ipc_log_string(ilctxt, fmt, ...) -EINVAL
+static int ipc_log_string(void *ilctxt, const char *fmt, ...)
+{ return -EINVAL; }
 
 #define IPC_SPRINTF_DECODE(dctxt, args...) do { } while (0)
 
-#define tsv_timestamp_read(ectxt, dctxt, format) { }
+static void tsv_timestamp_read(struct encode_context *ectxt,
+			struct decode_context *dctxt, const char *format) { }
 
-#define tsv_pointer_read(ectxt, dctxt, format) { }
+static void tsv_pointer_read(struct encode_context *ectxt,
+		      struct decode_context *dctxt, const char *format) { }
 
-#define tsv_int32_read(ectxt, dctxt, format) 0
+static int32_t tsv_int32_read(struct encode_context *ectxt,
+		       struct decode_context *dctxt, const char *format)
+{ return 0; }
 
-#define tsv_byte_array_read(ectxt, dctxt, format) { }
+static void tsv_byte_array_read(struct encode_context *ectxt,
+			 struct decode_context *dctxt, const char *format) { }
 
-#define add_deserialization_func(ctxt, type, dfunc) 0
+static int add_deserialization_func(void *ctxt, int type,
+			void (*dfunc)(struct encode_context *,
+				      struct decode_context *))
+{ return 0; }
 
 #endif
 
