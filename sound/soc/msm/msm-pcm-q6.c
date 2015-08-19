@@ -43,6 +43,9 @@ struct snd_msm {
 #define PLAYBACK_PERIOD_SIZE	2048
 #define CAPTURE_NUM_PERIODS	16
 #define CAPTURE_PERIOD_SIZE	320
+#define CMD_EOS_MIN_TIMEOUT_LENGTH  50
+#define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
+
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -287,6 +290,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
 			break;
 		prtd->cmd_ack = 0;
+		prtd->close_ack = 1;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -428,14 +432,27 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = runtime->private_data;
+	uint32_t timeout;
 	int dir = 0;
 	int ret = 0;
 
 	pr_debug("%s\n", __func__);
 
 	dir = IN;
+
+	/* Determine timeout length */
+	if (runtime->frame_bits == 0 || runtime->rate == 0) {
+		timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
+	} else {
+		timeout = (runtime->period_size * CMD_EOS_TIMEOUT_MULTIPLIER) /
+		          ((runtime->frame_bits / 8) * runtime->rate);
+		if (timeout < CMD_EOS_MIN_TIMEOUT_LENGTH)
+			timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
+	}
+
 	ret = wait_event_timeout(the_locks.eos_wait,
-				prtd->cmd_ack, 5 * HZ);
+				prtd->close_ack, timeout);
+
 	if (ret < 0)
 		pr_err("%s: CMD_EOS failed\n", __func__);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
