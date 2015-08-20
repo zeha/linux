@@ -260,6 +260,7 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	//
 	SOC_SINGLE("ZC Timeout Clock Switch", WM8944_ADDCNTRL, 0, 1, 0),
 	//
+	SOC_SINGLE("BYP to Speak PGA Switch", WM8944_SPEAKMIXCTL1, 6, 1, 0),
 
 #if DEBUG_REGISTER_ACCESS
 	//	SOC_SINGLE_EXT("reg00", SND_SOC_NOPM, 0, 65535, 0,  WM8944_get_reset,
