@@ -298,6 +298,14 @@ bool bssupport(
         case BSMC7802:
         case BSMC7304:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -354,6 +362,18 @@ bool bssupport(
         case BSWP7100_NEW:
         case BSWP7102_NEW:
         case BSWP7104_NEW:
+        case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
+        case BSWP85XX:
+        case BSWP8548:
+        case BSWP8548G:
         case BSAR7554RD:
         case BSAR8652:
         case BSAR7552RD:
@@ -371,6 +391,10 @@ bool bssupport(
       {
         case BSMC7350:
         case BSMC7350L:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7504:
+        case BSWP7504G:
           supported = false;
           break;
 
@@ -431,6 +455,14 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR8652:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -481,6 +513,14 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR7552RD:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -536,6 +576,10 @@ bool bssupport(
         case BSWP7100_LARGER_MEMORY:
         case BSMC7350:
         case BSWP7100_NEW:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
           supported = true;
           break;
 
@@ -550,6 +594,12 @@ bool bssupport(
       {
         case BSMC7350:
         case BSMC7350L:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7504:
+        case BSWP7504G:
           supported = false;
           break;
 
@@ -564,6 +614,10 @@ bool bssupport(
       {
         case BSMC7350:
         case BSMC7350L:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7504:
+        case BSWP7504G:
           supported = false;
           break;
 
@@ -666,6 +720,14 @@ bool bssupport(
         case BSAR8652:
         case BSAR7552RD:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -720,6 +782,14 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -793,6 +863,14 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -837,6 +915,14 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR7552RD:
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:
@@ -853,6 +939,14 @@ bool bssupport(
       switch (hwtype)
       {
         case BSWP75XX:
+        case BSWP7500:
+        case BSWP7500G:
+        case BSWP7501:
+        case BSWP7501G:
+        case BSWP7502:
+        case BSWP7502G:
+        case BSWP7504:
+        case BSWP7504G:
         case BSWP85XX:
         case BSWP8548:
         case BSWP8548G:

@@ -25,63 +25,74 @@
  *
  * Notes:    If adding items to this enum, make sure arrays using these enums
  *           are updated.
+ *           Note that absolute value is used in some startup scripts, so new
+ *           values should be added without modifying existing entries to
+ *           minimize the required changes
  *
  ************/
 enum bshwtype
 {
-  BSQCTMTP,                 /* Qualcomm MTP */
-  BSHWNONE,                 /* HW type NONE (Fuse has not been blown yet) */
-  BSAC770S,                 /* AirCard 770S (HANSEL) */
-  BSMC7355,                 /* MiniCard 7355 */
-  BSAR7550,                 /* Automotive 7550 */
-  BSAR7552,                 /* Automotive 7552 */
-  BSAR7554,                 /* Automotive 7554 */
-  BSEM7355,                 /* Embedded Module 7355 */
-  BSAC340U,                 /* AirCard 340U (GRADY) */
-  BSWP7100,                 /* WP7100 (for Verizon) */
-  BSWP7102,                 /* WP7102 (for AT&T) */
-  BSWP7104,                 /* WP7104 (for EU&APAC) */
-  BSMC7305,                 /* MiniCard 7305 */
-  BSEM7305,                 /* Embedded Module 7305 */
-  BSAC342U,                 /* AirCard 342U (OSSO) */
-  BSAC341U,                 /* AirCard 341U */
-  BSEM7655,                 /* EM7655 (TFF version of EM7355) */
-  BSMC8805,                 /* MiniCard 8805 */
-  BSEM8805,                 /* Embeddded Module 8805 */
-  BSAC771S,                 /* AirCard 771S */
-  BSYW7X55,                 /* LGA module - experimental */
-  BSWP7100_INSIM,           /* WP7100 (with In-SIM) */
-  BSWP7102_INSIM,           /* WP7102 (with In-SIM) */
-  BSWP7104_INSIM,           /* WP7104 (with In-SIM) */
-  BSMC7350,                 /* MiniCard 7350 (for Verizon & Sprint) */
-  BSMC7350L,                /* MiniCard 7350-L (for Verizon)*/
-  BSMC7802,                 /* MiniCard 7802 (for AT&T) */
-  BSMC7304,                 /* MiniCard 7304 (for EU) */
-  BSWP7100_LARGER_MEMORY,   /* WP7100 (with Larger Memory Design) */
-  BSWP7102_LARGER_MEMORY,   /* WP7102 (with Larger Memory Design) */
-  BSWP7104_LARGER_MEMORY,   /* WP7104 (with Larger Memory Design) */
-  BSEM7330,                 /* Embedded Module 7330 */
-  BSMC7330,                 /* MiniCard 7330 */
-  BSAC343U,                 /* AirCard 343U */
-  BSMC7371,                 /* MiniCard 7371 */
-  BSAC778S,                 /* AirCard 778S */
-  BSAR7550_LARGER_MEMORY,   /* Automotive 7550  (with Larger Memory Design) */
-  BSAR7552_LARGER_MEMORY,   /* Automotive 7552  (with Larger Memory Design) */
-  BSAR7554_LARGER_MEMORY,   /* Automotive 7554  (with Larger Memory Design) */
-  BSWP7100_NEW,             /* WP7100 with large memory based on AR PCB */
-  BSWP7102_NEW,             /* WP7102 with large memory based on AR PCB */
-  BSWP7104_NEW,             /* WP7104 with large memory based on AR PCB */
-  BSMC7354,                 /* MiniCard 7354 */
-  BSAR7558_LARGER_MEMORY,   /* Automotive 7558  (with Larger Memory Design) */
-  BSAR7556,                 /* Automotive 7556 */
-  BSWP75XX,                 /* WP75xx - WP75 family, RF board unknown */
-  BSWP85XX,                 /* WP85xx - WP85 family, RF board unknown */
-  BSWP8548,                 /* WP8548 */
-  BSWP8548G,                /* WP8548G */
-  BSAR8652,                 /* Automotive 8652 */
-  BSAR7556_LARGER_MEMORY,   /* Automotive 7556 (with Larger Memory Design) */
-  BSAR7554RD,               /* Automotive 7554 RD */
-  BSAR7552RD,               /* Automotive 7552 RD */
+  BSQCTMTP,                 /* 0x00 - Qualcomm MTP */
+  BSHWNONE,                 /* 0x01 - HW type NONE (Fuse has not been blown yet) */
+  BSAC770S,                 /* 0x02 - AirCard 770S (HANSEL) */
+  BSMC7355,                 /* 0x03 - MiniCard 7355 */
+  BSAR7550,                 /* 0x04 - Automotive 7550 */
+  BSAR7552,                 /* 0x05 - Automotive 7552 */
+  BSAR7554,                 /* 0x06 - Automotive 7554 */
+  BSEM7355,                 /* 0x07 - Embedded Module 7355 */
+  BSAC340U,                 /* 0x08 - AirCard 340U (GRADY) */
+  BSWP7100,                 /* 0x09 - WP7100 (for Verizon) */
+  BSWP7102,                 /* 0x0A - WP7102 (for AT&T) */
+  BSWP7104,                 /* 0x0B - WP7104 (for EU&APAC) */
+  BSMC7305,                 /* 0x0C - MiniCard 7305 */
+  BSEM7305,                 /* 0x0D - Embedded Module 7305 */
+  BSAC342U,                 /* 0x0E - AirCard 342U (OSSO) */
+  BSAC341U,                 /* 0x0F - AirCard 341U */
+  BSEM7655,                 /* 0x10 - EM7655 (TFF version of EM7355) */
+  BSMC8805,                 /* 0x11 - MiniCard 8805 */
+  BSEM8805,                 /* 0x12 - Embeddded Module 8805 */
+  BSAC771S,                 /* 0x13 - AirCard 771S */
+  BSYW7X55,                 /* 0x14 - LGA module - experimental */
+  BSWP7100_INSIM,           /* 0x15 - WP7100 (with In-SIM) */
+  BSWP7102_INSIM,           /* 0x16 - WP7102 (with In-SIM) */
+  BSWP7104_INSIM,           /* 0x17 - WP7104 (with In-SIM) */
+  BSMC7350,                 /* 0x18 - MiniCard 7350 (for Verizon & Sprint) */
+  BSMC7350L,                /* 0x19 - MiniCard 7350-L (for Verizon)*/
+  BSMC7802,                 /* 0x1A - MiniCard 7802 (for AT&T) */
+  BSMC7304,                 /* 0x1B - MiniCard 7304 (for EU) */
+  BSWP7100_LARGER_MEMORY,   /* 0x1C - WP7100 (with Larger Memory Design) */
+  BSWP7102_LARGER_MEMORY,   /* 0x1D - WP7102 (with Larger Memory Design) */
+  BSWP7104_LARGER_MEMORY,   /* 0x1E - WP7104 (with Larger Memory Design) */
+  BSEM7330,                 /* 0x1F - Embedded Module 7330 */
+  BSMC7330,                 /* 0x20 - MiniCard 7330 */
+  BSAC343U,                 /* 0x21 - AirCard 343U */
+  BSMC7371,                 /* 0x22 - MiniCard 7371 */
+  BSAC778S,                 /* 0x23 - AirCard 778S */
+  BSAR7550_LARGER_MEMORY,   /* 0x24 - Automotive 7550  (with Larger Memory Design) */
+  BSAR7552_LARGER_MEMORY,   /* 0x25 - Automotive 7552  (with Larger Memory Design) */
+  BSAR7554_LARGER_MEMORY,   /* 0x26 - Automotive 7554  (with Larger Memory Design) */
+  BSWP7100_NEW,             /* 0x27 - WP7100 with large memory based on AR PCB */
+  BSWP7102_NEW,             /* 0x28 - WP7102 with large memory based on AR PCB */
+  BSWP7104_NEW,             /* 0x29 - WP7104 with large memory based on AR PCB */
+  BSMC7354,                 /* 0x2A - MiniCard 7354 */
+  BSAR7558_LARGER_MEMORY,   /* 0x2B - Automotive 7558  (with Larger Memory Design) */
+  BSAR7556,                 /* 0x2C - Automotive 7556 */
+  BSWP75XX,                 /* 0x2D - WP75xx - WP75 family, RF board unknown */
+  BSWP85XX,                 /* 0x2E - WP85xx - WP85 family, RF board unknown */
+  BSWP8548,                 /* 0x2F - WP8548 */
+  BSWP8548G,                /* 0x30 - WP8548-G */
+  BSAR8652,                 /* 0x31 - Automotive 8652 */
+  BSAR7556_LARGER_MEMORY,   /* 0x32 - Automotive 7556 (with Larger Memory Design) */
+  BSAR7554RD,               /* 0x33 - Automotive 7554 RD */
+  BSAR7552RD,               /* 0x34 - Automotive 7552 RD */
+  BSWP7500,                 /* 0x35 - WP7500 */
+  BSWP7500G,                /* 0x36 - WP7500-G*/
+  BSWP7501,                 /* 0x37 - WP7501 */
+  BSWP7501G,                /* 0x38 - WP7501-G */
+  BSWP7502,                 /* 0x39 - WP7502 */
+  BSWP7502G,                /* 0x3A - WP7502-G */
+  BSWP7504,                 /* 0x3B - WP7504 */
+  BSWP7504G,                /* 0x3C - WP7504-G */
   BSHWUNKNOWN,              /* Unknown HW */
   BSHWINVALID = 0xFF        /* Invalid HW */
 };
