@@ -26,28 +26,43 @@ struct wake_n_pdata {
 	char name[64];
 	int irq;
 	struct wakeup_source ws;
+	struct platform_device *pdev;
+	struct work_struct check_work;
 } wake_n_pdata = {
 	.gpio = WAKEN_GNUMBER,
 };
 
-static inline int gpio_check_and_wake(struct wake_n_pdata *w)
+static void gpio_check_and_wake(struct work_struct *work)
 {
-	int gpioval = gpio_get_value(w->gpio);
+	int err, gpioval;
+	struct wake_n_pdata *w;
+	char event[16], *envp[2];
 
-	pr_info("%s: %s state %s\n", __func__, w->name,
-		(gpioval ? "SLEEP" : "WAKEUP"));
+	w = container_of(work, struct wake_n_pdata, check_work);
+	gpioval = gpio_get_value(w->gpio);
+	sprintf(event, "STATE=%s", (gpioval ? "SLEEP" : "WAKEUP"));
+	pr_info("%s: %s %s\n", __func__, w->name, event);
+
+	envp[0] = event;
+	envp[1] = NULL;
+	kobject_get(&w->pdev->dev.kobj);
+	if ((err = kobject_uevent_env(&w->pdev->dev.kobj, KOBJ_CHANGE, envp)))
+		pr_err("%s: error %d signaling uevent\n", __func__, err);
+	kobject_put(&w->pdev->dev.kobj);
 	if (gpioval)
 		__pm_relax(&w->ws);
-	else
-		__pm_stay_awake(&w->ws);
-
-	return gpioval;
 }
 
 static irqreturn_t gpio_wake_input_irq_handler(int irq, void *dev_id)
 {
 	struct wake_n_pdata *w = (struct wake_n_pdata*)dev_id;
-	gpio_check_and_wake(w);
+
+	/*
+	 * The gpio_check_and_wake routine calls kobject_uevent_env(),
+	 * which might sleep, so cannot call it from interrupt context.
+	 */
+	__pm_stay_awake(&w->ws);
+	schedule_work(&w->check_work);
 	return IRQ_HANDLED;
 }
 
@@ -96,7 +111,10 @@ static int __init wake_n_probe(struct platform_device *pdev)
 	}
 
 	wakeup_source_init(&wake_n_pdata.ws, "wake-n_GPIO");
-	gpio_check_and_wake(&wake_n_pdata);
+	wake_n_pdata.pdev = pdev;
+	INIT_WORK(&wake_n_pdata.check_work, gpio_check_and_wake);
+	__pm_stay_awake(&wake_n_pdata.ws);
+	schedule_work(&wake_n_pdata.check_work);
 
 	return 0;
 
