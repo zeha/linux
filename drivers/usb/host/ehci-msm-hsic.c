@@ -966,6 +966,17 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	writel_relaxed(0x13, USB_USBMODE);
 
 	ehci_port_power(ehci, 1);
+	/*
+	*Fix the bug ANO82955,Device can't sleep if HSIC is enable but the not connect the HSIC chipset
+	*Get the status of  PORT_CONNECT bit after HSIC reset, if PORT_CONNECT bit is set[0],it means' that 
+	*there is no device connect to HSIC port,So return error and don't need register HSIC host driver any more
+	*/
+	if (!(readl_relaxed(USB_PORTSC)&PORT_CONNECT))
+	{
+		dev_err(mehci->dev, "%s:No device is present on any HSIC port\n",__func__);
+		return -ENXIO;
+	}
+	/*---end---*/
 	return 0;
 }
 
