@@ -87,6 +87,11 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 		dev_info(dev, "CI13XXX_CONTROLLER_RESUME_EVENT received\n");
 		ci13xxx_msm_resume();
 		break;
+	case CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT:
+	case CI13XXX_CONTROLLER_CONNECT_EVENT:
+	case CI13XXX_CONTROLLER_UDC_STARTED_EVENT:
+		dev_info(dev, "unhandled ci13xxx_udc event %d\n", event);
+		break;
 
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");
