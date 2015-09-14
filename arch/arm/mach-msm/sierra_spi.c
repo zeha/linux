@@ -71,7 +71,7 @@ struct swi_spidev_data  *swi_spidev;
 struct msm_spi    *dd;
 
 /*this table is same with the freq table in clock-9615.c*/
-static unsigned int gsbi_qup_clk_table[] = {0,960000,4000000,4800000,9600000,
+static unsigned int gsbi_qup_clk_table[] = {960000,4000000,4800000,9600000,
                                             15058800,24000000,25600000,
                                             48000000,51200000};
 
@@ -86,27 +86,42 @@ static void swi_spidev_setup(int mode)
 /*swi_spidev_check_spi_clk - we check the max_speed param and choose a proper freq in the table
 @spi: the spi_device struct we create for spi interface
 */
-static void swi_spidev_check_spi_clk(struct spi_device  *spi)
+static void swi_spidev_check_spi_clk(struct spi_device *spi)
 {
   int i;
   int size = sizeof(gsbi_qup_clk_table)/sizeof(gsbi_qup_clk_table[0]);
-  if(spi->max_speed_hz <= 0)
-    return;
-  
-  for(i=0; i<size; i++)
+
+  /* Make sure we assert if by any chance table of valid SPI speeds is empty. */
+  BUG_ON(size==0);
+
+  if (spi->max_speed_hz <= gsbi_qup_clk_table[0])
   {
-    if(spi->max_speed_hz < gsbi_qup_clk_table[i])
-      break;
+    spi->max_speed_hz = gsbi_qup_clk_table[0];
+    return;
   }
-  
-  if(i == size)
-    spi->max_speed_hz = gsbi_qup_clk_table[i];
-  else if(spi->max_speed_hz > (gsbi_qup_clk_table[i]+gsbi_qup_clk_table[i-1])/2)
-    spi->max_speed_hz = gsbi_qup_clk_table[i];
+
+  for (i = 0; (i < size) && (spi->max_speed_hz > gsbi_qup_clk_table[i]); i++);
+
+  /* Check for out of bounds conditions as well. */
+  if (i == size)
+  {
+    /* Use last valid entry in case proposed speed passed the end of table. */
+    spi->max_speed_hz = gsbi_qup_clk_table[size-1];
+  }
   else
-    spi->max_speed_hz = gsbi_qup_clk_table[i-1];
-    
+  {
+    if (spi->max_speed_hz > (gsbi_qup_clk_table[i-1] + (gsbi_qup_clk_table[i] - gsbi_qup_clk_table[i-1])/2))
+    {
+      /* We are closer to the next value in table. */
+      spi->max_speed_hz = gsbi_qup_clk_table[i];
+    }
+    else
+    {
+      spi->max_speed_hz = gsbi_qup_clk_table[i-1];
+    }
+  }
 }
+
 /*-------------------------------------------------------------------------*/
 
 /*
