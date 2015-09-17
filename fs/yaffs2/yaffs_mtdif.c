@@ -23,7 +23,9 @@
 #include "linux/version.h"
 #include "linux/types.h"
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 #include "uapi/linux/major.h"
+#endif
 
 #include "yaffs_trace.h"
 #include "yaffs_guts.h"
