@@ -1400,6 +1400,9 @@ static int __init gpiolib_sysfs_init(void)
 	{
 		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 		ext_gpio = ext_gpio_ar;
+		if( BSAR8652 == bsgethwtype() )
+			/* On AR8652 GPIO 7 is on 69 */
+			ext_gpio[6].gpio_num = 69;
 	}
 	else
 	{
