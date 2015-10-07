@@ -515,8 +515,8 @@ static struct clk_freq_tbl clk_tbl_gsbi_qup[] = {
 	F_GSBI_QUP( 4800000, pll8, 4, 1, 20),
 	F_GSBI_QUP( 9600000, pll8, 4, 1, 10),
 #else
-	F_GSBI_QUP( 4800000, cxo,  4, 0,  1),
-	F_GSBI_QUP( 9600000, cxo,  2, 0,  1),
+	F_GSBI_QUP( 4800000, pll8, 4, 1, 20),
+	F_GSBI_QUP( 9600000, pll8, 4, 1, 10),
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
 	F_GSBI_QUP(15058800, pll8, 1, 2, 51),
 	F_GSBI_QUP(24000000, pll8, 4, 1,  4),
