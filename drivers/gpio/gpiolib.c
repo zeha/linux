@@ -126,6 +126,36 @@ static struct ext_gpio_map ext_gpio_ar[]={
 	{GPIO_NAME_RI,66,FUNCTION_UNALLOCATED} /* RI is an alias of 11 */
 };
 
+static struct ext_gpio_map ext_gpio_ar7552rd[]={
+	{"1", 80,FUNCTION_UNALLOCATED},
+	{"2", 73,FUNCTION_UNALLOCATED},
+	{"3", 30,FUNCTION_UNALLOCATED},
+	{"4", 29,FUNCTION_UNALLOCATED},
+	{"5",  4,FUNCTION_UNALLOCATED},
+	{"6", 72,FUNCTION_UNALLOCATED},
+	{"7", 39,FUNCTION_UNALLOCATED},
+	{"8" ,60,FUNCTION_UNALLOCATED},
+	{"9", 45,FUNCTION_UNALLOCATED},
+	{"10",40,FUNCTION_UNALLOCATED},
+	{"11",66,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_RI,66,FUNCTION_UNALLOCATED} /* RI is an alias of 11 */
+};
+
+static struct ext_gpio_map ext_gpio_ar7554rd[]={
+	{"1", 80,FUNCTION_UNALLOCATED},
+	{"2", 73,FUNCTION_UNALLOCATED},
+	{"3", 30,FUNCTION_UNALLOCATED},
+	{"4", 29,FUNCTION_UNALLOCATED},
+	{"5",  4,FUNCTION_UNALLOCATED},
+	{"6", 72,FUNCTION_UNALLOCATED},
+	{"7", 69,FUNCTION_UNALLOCATED},
+	{"8" ,60,FUNCTION_UNALLOCATED},
+	{"9", 45,FUNCTION_UNALLOCATED},
+	{"10",40,FUNCTION_UNALLOCATED},
+	{"11",66,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_RI,66,FUNCTION_UNALLOCATED} /* RI is an alias of 11 */
+};
+
 #define NR_EXT_GPIOS_CF3 ARRAY_SIZE(ext_gpio_cf3)
 static struct ext_gpio_map ext_gpio_cf3[]={
 	{"2", 59,FUNCTION_UNALLOCATED},
@@ -1375,6 +1405,7 @@ static int __init gpiolib_sysfs_init(void)
 	unsigned	gpio;
 #ifdef CONFIG_SIERRA_EXT_GPIO
 	long		ext_num;
+	enum bshwtype hwtype;
 #endif
 
 	status = class_register(&gpio_class);
@@ -1398,11 +1429,20 @@ static int __init gpiolib_sysfs_init(void)
 	}
 	else if (bssupport(BSFEATURE_AR))
 	{
+		hwtype = bsgethwtype();
 		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-		ext_gpio = ext_gpio_ar;
-		if( BSAR8652 == bsgethwtype() )
-			/* On AR8652 GPIO 7 is on 69 */
-			ext_gpio[6].gpio_num = 69;
+		if (BSAR7552RD == hwtype)
+		{
+			ext_gpio = ext_gpio_ar7552rd;
+		}
+		else if ((BSAR7554RD == hwtype) || (BSAR8652 == hwtype))
+		{
+			ext_gpio = ext_gpio_ar7554rd;
+		}
+		else
+		{
+			ext_gpio = ext_gpio_ar;
+		}
 	}
 	else
 	{
