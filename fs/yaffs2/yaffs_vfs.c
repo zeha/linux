@@ -1719,23 +1719,26 @@ static void yaffs_remove_obj_callback(struct yaffs_obj *obj)
 /*-----------------------------------------------------------------*/
 
 #ifdef YAFFS_USE_DIR_ITERATE
-static int yaffs_iterate(struct file *f, struct dir_context *dc)
+static int yaffs_iterate(struct file *file, struct dir_context *ctx)
 {
 	struct yaffs_obj *obj;
 	struct yaffs_dev *dev;
 	struct yaffs_search_context *sc;
-	unsigned long curoffs;
+	struct inode *inode = file->f_dentry->d_inode;
+	unsigned long offset, curoffs;
 	struct yaffs_obj *l;
 	int ret_val = 0;
 
 	char name[YAFFS_MAX_NAME_LENGTH + 1];
 
-	obj = yaffs_dentry_to_obj(f->f_dentry);
+	obj = yaffs_dentry_to_obj(file->f_dentry);
 	dev = obj->my_dev;
 
 	yaffs_gross_lock(dev);
 
 	yaffs_dev_to_lc(dev)->readdir_process = current;
+
+	offset = ctx->pos;
 
 	sc = yaffs_new_search(obj);
 	if (!sc) {
@@ -1743,38 +1746,70 @@ static int yaffs_iterate(struct file *f, struct dir_context *dc)
 		goto out;
 	}
 
-	if (!dir_emit_dots(f, dc))
-		return 0;
+	yaffs_trace(YAFFS_TRACE_OS,
+		"yaffs_readdir: starting at %d", (int)offset);
+
+	if (offset == 0) {
+		yaffs_trace(YAFFS_TRACE_OS,
+			"yaffs_readdir: entry . ino %d",
+			(int)inode->i_ino);
+		yaffs_gross_unlock(dev);
+		if (!dir_emit_dot(file, ctx)) {
+			yaffs_gross_lock(dev);
+			goto out;
+		}
+		yaffs_gross_lock(dev);
+		offset++;
+		ctx->pos++;
+	}
+	if (offset == 1) {
+		yaffs_trace(YAFFS_TRACE_OS,
+			"yaffs_readdir: entry .. ino %d",
+			(int)file->f_dentry->d_parent->d_inode->i_ino);
+		yaffs_gross_unlock(dev);
+		if (!dir_emit_dotdot(file, ctx)) {
+			yaffs_gross_lock(dev);
+			goto out;
+		}
+		yaffs_gross_lock(dev);
+		offset++;
+		ctx->pos++;
+	}
 
 	curoffs = 1;
+
+	/* If the directory has changed since the open or last call to
+	   readdir, rewind to after the 2 canned entries. */
+	if (file->f_version != inode->i_version) {
+		offset = 2;
+		ctx->pos = offset;
+		file->f_version = inode->i_version;
+	}
 
 	while (sc->next_return) {
 		curoffs++;
 		l = sc->next_return;
-		if (curoffs >= dc->pos) {
+		if (curoffs >= offset) {
 			int this_inode = yaffs_get_obj_inode(l);
 			int this_type = yaffs_get_obj_type(l);
 
 			yaffs_get_obj_name(l, name, YAFFS_MAX_NAME_LENGTH + 1);
 			yaffs_trace(YAFFS_TRACE_OS,
-				    "yaffs_readdir: %s inode %d",
-				    name, yaffs_get_obj_inode(l));
+				"yaffs_readdir: %s inode %d",
+				name, yaffs_get_obj_inode(l));
 
 			yaffs_gross_unlock(dev);
 
-			if (!dir_emit(dc,
-				      name,
-				      strlen(name),
-				      this_inode,
-				      this_type)) {
+			if (!dir_emit(ctx, name, strlen(name),
+					  this_inode, this_type) < 0) {
 				yaffs_gross_lock(dev);
 				goto out;
 			}
 
 			yaffs_gross_lock(dev);
 
-			dc->pos++;
-			f->f_pos++;
+			offset++;
+			ctx->pos++;
 		}
 		yaffs_search_advance(sc);
 	}
