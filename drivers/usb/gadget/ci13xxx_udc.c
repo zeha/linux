@@ -2468,9 +2468,13 @@ __acquires(mEp->lock)
 	/* else do nothing; reserved for future use */
 
 	spin_unlock(mEp->lock);
-	retval = usb_ep_queue(&mEp->ep, req, GFP_ATOMIC);
+	if(!udc->configured  && num != 0){
+		retval = usb_ep_set_halt(&mEp->ep);
+	}
+	else{
+		retval = usb_ep_queue(&mEp->ep, req, GFP_ATOMIC);
+	}
 	spin_lock(mEp->lock);
-
 	return retval;
 }
 
