@@ -657,9 +657,6 @@ static void power_off_seq(struct snd_soc_codec *codec)
 		    WM8944_VMID_ENA_MASK ,
 		    0);
 
-	/* Delay 500ms for VMID to discharge */
-	msleep(500);
-
 	/* Discharge outputs */
 	snd_soc_update_bits(codec, WM8944_OUTPUTCTL,
 		    WM8944_SPKN_DISCH_MASK |
@@ -668,8 +665,6 @@ static void power_off_seq(struct snd_soc_codec *codec)
 		    WM8944_SPKN_DISCH |
 		    WM8944_SPKP_DISCH |
 		    WM8944_LINE_DISCH);
-
-	msleep(50);
 
 	/* Mute outputs */
 	snd_soc_update_bits(codec, WM8944_POWER2,
@@ -1174,11 +1169,11 @@ static int wm8944_mute(struct snd_soc_dai *dai, int mute)
 	/* This function is called multiple times by the function soc_pcm_prepare,
 	* In order to prevent pop noise, return here directly when codec is initializing
 	*/
-	if(wm8944->codec_initializing)
+	/*if(wm8944->codec_initializing)
 	{
 		dev_dbg(dai->codec->dev, "%s mute=%d, return during codec initializing \n", __func__, mute);
 		return 0;
-	}
+	}*/
 
 	if (mute) {
 		mute_dac_reg |= WM8944_DAC_MUTE;
