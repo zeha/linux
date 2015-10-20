@@ -36,6 +36,7 @@
  * for any version of Linux.
  */
 #include <linux/version.h>
+#include <linux/major.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 10))
 #define YAFFS_COMPILE_BACKGROUND
@@ -2825,6 +2826,15 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 		"yaffs: Attempting MTD mount of %u.%u,\"%s\"",
 		MAJOR(sb->s_dev), MINOR(sb->s_dev),
 		yaffs_devname(sb, devname_buf));
+
+	/* Check if it's an mtd device */
+	if(MAJOR(sb->s_dev) != MTD_BLOCK_MAJOR)
+	{
+		yaffs_trace(YAFFS_TRACE_ALWAYS,
+			"yaffs: Device with major number %u is not MTD device",
+			MAJOR(sb->s_dev));
+		return NULL; /* This is not mtd device */
+	}
 
 	/* Get the device */
 	mtd = get_mtd_device(NULL, MINOR(sb->s_dev));
