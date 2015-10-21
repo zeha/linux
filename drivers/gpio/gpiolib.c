@@ -1159,7 +1159,12 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 		ioname = desc->chip->names[offset];
 
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	strncat(ioname_buf, gpio_map_num_to_name(offset, (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags))), GPIO_NAME_MAX);
+	char *gpioname = gpio_map_num_to_name(offset, (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags)));
+	if( NULL == gpioname ) {
+		status = -EPERM;
+		goto unlock_done;
+	}
+	strncat(ioname_buf, gpioname, GPIO_NAME_MAX);
 	ioname = ioname_buf;
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
 	dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
@@ -1189,6 +1194,10 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	}
 
 	set_bit(FLAG_EXPORT, &desc->flags);
+
+#ifdef CONFIG_SIERRA_EXT_GPIO
+unlock_done:
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
 	mutex_unlock(&sysfs_lock);
 	return 0;
 
