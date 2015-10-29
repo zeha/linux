@@ -3046,7 +3046,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	/* first nuke then test link, e.g. previous status has not sent */
 	if (!list_empty(&mReq->queue)) {
 		retval = -EBUSY;
-		err("request already in queue");
+		info("request already in queue");
 		goto done;
 	}
 
