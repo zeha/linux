@@ -38,6 +38,10 @@
 #include <linux/msm_tsens.h>
 #include <linux/ion.h>
 #include <linux/memory.h>
+#ifdef CONFIG_WL_TI
+#include <linux/wl12xx.h>
+#include <linux/gpio.h>
+#endif
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -70,6 +74,10 @@
 #include <mach/rpm-regulator.h>
 #include <linux/sierra_bsudefs.h>
 #include <linux/sierra_bsuproto.h>
+#endif
+
+#ifdef CONFIG_WL_TI
+#define MSM_WIFI_IRQ_GPIO	80
 #endif
 
 #ifdef CONFIG_ION_MSM
@@ -1232,6 +1240,51 @@ static int __init msm9615_init_ar6000pm(void)
 	return platform_device_register(&msm_wlan_ar6000_pm_device);
 }
 
+#ifdef CONFIG_WL_TI
+static struct platform_device msm_wl18xx_device = {
+	.name           = "wl18xx_driver",
+	.id             = -1,
+};
+
+static int __init msm9615_wl18xx_init(void)
+{
+	struct wl12xx_platform_data msm_wl1251_pdata;
+	int ret;
+
+	memset(&msm_wl1251_pdata, 0, sizeof(msm_wl1251_pdata));
+
+	ret = gpio_request(MSM_WIFI_IRQ_GPIO, "wl18xxx_gpio");
+	if (ret < 0) {
+		pr_err("%s: failed to request GPIO%d\n", __func__, MSM_WIFI_IRQ_GPIO);
+		goto fail;
+	}
+	if (gpio_direction_input(MSM_WIFI_IRQ_GPIO)) {
+		pr_err("%s: failed to set GPIO%d to input\n", __func__, MSM_WIFI_IRQ_GPIO);
+		goto fail_irq;
+	}
+
+	msm_wl1251_pdata.irq = gpio_to_irq(MSM_WIFI_IRQ_GPIO);
+	if (msm_wl1251_pdata.irq < 0)
+		goto fail_irq;
+
+	msm_wl1251_pdata.use_eeprom = true;
+	msm_wl1251_pdata.board_ref_clock = WL12XX_REFCLOCK_38;
+	msm_wl1251_pdata.board_tcxo_clock = 0;
+	ret = wl12xx_set_platform_data(&msm_wl1251_pdata);
+	if (ret < 0)
+		goto fail_irq;
+
+	pr_info("wl18xx board initialization done\n");
+
+	return;
+
+fail_irq:
+	gpio_free(MSM_WIFI_IRQ_GPIO);
+fail:
+	pr_err("%s: wl1251 board initialisation failed\n", __func__);
+}
+#endif
+
 #ifdef CONFIG_LTC4088_CHARGER
 static struct platform_device msm_device_charger = {
 	.name	= LTC4088_CHARGER_DEV_NAME,
@@ -1370,6 +1423,9 @@ static struct platform_device *common_devices[] = {
 	&msm9615_rpm_log_device,
 	&msm9615_rpm_stat_device,
 	&msm_tsens_device,
+#ifdef CONFIG_WL_TI
+	&msm_wl18xx_device,
+#endif
 };
 
 static void __init msm9615_i2c_init(void)
@@ -1487,6 +1543,11 @@ static void __init msm9615_common_init(void)
 	msm9615_init_gpiomux();
 	msm9615_i2c_init();
 	regulator_suppress_info_printing();
+
+#ifdef CONFIG_WL_TI
+	msm9615_wl18xx_init();
+#endif
+
 	platform_device_register(&msm9615_device_rpm_regulator);
 	msm_xo_init();
 	msm_clock_init(&msm9615_clock_init_data);
