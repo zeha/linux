@@ -74,7 +74,7 @@ static struct gpiomux_setting gsbi2 = {
 #ifdef CONFIG_SIERRA_GSBI3_SPI
 static struct gpiomux_setting gsbi3 = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
