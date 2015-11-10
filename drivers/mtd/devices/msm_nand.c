@@ -7739,20 +7739,13 @@ MODULE_ALIAS(DRIVER_NAME);
 
 static int __init msm_nand_init(void)
 {
-
-	enum bshwtype hwtype = BSHWUNKNOWN;
-
 	/*
 	 * Do things a bit differently depending on the platform we are running on.
 	 */
-	hwtype = bsgethwtype();
-	if ((hwtype==BSWP85XX) ||
-	    (hwtype==BSWP8548) ||
-	    (hwtype==BSWP8548G))
+	if (bssupport(BSFEATURE_CHECK_FAILED_WRITES))
 	{
-	    /* WP85xx family device with problematic Micron flash operation */
-	    printk(KERN_INFO "%s: WP85 platform detected\n", __func__);
-	    check_failed_writes = 1;
+		printk(KERN_INFO "%s: Enabling failed write checking\n", __func__);
+		check_failed_writes = 1;
 	}
 
 	return platform_driver_register(&msm_nand_driver);

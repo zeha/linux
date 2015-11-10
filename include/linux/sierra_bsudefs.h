@@ -79,7 +79,7 @@ enum bshwtype
   BSAR7556,                 /* 0x2C - Automotive 7556 */
   BSWP75XX,                 /* 0x2D - WP75xx - WP75 family, RF board unknown */
   BSWP85XX,                 /* 0x2E - WP85xx - WP85 family, RF board unknown */
-  BSWP8548,                 /* 0x2F - WP8548 */
+  BSWP8548,                 /* 0x2F - Obsolete - Unsupported*/
   BSWP8548G,                /* 0x30 - WP8548-G */
   BSAR8652,                 /* 0x31 - Automotive 8652 */
   BSAR7556_LARGER_MEMORY,   /* 0x32 - Automotive 7556 (with Larger Memory Design) */
@@ -87,8 +87,8 @@ enum bshwtype
   BSAR7552RD,               /* 0x34 - Automotive 7552 RD */
   BSWP7500,                 /* 0x35 - WP7500 */
   BSWP7500G,                /* 0x36 - WP7500-G*/
-  BSWP7501,                 /* 0x37 - WP7501 */
-  BSWP7501G,                /* 0x38 - WP7501-G */
+  BSWP7501,                 /* 0x37 - Obsolete - Unsupported */
+  BSWP7501G,                /* 0x38 - Obsolete - Unsupported */
   BSWP7502,                 /* 0x39 - WP7502 */
   BSWP7502G,                /* 0x3A - WP7502-G */
   BSWP7504,                 /* 0x3B - WP7504 */
@@ -195,6 +195,7 @@ enum bsfeature
   BSFEATURE_SIMHOTSWAP,     /* if the hardware supports SIM detection via GPIO */
   BSFEATURE_DR,             /* if Data Reliability is supported */
   BSFEATURE_WM8944,         /* if WM8944 codec */
+  BSFEATURE_CHECK_FAILED_WRITES,  /* Check failed NAND writes */
   BSFEATURE_MAX
 };
 

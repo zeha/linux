@@ -5164,35 +5164,41 @@ static int __init mdm9615_audio_init(void)
 
 	switch (hwtype)
 	{
-	case BSAR8652:
-	case BSAR7554RD:
-	case BSAR7552RD:
-	case BSWP75XX:
-	case BSWP85XX:
-	case BSWP8548:
-	case BSWP8548G:
-		pr_info("%s - AR8, AR755xRD and CF3 configuration\n", __func__);
+		case BSAR8652:
+		case BSAR7554RD:
+		case BSAR7552RD:
+		case BSWP75XX:
+		case BSWP7500:
+		case BSWP7500G:
+		case BSWP7502:
+		case BSWP7502G:
+		case BSWP7504:
+		case BSWP7504G:
+		case BSWP85XX:
+		case BSWP8548G:
+			pr_info("%s - AR8, AR755xRD and CF3 configuration\n", __func__);
 #if defined(CONFIG_MFD_WM8944)
-  		memcpy(mdm9615_dai_ar8, mdm9615_dai_ar8_common,
-  			sizeof(mdm9615_dai_ar8_common));
-  		if( wm8944_get_intf_type() > WM8944_INTERFACE_TYPE_NONE ) /* wm8944 was found */
-  		{
-  			snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
-  			memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
-  				mdm9615_dai_ar8_wm8944,
-  		        sizeof(mdm9615_dai_ar8_wm8944));
-  		}
-  		else
-  		{
-  			snd_soc_card_mdm9615.name = "mdm9615-nocodec-snd-card";
-  			memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
-  				mdm9615_dai_ar8_nocodec,
-  		        sizeof(mdm9615_dai_ar8_nocodec));
-  		}
-		snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
-		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar8);
+			memcpy(mdm9615_dai_ar8, mdm9615_dai_ar8_common,
+				sizeof(mdm9615_dai_ar8_common));
+			if( wm8944_get_intf_type() > WM8944_INTERFACE_TYPE_NONE ) /* wm8944 was found */
+			{
+				snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
+				memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
+					mdm9615_dai_ar8_wm8944,
+			        sizeof(mdm9615_dai_ar8_wm8944));
+			}
+			else
+			{
+				snd_soc_card_mdm9615.name = "mdm9615-nocodec-snd-card";
+				memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
+					mdm9615_dai_ar8_nocodec,
+			        sizeof(mdm9615_dai_ar8_nocodec));
+			}
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar8);
 #endif
 		break;
+
 		case BSAR7550:
 		case BSAR7552:
 		case BSAR7554:
@@ -5203,24 +5209,29 @@ static int __init mdm9615_audio_init(void)
 			pr_info("%s - AR7 configuration", __func__);
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar7;
 			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar7);
-			break;
+		break;
 
-	case BSWP7100_NEW:
-	case BSWP7102_NEW:
-	case BSWP7104_NEW:
-	case BSAR7556    :
-	case BSAR7556_LARGER_MEMORY:
-		pr_info("%s - WP7 and AR7556,AR7556M configuration", __func__);
-		snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
-		snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
-	break;
+		case BSWP7100_NEW:
+		case BSWP7102_NEW:
+		case BSWP7104_NEW:
+		case BSAR7556    :
+		case BSAR7556_LARGER_MEMORY:
+			pr_info("%s - WP7 and AR7556,AR7556M configuration", __func__);
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_wp7_new;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_wp7_new);
+		break;
 
 		case BSMC7304:
 		case BSMC7802:
 		case BSMC7350:
 		case BSMC7350L:
-		default:
 			pr_info("%s - MC7 configuration", __func__);
+			snd_soc_card_mdm9615.dai_link = mdm9615_dai_mc7;
+			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_mc7);
+		break;
+
+		default:
+			pr_info("%s - Unrecognized hardware - using MC7 configuration", __func__);
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_mc7;
 			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_mc7);
 		break;
