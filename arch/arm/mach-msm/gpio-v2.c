@@ -168,7 +168,7 @@ struct msm_gpio_dev {
 	DECLARE_BITMAP(enabled_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(wake_irqs, NR_MSM_GPIOS);
 	DECLARE_BITMAP(dual_edge_irqs, NR_MSM_GPIOS);
-	struct irq_domain domain;
+	struct irq_domain *domain;
 };
 
 static DEFINE_SPINLOCK(tlmm_lock);
@@ -232,7 +232,7 @@ static int msm_gpio_pull_up(struct gpio_chip *chip, unsigned offset)
         unsigned long irq_flags;
 
         spin_lock_irqsave(&tlmm_lock, irq_flags);
-        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT, 
+        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT,
                 GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
         mb();
         spin_unlock_irqrestore(&tlmm_lock, irq_flags);
@@ -244,7 +244,7 @@ static int msm_gpio_pull_down(struct gpio_chip *chip, unsigned offset)
         unsigned long irq_flags;
 
         spin_lock_irqsave(&tlmm_lock, irq_flags);
-        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT, 
+        gpio_tlmm_config(GPIO_CFG(offset, 0, GPIO_CFG_INPUT,
                 GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	mb();
         spin_unlock_irqrestore(&tlmm_lock, irq_flags);
@@ -255,15 +255,14 @@ static int msm_gpio_pull_down(struct gpio_chip *chip, unsigned offset)
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
 	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
-	struct irq_domain *domain = &g_dev->domain;
-	return domain->irq_base + (offset - chip->base);
+	struct irq_domain *domain = g_dev->domain;
+	return irq_linear_revmap(domain, offset - chip->base);
 }
 
 static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 {
-	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
-	struct irq_domain *domain = &g_dev->domain;
-	return irq - domain->irq_base;
+	struct irq_data *irq_data = irq_get_irq_data(irq);
+	return irq_data->hwirq;
 }
 #else
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
@@ -540,6 +539,7 @@ static struct irq_chip msm_gpio_irq_chip = {
  */
 static struct lock_class_key msm_gpio_lock_class;
 
+/* DM, FIXME: This should be a real platform_driver */
 static int msm_gpio_probe(void)
 {
 	int i, irq, ret;
@@ -744,7 +744,7 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 EXPORT_SYMBOL(msm_gpio_install_direct_irq);
 
 #ifdef CONFIG_OF
-static int msm_gpio_domain_dt_translate(struct irq_domain *d,
+static int msm_gpio_irq_domain_xlate(struct irq_domain *d,
 					struct device_node *controller,
 					const u32 *intspec,
 					unsigned int intsize,
@@ -764,24 +764,36 @@ static int msm_gpio_domain_dt_translate(struct irq_domain *d,
 	return 0;
 }
 
+/*
+ * DM, FIXME: this really should be doing all the things that msm_gpio_probe()
+ * does, but since the msm_gpio_probe is called unconditionally for DT and
+ * non-DT configs, we can't duplicate it here. This should be fixed.
+ */
+int msm_gpio_irq_domain_map(struct irq_domain *d, unsigned int irq,
+			    irq_hw_number_t hwirq)
+{
+	return 0;
+}
+
 static struct irq_domain_ops msm_gpio_irq_domain_ops = {
-	.dt_translate = msm_gpio_domain_dt_translate,
+	.xlate = msm_gpio_irq_domain_xlate,
+	.map = msm_gpio_irq_domain_map,
 };
 
 int __init msm_gpio_of_init(struct device_node *node,
 			    struct device_node *parent)
 {
-	struct irq_domain *domain = &msm_gpio.domain;
+	int ret = 0;
 
-	domain->irq_base = irq_domain_find_free_range(0, NR_MSM_GPIOS);
-	domain->nr_irq = NR_MSM_GPIOS;
-	domain->of_node = of_node_get(node);
-	domain->priv = &msm_gpio;
-	domain->ops = &msm_gpio_irq_domain_ops;
-	irq_domain_add(domain);
-	pr_debug("%s: irq_base = %u\n", __func__, domain->irq_base);
+	msm_gpio.domain = irq_domain_add_linear(node, NR_MSM_GPIOS,
+						&msm_gpio_irq_domain_ops,
+						&msm_gpio);
+	if (!msm_gpio.domain) {
+		WARN(1, "Cannot allocate irq_domain\n");
+		ret = -ENOMEM;
+	}
 
-	return 0;
+	return ret;
 }
 #endif
 
