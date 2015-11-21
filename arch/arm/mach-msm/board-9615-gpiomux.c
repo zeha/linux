@@ -539,8 +539,9 @@ int __init msm9615_init_gpiomux(void)
 #endif
 
 #ifdef CONFIG_SIERRA_INTERNAL_CODEC
-	msm_gpiomux_install(msm9615_audio_codec_configs,
-			ARRAY_SIZE(msm9615_audio_codec_configs));
+	if(bssupport(BSFEATURE_CF3) == false)
+		msm_gpiomux_install(msm9615_audio_codec_configs,
+				ARRAY_SIZE(msm9615_audio_codec_configs));
 #endif /* CONFIG_SIERRA_INTERNAL_CODEC */
 
 	msm_gpiomux_install(msm9615_wlan_configs,
