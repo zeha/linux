@@ -1122,7 +1122,8 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	int			offset;
 
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	char ioname_buf[IONAME_MAX+1] = IONAME_PREFIX;
+	char 			*gpioname;
+	char 			ioname_buf[IONAME_MAX+1] = IONAME_PREFIX;
 #endif
 
 	/* can't export until sysfs is available ... */
@@ -1159,7 +1160,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 		ioname = desc->chip->names[offset];
 
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	char *gpioname = gpio_map_num_to_name(offset, (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags)));
+	gpioname = gpio_map_num_to_name(offset, (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags)));
 	if( NULL == gpioname ) {
 		status = -EPERM;
 		goto unlock_done;
@@ -3045,15 +3046,29 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	int			is_out;
 	int			is_irq;
 
-	for (i = 0; i < chip->ngpio; i++, gpio++, gdesc++) {
-		if (!test_bit(FLAG_REQUESTED, &gdesc->flags))
-			continue;
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	char 			*gpioname;
+#endif
 
+	for (i = 0; i < chip->ngpio; i++, gpio++, gdesc++) {
+#ifdef CONFIG_SIERRA_EXT_GPIO
+		if (!test_bit(FLAG_EXPORT, &gdesc->flags) ||
+			(NULL == (gpioname = gpio_map_num_to_name(gpio,
+				(test_bit(FLAG_USE_ALIAS_IONAME, &gdesc->flags))))))
+#else
+		if (!test_bit(FLAG_REQUESTED, &gdesc->flags))
+#endif
+			continue;
 		gpiod_get_direction(gdesc);
 		is_out = test_bit(FLAG_IS_OUT, &gdesc->flags);
 		is_irq = test_bit(FLAG_USED_AS_IRQ, &gdesc->flags);
-		seq_printf(s, " gpio-%-3d (%-20.20s) %s %s %s",
-			gpio, gdesc->label,
+#ifdef CONFIG_SIERRA_EXT_GPIO
+		seq_printf(s, " gpio-%-3s", gpioname);
+#else
+		seq_printf(s, " gpio-%-3d", gpio);
+#endif /* CONFIG_SIERRA_EXT_GPIO */
+		seq_printf(s, " (%-20.20s) %s %s %s",
+			gdesc->label,
 			is_out ? "out" : "in ",
 			chip->get
 				? (chip->get(chip, i) ? "hi" : "lo")
