@@ -5169,13 +5169,11 @@ static int __init mdm9615_audio_init(void)
 		case BSAR7552RD:
 		case BSWP75XX:
 		case BSWP7500:
-		case BSWP7500G:
 		case BSWP7502:
-		case BSWP7502G:
 		case BSWP7504:
 		case BSWP7504G:
 		case BSWP85XX:
-		case BSWP8548G:
+		case BSWP8548:
 			pr_info("%s - AR8, AR755xRD and CF3 configuration\n", __func__);
 #if defined(CONFIG_MFD_WM8944)
 			memcpy(mdm9615_dai_ar8, mdm9615_dai_ar8_common,

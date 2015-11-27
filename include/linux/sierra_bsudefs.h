@@ -79,18 +79,18 @@ enum bshwtype
   BSAR7556,                 /* 0x2C - Automotive 7556 */
   BSWP75XX,                 /* 0x2D - WP75xx - WP75 family, RF board unknown */
   BSWP85XX,                 /* 0x2E - WP85xx - WP85 family, RF board unknown */
-  BSWP8548,                 /* 0x2F - Obsolete - Unsupported*/
-  BSWP8548G,                /* 0x30 - WP8548-G */
+  BS_OBSOLETE_47,           /* 0x2F - Old WP8548, Obsolete - Unsupported */
+  BSWP8548,                 /* 0x30 - WP8548, renamed from WP8548-G */
   BSAR8652,                 /* 0x31 - Automotive 8652 */
   BSAR7556_LARGER_MEMORY,   /* 0x32 - Automotive 7556 (with Larger Memory Design) */
   BSAR7554RD,               /* 0x33 - Automotive 7554 RD */
   BSAR7552RD,               /* 0x34 - Automotive 7552 RD */
   BSWP7500,                 /* 0x35 - WP7500 */
-  BSWP7500G,                /* 0x36 - WP7500-G*/
-  BSWP7501,                 /* 0x37 - Obsolete - Unsupported */
-  BSWP7501G,                /* 0x38 - Obsolete - Unsupported */
+  BS_OBSOLETE_54,           /* 0x36 - WP7500-G, Obsolete - Unsupported */
+  BS_OBSOLETE_55,           /* 0x37 - WP7501, Obsolete - Unsupported */
+  BS_OBSOLETE_56,           /* 0x38 - WP7501-G, Obsolete - Unsupported */
   BSWP7502,                 /* 0x39 - WP7502 */
-  BSWP7502G,                /* 0x3A - WP7502-G */
+  BS_OBSOLETE_58,           /* 0x3A - WP7502-G, Obsolete - Unsupported */
   BSWP7504,                 /* 0x3B - WP7504 */
   BSWP7504G,                /* 0x3C - WP7504-G */
   BSHWUNKNOWN,              /* Unknown HW */
