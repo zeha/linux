@@ -31,6 +31,8 @@ struct pcm_afe_info {
 	struct hrtimer hrt;
 	int poll_time;
 	struct audio_client *audio_client;
+	wait_queue_head_t read_wait; /* copy interface queue */
+	atomic_t rec_bytes_avail;    /* rec data ready flag  */
 };
 
 
