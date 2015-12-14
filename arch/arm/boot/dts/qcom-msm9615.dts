@@ -14,9 +14,56 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM 9615";
+	model = "QCT MSM9615 CDP";
 	compatible = "qcom,msm9615";
 
-	chosen { };
-	aliases { };
+    msm_nand@1b400000 {
+        compatible = "micron,mt29f4g08", "onfi-flash";
+        reg = <0x1b400000 0x15200000>;
+        /* byte width of flash bank if more than one chip */
+        bank-width = <1>;
+        /* byte width of singe flash device */
+        device-width = <1>;
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+
+        bootloader@0x051c0000 {
+            label = "bootloader";
+            reg = <0x51c0000 0x100000>;
+            read-only;
+        };
+
+        kernel@0x052c0000 {
+            label = "kernel";
+            reg = <0x52c0000 0x1400000>;
+            read-only;
+        };
+
+        rootfs@0x066c0000 {
+            label = "rootfs";
+            reg = <0x66c0000 0x3140000>;
+            read-only;
+        };
+
+        user0@0x09800000 {
+            label = "user0";
+            reg = <0x9800000 0x2780000>;
+        };
+
+        user1@0x0bf80000 {
+            label = "user1";
+            reg = <0xbf80000 0x8B80000>;
+        };
+
+        user2@0x14b00000 {
+            label = "user2";
+            reg = <0x14b00000 0x500000>;
+        };
+
+        user3@0x15000000 {
+            label = "user3";
+            reg = <0x15000000 0x200000>;
+        };
+    };
 };

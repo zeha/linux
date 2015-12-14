@@ -1,11 +1,38 @@
 #include <asm/setup.h>
 #include <libfdt.h>
+#include <debug/uncompress.h>
 
 #if defined(CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND)
 #define do_extend_cmdline 1
 #else
 #define do_extend_cmdline 0
 #endif
+
+static void putstr(const char *ptr)
+{
+	char c;
+
+	while ((c = *ptr++) != '\0') {
+		if (c == '\n')
+			putc('\r');
+		putc(c);
+	}
+
+	flush();
+}
+
+static void puthex(unsigned long long val)
+{
+
+    unsigned char buf[10];
+    int i;
+    for (i = 7; i >= 0; i--) {
+        buf[i] = "0123456789abcdef"[val & 0x0F];
+        val >>= 4;
+    }
+    buf[8] = '\0';
+    putstr(buf);
+}
 
 static int node_offset(void *fdt, const char *node_path)
 {
@@ -177,6 +204,10 @@ int atags_to_fdt(void *atag_list, void *fdt, int total_space)
 					initrd_start);
 			setprop_cell(fdt, "/chosen", "linux,initrd-end",
 					initrd_start + initrd_size);
+		} else {
+			putstr("Warning: Unknown ATAG 0x");
+			puthex(atag->hdr.tag);
+			putstr("\n");
 		}
 	}
 

@@ -255,8 +255,13 @@ static int msm_gpio_pull_down(struct gpio_chip *chip, unsigned offset)
 static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
 	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
-	struct irq_domain *domain = g_dev->domain;
-	return irq_linear_revmap(domain, offset - chip->base);
+
+	if((g_dev == NULL) || (g_dev->domain == NULL)) {
+		/* Use old method, nothing we could do about it. */
+		return MSM_GPIO_TO_INT(offset - chip->base);
+	}
+
+	return irq_linear_revmap(g_dev->domain, offset - chip->base);
 }
 
 static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)

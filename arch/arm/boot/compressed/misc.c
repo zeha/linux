@@ -1,7 +1,7 @@
 /*
  * misc.c
- * 
- * This is a collection of several routines from gzip-1.0.3 
+ *
+ * This is a collection of several routines from gzip-1.0.3
  * adapted for Linux.
  *
  * malloc by Hannu Savolainen 1993 and Matthias Urlichs 1994
@@ -10,7 +10,7 @@
  *
  * Nicolas Pitre <nico@visuaide.com>  1999/04/14 :
  *  For this code to run directly from Flash, all constant variables must
- *  be marked with 'const' and all other variables initialized at run-time 
+ *  be marked with 'const' and all other variables initialized at run-time
  *  only.  This way all non constant variables will end up in the bss segment,
  *  which should point to addresses in RAM and cleared to 0 on start.
  *  This allows for a much quicker boot time.
@@ -122,6 +122,19 @@ void error(char *x)
 	while(1);	/* Halt */
 }
 
+void puthex(unsigned long long val)
+{
+
+    unsigned char buf[10];
+    int i;
+    for (i = 7; i >= 0; i--) {
+        buf[i] = "0123456789abcdef"[val & 0x0F];
+        val >>= 4;
+    }
+    buf[8] = '\0';
+    putstr(buf);
+}
+
 asmlinkage void __div0(void)
 {
 	error("Attempting division by 0!");
@@ -141,7 +154,6 @@ void __stack_chk_fail(void)
 
 extern int do_decompress(u8 *input, int len, u8 *output, void (*error)(char *x));
 
-
 void
 decompress_kernel(unsigned long output_start, unsigned long free_mem_ptr_p,
 		unsigned long free_mem_ptr_end_p,
@@ -155,6 +167,20 @@ decompress_kernel(unsigned long output_start, unsigned long free_mem_ptr_p,
 	free_mem_ptr		= free_mem_ptr_p;
 	free_mem_end_ptr	= free_mem_ptr_end_p;
 	__machine_arch_type	= arch_id;
+
+	putstr("Compressed kernel start/end address: 0x");
+	puthex(input_data);
+	putstr("/0x");
+	puthex(input_data_end);
+	putstr("\n");
+
+	putstr("Uncompressed kernel start address: 0x");
+	puthex(output_data);
+	putstr("\n");
+
+	putstr("Machine Id: 0x");
+	puthex(__machine_arch_type);
+	putstr("\n");
 
 	arch_decomp_setup();
 

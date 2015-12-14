@@ -404,6 +404,26 @@ choice
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
 
+	config DEBUG_MSM9615_UART0
+		bool "Kernel low-level debugging messages via MSM 9615 UART 0"
+		depends on ARCH_MSM9615
+		select MSM_HAS_DEBUG_UART_HS
+		select DEBUG_MSM_UART
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port 1 on MSM 9615 devices.
+
+	config DEBUG_MSM9615_UART1
+		bool "Kernel low-level debugging messages via MSM 9615 UART 1"
+		depends on ARCH_MSM9615
+		select MSM_HAS_DEBUG_UART_HS
+		select DEBUG_MSM_UART
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port 2 on MSM 9615 devices. In
+		  most cases, this is the port you want to select over
+		  port 1.
+
 	config DEBUG_MVEBU_UART
 		bool "Kernel low-level debugging messages via MVEBU UART (old bootloaders)"
 		depends on ARCH_MVEBU

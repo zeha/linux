@@ -468,7 +468,7 @@ ENTRY(__turn_mmu_on)
 	instr_sync
 	mov	r3, r3
 	mov	r3, r13
-	mov	pc, r3
+	mov	pc, r3 /* branches to __mmap_switched */
 __turn_mmu_on_end:
 ENDPROC(__turn_mmu_on)
 	.popsection
