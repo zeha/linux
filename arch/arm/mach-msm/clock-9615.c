@@ -1839,8 +1839,8 @@ static void uart_clock_setting(void)
 	/* if UART1 is for modem, then not to disable GSBI clock */
 	if(bsuart4modem(BS_UART1_LINE) == true)
 	{
-		gsbi4_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
-		gsbi4_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;  
+		gsbi4_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_SKIP_HANDOFF;
+		gsbi4_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_SKIP_HANDOFF;
 	}
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 
@@ -1848,8 +1848,8 @@ static void uart_clock_setting(void)
 	/* if UART2 is for modem, then not to disable GSBI clock */
 	if(bsuart4modem(BS_UART2_LINE) == true)
 	{
-		gsbi5_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
-		gsbi5_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF;
+		gsbi5_p_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_SKIP_HANDOFF;
+		gsbi5_uart_clk.c.flags |= CLKFLAG_SKIP_AUTO_OFF | CLKFLAG_SKIP_HANDOFF;
 	}
 #endif /*  CONFIG_SIERRA_GSBI5_UART */
 }
