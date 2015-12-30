@@ -266,6 +266,13 @@ static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 
 static inline int msm_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 {
+	struct msm_gpio_dev *g_dev = to_msm_gpio_dev(chip);
+
+	if((g_dev == NULL) || (g_dev->domain == NULL)) {
+		/* Use old method, nothing we could do about it. */
+		return irq - MSM_GPIO_TO_INT(chip->base);
+	}
+
 	struct irq_data *irq_data = irq_get_irq_data(irq);
 	return irq_data->hwirq;
 }
