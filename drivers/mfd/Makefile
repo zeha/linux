@@ -176,3 +176,5 @@ obj-$(CONFIG_MFD_RETU)		+= retu-mfd.o
 obj-$(CONFIG_MFD_AS3711)	+= as3711.o
 obj-$(CONFIG_MFD_AS3722)	+= as3722.o
 obj-$(CONFIG_MFD_STW481X)	+= stw481x.o
+obj-$(CONFIG_MFD_SWIMCU)	+= swimcu-core.o swimcu-gpio.o swimcu-pm.o swimcu-i2c.o swimcu-prot.o
+ccflags-${CONFIG_MFD_SWIMCU}	+= -Iarch/arm

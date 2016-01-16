@@ -1073,6 +1073,13 @@ config SENSORS_S3C_RAW
 	  Say Y here if you want to include raw copies of all the ADC
 	  channels in sysfs.
 
+config SENSORS_SWIMCU
+	tristate "Sierra Wireless WPx5 MCU"
+	depends on MFD_SWIMCU
+	help
+	  If you say yes here you get support for the hardware
+	  monitoring features of the WPx5 MCU.
+
 config SENSORS_SIS5595
 	tristate "Silicon Integrated Systems Corp. SiS5595"
 	depends on PCI

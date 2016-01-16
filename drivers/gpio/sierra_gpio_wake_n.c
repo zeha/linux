@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/pm.h>
+#include <linux/notifier.h>
 
 #include <mach/gpio.h>
 
@@ -28,9 +29,41 @@ struct wake_n_pdata {
 	struct wakeup_source ws;
 	struct platform_device *pdev;
 	struct work_struct check_work;
+	spinlock_t lock;
 } wake_n_pdata = {
 	.gpio = WAKEN_GNUMBER,
 };
+
+static RAW_NOTIFIER_HEAD(wake_chain);
+
+/* wake event notifier */
+int __ref register_sierra_gpio_wake_notifier(struct notifier_block *nb)
+{
+	int ret;
+
+	pr_info("%s", __func__);
+	spin_lock(&wake_n_pdata.lock);
+	ret = raw_notifier_chain_register(&wake_chain, nb);
+	spin_unlock(&wake_n_pdata.lock);
+	return ret;
+}
+EXPORT_SYMBOL(register_sierra_gpio_wake_notifier);
+
+static int wake_notify(void)
+{
+	int ret;
+
+	ret = raw_notifier_call_chain(&wake_chain, 0, NULL);
+	return notifier_to_errno(ret);
+}
+
+void __ref unregister_sierra_gpio_wake_notifier(struct notifier_block *nb)
+{
+	spin_lock(&wake_n_pdata.lock);
+	raw_notifier_chain_unregister(&wake_chain, nb);
+	spin_unlock(&wake_n_pdata.lock);
+}
+EXPORT_SYMBOL(unregister_sierra_gpio_wake_notifier);
 
 static void gpio_check_and_wake(struct work_struct *work)
 {
@@ -42,13 +75,18 @@ static void gpio_check_and_wake(struct work_struct *work)
 	gpioval = gpio_get_value(w->gpio);
 	sprintf(event, "STATE=%s", (gpioval ? "SLEEP" : "WAKEUP"));
 	pr_info("%s: %s %s\n", __func__, w->name, event);
-
-	envp[0] = event;
-	envp[1] = NULL;
-	kobject_get(&w->pdev->dev.kobj);
-	if ((err = kobject_uevent_env(&w->pdev->dev.kobj, KOBJ_CHANGE, envp)))
-		pr_err("%s: error %d signaling uevent\n", __func__, err);
-	kobject_put(&w->pdev->dev.kobj);
+	if (wake_chain.head != NULL) {
+		if (0 == gpioval) /* waking up */
+			wake_notify();
+	}
+  	else {
+		envp[0] = event;
+		envp[1] = NULL;
+		kobject_get(&w->pdev->dev.kobj);
+		if ((err = kobject_uevent_env(&w->pdev->dev.kobj, KOBJ_CHANGE, envp)))
+			pr_err("%s: error %d signaling uevent\n", __func__, err);
+		kobject_put(&w->pdev->dev.kobj);
+  	}
 	if (gpioval)
 		__pm_relax(&w->ws);
 }
@@ -93,6 +131,7 @@ static int __init wake_n_probe(struct platform_device *pdev)
 			wake_n_pdata.gpio);
 		goto release_gpio;
 	}
+	spin_lock_init(&wake_n_pdata.lock);
 
 	ret = request_irq(wake_n_pdata.irq, gpio_wake_input_irq_handler,
                       IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,

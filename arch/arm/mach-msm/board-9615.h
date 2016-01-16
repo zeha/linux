@@ -59,6 +59,15 @@ struct i2c_registry {
 #define PM8018_IRQ_BASE                 (NR_MSM_IRQS + NR_GPIO_IRQS)
 #define PM8018_MPP_IRQ_BASE             (PM8018_IRQ_BASE + NR_GPIO_IRQS)
 
+/* Macro assumes SWIMCU GPIOs & ADCs start at 0 */
+#define SWIMCU_GPIO_BASE                (PM8018_MPP_BASE + PM8018_NR_MPPS)
+#define SWIMCU_GPIO_TO_SYS(mcu_gpio)    (mcu_gpio + SWIMCU_GPIO_BASE)
+#define SWIMCU_NR_GPIOS                 8
+#define SWIMCU_IS_GPIO(gpio)            ((gpio >= SWIMCU_GPIO_BASE) && (gpio < SWIMCU_GPIO_BASE + SWIMCU_NR_GPIOS))
+#define SWIMCU_ADC_BASE                 2
+#define SWIMCU_ADC_TO_SYS(mcu_adc)      (mcu_adc + SWIMCU_ADC_BASE)
+#define SWIMCU_NR_ADCS                  2
+
 extern struct pm8xxx_regulator_platform_data
 	msm_pm8018_regulator_pdata[];
 

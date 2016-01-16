@@ -19,6 +19,7 @@
 
 #ifdef CONFIG_SIERRA_EXT_GPIO
 #include <linux/sierra_bsudefs.h>
+#include <../arch/arm/mach-msm/board-9615.h>
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
 
 
@@ -172,7 +173,13 @@ static struct ext_gpio_map ext_gpio_cf3[]={
 	{"25",73,FUNCTION_UNALLOCATED},
 	{"32",30,FUNCTION_UNALLOCATED},
 	{"33",78,FUNCTION_UNALLOCATED},
-	/* GPIOs 34-37 not supported yet */
+#ifdef CONFIG_GPIO_SWIMCU
+	{"34",SWIMCU_GPIO_TO_SYS(0),FUNCTION_UNALLOCATED},
+	{"35",SWIMCU_GPIO_TO_SYS(1),FUNCTION_UNALLOCATED},
+	{"36",SWIMCU_GPIO_TO_SYS(2),FUNCTION_UNALLOCATED},
+	{"37",SWIMCU_GPIO_TO_SYS(3),FUNCTION_UNALLOCATED},
+	/* GPIOs 38-41 not supported yet */
+#endif /* CONFIG_GPIO_SWIMCU */
 	{"42",80,FUNCTION_UNALLOCATED}
 };
 
@@ -1160,7 +1167,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 		ioname = desc->chip->names[offset];
 
 #ifdef CONFIG_SIERRA_EXT_GPIO
-	gpioname = gpio_map_num_to_name(offset, (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags)));
+	gpioname = gpio_map_num_to_name(desc_to_gpio(desc), (test_bit(FLAG_USE_ALIAS_IONAME, &desc->flags)));
 	if( NULL == gpioname ) {
 		status = -EPERM;
 		goto unlock_done;

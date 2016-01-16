@@ -26,6 +26,9 @@
 #ifdef CONFIG_MFD_WM8944
 #include <linux/mfd/wm8944/pdata.h>
 #endif
+#ifdef CONFIG_MFD_SWIMCU
+#include <linux/mfd/swimcu/core.h>
+#endif
 #include <linux/msm_ssbi.h>
 #include <linux/memblock.h>
 #include <linux/usb/android.h>
@@ -254,8 +257,11 @@ static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 };
 
 static struct pm8xxx_gpio_init pm8018_gpios_cf3[] __initdata = {
+	PM8018_GPIO_DISABLE(3),
 	PM8018_GPIO_OUTPUT(3, 1, HIGH), /* CODEC ON, temporary until Trac#2839 */
+	PM8018_GPIO_DISABLE(4),
 	PM8018_GPIO_OUTPUT(4, 0, LOW),  /* USB_VBUS_EN */
+	PM8018_GPIO_DISABLE(5),
 	PM8018_GPIO_OUTPUT(5, 0, LOW), /* CTRL_MCU_RESET for CF3 */
 };
 #endif
@@ -899,6 +905,33 @@ static struct slim_boardinfo msm_slim_devices[] = {
 #endif
 };
 
+#ifdef CONFIG_MFD_SWIMCU
+
+static struct swimcu_platform_data swimcu_appl_pdata = {
+	.nr_gpio = SWIMCU_NR_GPIOS,
+	.gpio_base = SWIMCU_GPIO_BASE,
+	.nr_adc = SWIMCU_NR_ADCS,
+	.adc_base = SWIMCU_ADC_BASE,
+	.func_flags = SWIMCU_FUNC_APPL,
+};
+
+static struct i2c_board_info swimcu_appl_device_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("swimcu", SWIMCU_APPL_I2C_ADDR),
+		.platform_data = &swimcu_appl_pdata,
+	},
+};
+
+static struct i2c_registry msm9615_i2c_devices_swimcu[] __initdata = {
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_9615_GSBI5_QUP_I2C_BUS_ID,
+		swimcu_appl_device_info,
+		ARRAY_SIZE(swimcu_appl_device_info),
+	},
+};
+#endif /* CONFIG_MFD_SWIMCU */
+
 #if !defined(CONFIG_SIERRA)
 
 static struct msm_spi_platform_data msm9615_qup_spi_gsbi3_pdata = {
@@ -1479,6 +1512,20 @@ static void __init msm9615_i2c_init(void)
 			}
 		}
 	}
+
+#ifdef CONFIG_MFD_SWIMCU
+  if (bssupport(BSFEATURE_CF3))
+  {
+    for (i = 0; i < ARRAY_SIZE(msm9615_i2c_devices_swimcu); ++i) {
+      if (msm9615_i2c_devices_swimcu[i].machs & mach_mask) {
+        i2c_register_board_info(
+          msm9615_i2c_devices_swimcu[i].bus,
+          msm9615_i2c_devices_swimcu[i].info,
+          msm9615_i2c_devices_swimcu[i].len);
+      }
+    }
+  }
+#endif /* CONFIG_MFD_SWIMCU */
 }
 
 static void __init msm9615_reserve(void)

@@ -622,6 +622,14 @@ config MFD_SEC_CORE
 	 additional drivers must be enabled in order to use the functionality
 	 of the device
 
+config MFD_SWIMCU
+	bool "Sierra Wireless WPx5 MCU Support"
+	select MFD_CORE
+	depends on I2C=y
+	default y
+	help
+	  Support for Sierra Wireless MCU
+
 config MFD_SI476X_CORE
 	tristate "Silicon Laboratories 4761/64/68 AM/FM radio."
 	depends on I2C

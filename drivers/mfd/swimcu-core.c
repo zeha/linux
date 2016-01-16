@@ -1,0 +1,479 @@
+/*
+ * swimcu-core.c  --  Device access for Sierra Wireless WPx5 MCU
+ *
+ * adapted from:
+ *
+ * wm8350-core.c  --  Device access for Wolfson WM8350
+ *
+ * Copyright (c) 2016 Sierra Wireless, Inc.
+ *
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
+ *
+ */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/bug.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/regmap.h>
+#include <linux/workqueue.h>
+#include <linux/notifier.h>
+
+#include <linux/mfd/swimcu/core.h>
+#include <linux/mfd/swimcu/gpio.h>
+#include <linux/mfd/swimcu/pm.h>
+#include <linux/mfd/swimcu/mciprotocol.h>
+#include <linux/mfd/swimcu/mcidefs.h>
+
+/*
+ * SWIMCU Device IO
+ */
+#ifdef SWIMCU_DEBUG
+int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
+#endif
+
+/* WPx5 ADC2 and ADC3 provided by MCU */
+static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
+	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
+	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
+};
+
+static struct mci_adc_config_s adc_config;
+
+/************
+ *
+ * Name:     swimcu_ping
+ *
+ * Purpose:  Generate a ping message to MCU and retrieve MCU version.
+ *
+ * Parms:    swimcu - driver data block
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    called on startup and on sysfs version query
+ *
+ ************/
+int swimcu_ping(struct swimcu *swimcu)
+{
+	struct mci_protocol_frame_s  frame;
+	struct mci_protocol_packet_s packet;
+	uint32_t params[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
+
+	/* Ping the micro-controller and wait for response */
+	frame.type = MCI_PROTOCOL_FRAME_TYPE_PING_REQ;
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+	    mci_protocol_frame_send(swimcu, &frame)) {
+		pr_err("Failed to send PING\n");
+		return -EIO;
+	}
+
+	/* Initialize the receiving buffer and count with max number of params */
+	packet.count = 0;
+	while (packet.count < MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX)
+	{
+		params[packet.count] = 0;
+		packet.count++;
+	}
+	packet.datap = params;
+
+	frame.payloadp = &packet;
+	frame.type = MCI_PROTOCOL_FRAME_TYPE_INVALID;
+
+	swimcu->version_major = 0xff;
+
+	/* Receive Ping response from micro-controller */
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+	    mci_protocol_frame_recv(swimcu, &frame)) {
+		pr_err("Failed to receive PING RESPONSE");
+		return -EIO;
+	}
+	else if (MCI_PROTOCOL_FRAME_TYPE_PING_RESP != frame.type) {
+		pr_err("Unexpected frame type %.2x", frame.type);
+		return -EIO;
+	}
+	else {
+		swimcu->version_major =
+		  (u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR];
+		swimcu->version_minor =
+		  (u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR];
+		swimcu_log(FW, "%s: success, ver %d.%d\n", __func__, swimcu->version_major, swimcu->version_minor);
+	}
+
+	return 0;
+}
+
+/************
+ *
+ * Name:     adc_init
+ *
+ * Purpose:  initialize default MCU adc parameters
+ *
+ * Parms:    swimcu - driver data block
+ *           channel - 0 or 1
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    called on startup or if adc read fails
+ *
+ ************/
+static int adc_init( struct swimcu *swimcu, int channel )
+{
+	int rcode = 0;
+
+	if (channel < ARRAY_SIZE(adc_chan_cfg)) {
+		adc_config.channel = adc_chan_cfg[channel];
+		adc_config.resolution_mode = MCI_PROTOCOL_ADC_RESOLUTION_12_BITS;
+		adc_config.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE;
+		adc_config.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE;
+		adc_config.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4;
+		adc_config.hw_average = true;
+		adc_config.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32;
+		adc_config.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW;
+
+		adc_config.hw_compare.value1 = 0;
+		adc_config.hw_compare.value2 = 0;
+		adc_config.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED;
+
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_adc_init(swimcu, &adc_config)) {
+			rcode = -EIO;
+			pr_err("%s: fail chan %d\n", __func__, channel);
+		}
+	}
+
+	return rcode;
+}
+
+/************
+ *
+ * Name:     swimcu_read_adc
+ *
+ * Purpose:  Read ADC value from MCU
+ *
+ * Parms:    swimcu - driver data block
+ *           channel - 0 or 1
+ *
+ * Return:   >=0 ADC value in mV if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    called from hwmon driver
+ *
+ ************/
+int swimcu_read_adc( struct swimcu *swimcu, int channel )
+{
+	uint16_t adc_val = 0;
+	int rcode;
+	enum mci_protocol_adc_channel_e adc_chan;
+	enum mci_protocol_status_code_e ret;
+
+	if (channel >= ARRAY_SIZE(adc_chan_cfg)) {
+		pr_err("%s: invalid chan %d\n", __func__, channel);
+		return -EPERM;
+	}
+
+	mutex_lock(&swimcu->adc_mutex);
+	adc_chan = adc_chan_cfg[channel];
+
+	swimcu_log(ADC, "%s: channel %d\n", __func__, channel);
+
+	/* start ADC sample */
+	ret = swimcu_adc_restart(swimcu, adc_chan);
+
+	if (ret != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+		pr_warn("%s restart failed on chan %d, try init\n", __func__, adc_chan);
+		adc_init(swimcu, channel);
+	}
+
+	/* convert ADC value to mV */
+	if (swimcu_adc_get(swimcu, adc_chan, &adc_val) == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+		rcode = (int)((adc_val * SWIMCU_ADC_VREF) >>
+			      (adc_config.resolution_mode == MCI_PROTOCOL_ADC_RESOLUTION_8_BITS ? 8 : 12));
+	}
+	else {
+		rcode = -EIO;
+		pr_warn("%s adc read failed on chan %d\n", __func__, adc_chan);
+	}
+
+	mutex_unlock(&swimcu->adc_mutex);
+
+	return rcode;
+}
+EXPORT_SYMBOL_GPL(swimcu_read_adc);
+
+/************
+ *
+ * Name:     swimcu_process_events
+ *
+ * Purpose:  To process events from MCU
+ *
+ * Parms:    swimcu - driver data block
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    typically called after trigger from active low MICRO_IRQ_N
+ *
+ ************/
+static int swimcu_process_events(struct swimcu *swimcu)
+{
+	enum mci_protocol_status_code_e p_code;
+
+	struct mci_event_s events[MCI_EVENT_LIST_SIZE_MAX];
+	int count = MCI_EVENT_LIST_SIZE_MAX;
+	int i;
+
+	memset(events, 0, sizeof(events));
+	p_code = swimcu_event_query(swimcu, events, &count);
+	swimcu_log(EVENT, "%s: %d events\n", __func__, count);
+
+	if (p_code != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+		return -EIO;
+	}
+	/* handle the events */
+	for (i = 0; i < count; i++) {
+		if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_GPIO) {
+			swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
+				events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+			swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+		}
+		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
+			swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
+				events[i].data.adc.adch, events[i].data.adc.value);
+		}
+		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_RESET) {
+			swimcu_log(EVENT, "%s: MCU reset source 0x%x\n", __func__, events[i].data.reset.source);
+			swimcu_set_reset_source(events[i].data.reset.source);
+		}
+		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WUSRC) {
+			swimcu_log(EVENT, "%s: MCU wakeup source %d %d\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
+			swimcu_set_wakeup_source(events[i].data.wusrc.type, events[i].data.wusrc.value);
+		}
+		else {
+			pr_warn("%s: Unknown event[%d] type %d\n", __func__, i, events[i].type);
+		}
+	}
+
+	return 0;
+}
+
+extern int register_sierra_gpio_wake_notifier(struct notifier_block *nb);
+extern int unregister_sierra_gpio_wake_notifier(struct notifier_block *nb);
+
+/************
+ *
+ * Name:     swimcu_event_trigger
+ *
+ * Purpose:  notification callback on wake event
+ *
+ * Parms:    notifier_block - to retrieve swimcu driver data
+ *           others unused
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    called from sierra_gpio_wake_n
+ *
+ ************/
+static int swimcu_event_trigger (struct notifier_block *self,
+                                unsigned long event, void *unused)
+{
+	struct swimcu *swimcu = container_of(self, struct swimcu, nb);
+
+	return swimcu_process_events(swimcu);
+}
+
+/************
+ *
+ * Name:     swimcu_event_init
+ *
+ * Purpose:  register notify block with sierra_gpio_wake_n driver
+ *
+ * Parms:    swimcu - contains the notifier block data
+ *
+ * Return:   nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    called on device init (early)
+ *
+ */
+static void swimcu_event_init (struct swimcu *swimcu)
+{
+	swimcu->nb.notifier_call = swimcu_event_trigger;
+	register_sierra_gpio_wake_notifier(&swimcu->nb);
+}
+
+/*
+ * Register a client device.  This is non-fatal since there is no need to
+ * fail the entire device init due to a single platform device failing.
+ */
+static int swimcu_client_dev_register(struct swimcu *swimcu,
+				       const char *name,
+				       struct platform_device **pdev)
+{
+	int ret;
+
+	*pdev = platform_device_alloc(name, -1);
+	if (*pdev == NULL) {
+		dev_err(swimcu->dev, "Failed to allocate %s\n", name);
+		ret = -ENOMEM;
+	}
+	else {
+		(*pdev)->dev.parent = swimcu->dev;
+		platform_set_drvdata(*pdev, swimcu);
+		ret = platform_device_add(*pdev);
+		if (ret != 0) {
+			dev_err(swimcu->dev, "Failed to register %s: %d\n", name, ret);
+			platform_device_put(*pdev);
+			*pdev = NULL;
+		}
+	}
+	return ret;
+}
+
+/************
+ *
+ * Name:     swimcu_device_exit
+ *
+ * Purpose:  deinitialize the driver
+ *
+ * Parms:    swimcu - device data
+ *
+ * Return:   Nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    called on device exit or init fail
+ *
+ */
+void swimcu_device_exit(struct swimcu *swimcu)
+{
+	unregister_sierra_gpio_wake_notifier(&swimcu->nb);
+	swimcu_pm_sysfs_deinit(swimcu);
+	platform_device_unregister(swimcu->hwmon.pdev);
+	platform_device_unregister(swimcu->gpio.pdev);
+}
+EXPORT_SYMBOL_GPL(swimcu_device_exit);
+
+/************
+ *
+ * Name:     swimcu_device_init
+ *
+ * Purpose:  initialize the driver
+ *
+ * Parms:    swimcu - contains the pdata for init
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    called on device init (early)
+ *
+ */
+int swimcu_device_init(struct swimcu *swimcu)
+{
+	int ret;
+	int channel;
+	struct swimcu_platform_data *pdata = dev_get_platdata(swimcu->dev);
+
+	if (NULL == pdata) {
+		ret = -EINVAL;
+		pr_err("%s: no pdata, abort\n", __func__);
+		return ret;
+	}
+	swimcu_log(INIT, "%s: start\n", __func__);
+
+	mutex_init(&swimcu->mcu_transaction_mutex);
+
+	swimcu_event_init(swimcu);
+
+	ret = swimcu_ping(swimcu);
+
+	if (0 != ret) {
+		pr_info("%s: no response, abort\n", __func__);
+		ret = 0; /* this is not necessarily an error. MCI firmware update procedure will take over */
+		goto exit;
+	}
+
+	if(pdata->func_flags & SWIMCU_FUNC_FLAG_FWUPD) {
+		ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_FWUPD);
+		if (ret != 0) {
+			dev_err(swimcu->dev, "FW sysfs init failed: %d\n", ret);
+			goto exit;
+		}
+	}
+
+	if(pdata->func_flags & SWIMCU_FUNC_FLAG_PM) {
+		ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_PM);
+		if (ret != 0) {
+			dev_err(swimcu->dev, "PM sysfs init failed: %d\n", ret);
+			goto exit;
+		}
+	}
+
+	if(pdata->nr_gpio > 0) {
+		ret = swimcu_client_dev_register(swimcu, "swimcu-gpio",
+			&(swimcu->gpio.pdev));
+		if (ret != 0) {
+			dev_err(swimcu->dev, "gpio client register failed: %d\n", ret);
+			ret = 0; /* non-fatal */
+		}
+	}
+
+	if(pdata->nr_adc > 0) {
+		mutex_init(&swimcu->adc_mutex);
+
+		if (pdata->nr_adc > SWIMCU_NUM_ADC)
+			pdata->nr_adc = SWIMCU_NUM_ADC;
+
+		for (channel = 0; channel < pdata->nr_adc; channel++) {
+			ret = adc_init(swimcu, channel);
+			if (0 != ret)
+				goto exit;
+		}
+
+		ret = swimcu_client_dev_register(swimcu, "swimcu-hwmon",
+			&(swimcu->hwmon.pdev));
+		if (ret != 0) {
+			dev_err(swimcu->dev, "hwmon client register failed: %d\n", ret);
+			ret = 0; /* non-fatal */
+		}
+	}
+
+	if(pdata->func_flags & SWIMCU_FUNC_FLAG_EVENT) {
+		ret = swimcu_process_events(swimcu);
+		if (ret != 0) {
+			dev_err(swimcu->dev, "process events failed: %d\n", ret);
+			goto exit;
+		}
+	}
+
+	swimcu_log(INIT, "%s: success\n", __func__);
+	return 0;
+
+exit:
+	swimcu_device_exit(swimcu);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(swimcu_device_init);
+
+MODULE_DESCRIPTION("Sierra Wireless WPx5 MCU core driver");
+MODULE_LICENSE("GPL");
