@@ -51,6 +51,10 @@ static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
   struct i2c_msg msg;
   char data_buf[I2C_BUF_SIZE];
   int ret,data_size;
+#if 0 /* Needed for "DM, FIXME (77)" bellow. */
+	unsigned short addr_list[] = {0xFF, I2C_CLIENT_END};
+	struct i2c_board_info info; /* Don't care for content. */
+#endif
 
   if(list_empty(&sierra_i2c_device_list))
   {
@@ -65,22 +69,40 @@ static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
     return -EIO;
   }
 
-  data_size = min(count,sizeof(data_buf));
+  /* Strict address validity check (take a look at the i2c-core for more info).
+     Note that this does not work for I2C 10-bit addressing. If it becomes
+     a problem, we would need to revisit IOCTL call as well. */
+  if (client->addr < 0x08 || client->addr > 0x77) {
+    pr_err("Invalid 7-bit address [0x%02x]\n", client->addr);
+    return -EINVAL;
+  }
 
+/* DM, FIXME (77): Should we probe the client here? This check exists in IOCTL
+   address setup, but users could drop the bomb directly via open-read-close
+   sequence (e.g. cat <device>) and game is over. For now, let's hope that
+	 address validity check is enough.
+ */
+#if 0
+	/* Check if client really exists. */
+  addr_list[0] = client->addr;
+  if(!i2c_new_probed_device(client->adapter, &info, addr_list, NULL))
+    return -ENODEV;
+#endif
+
+  data_size = min(count,sizeof(data_buf));
   i2c_adap = client->adapter;
-    
   msg.addr = client->addr;
   msg.flags = I2C_M_RD;
   msg.len = count;
   msg.buf = data_buf;
-    
+
   ret = i2c_transfer(client->adapter, &msg, 1);
   if(ret < 0)
     return ret;
 
   if(copy_to_user((void __user *)buf,(void *)data_buf,data_size))
     return -EFAULT;
-  
+
   return data_size;
 
 }
@@ -93,7 +115,7 @@ static ssize_t sierra_i2c_write(struct file *fp, const char __user *buf,
   struct i2c_msg msg;
   char data_buf[I2C_BUF_SIZE];
   int ret;
-  
+
   if(list_empty(&sierra_i2c_device_list))
   {
     pr_err("%s: device list is empty. Hint: Set one up using SWI_IOCTL_I2C_ADDR_CONFIG ioctl.\n", __func__);
@@ -109,12 +131,12 @@ static ssize_t sierra_i2c_write(struct file *fp, const char __user *buf,
 
   if(count > sizeof(data_buf))
     return -ENOMEM;
-  
+
   if(copy_from_user(data_buf, buf, count))
     return -EFAULT;
-  
+
   i2c_adap = client->adapter;
-  
+
   msg.addr = client->addr;
   msg.flags = 0;
   msg.len = count;
@@ -124,10 +146,10 @@ static ssize_t sierra_i2c_write(struct file *fp, const char __user *buf,
   ret = i2c_transfer(client->adapter, &msg, 1);
   if(ret >= 0)
     return 0;
-  
+
   return ret;
 }
-    
+
 static int sierra_i2c_open(struct inode *inode, struct file *file)
 {
   int ret = 0;
@@ -160,7 +182,7 @@ static long sierra_i2c_ioctl(struct file *filp, u_int cmd, u_long arg)
     case SWI_IOCTL_I2C_ADDR_CONFIG:
       if(copy_from_user(&addr,(void __user *)arg,sizeof(int)))
         return -EFAULT;
-      
+
       /*lookup the i2c dev list to check if this dev exist*/
       swi_i2c_client = sierra_i2c_lookup(addr);
       if(swi_i2c_client)
@@ -168,12 +190,12 @@ static long sierra_i2c_ioctl(struct file *filp, u_int cmd, u_long arg)
         filp->private_data = swi_i2c_client;
         return 0;
       }
-      
+
       addr_list[0] = addr;
       swi_i2c_client = i2c_new_probed_device(i2c_adap, &info, addr_list, NULL);
       if(!swi_i2c_client)
         return -ENODEV;
-      
+
       swi_i2c_dev = kmalloc(sizeof(struct sierra_i2c_device),GFP_KERNEL);
       if(!swi_i2c_dev)
         return -ENOMEM;
@@ -181,17 +203,17 @@ static long sierra_i2c_ioctl(struct file *filp, u_int cmd, u_long arg)
       swi_i2c_dev->client = swi_i2c_client;
       filp->private_data = swi_i2c_client;
       list_add_tail(&swi_i2c_dev->dev_list,&sierra_i2c_device_list);
-      
+
       pr_debug("config i2c device,addr 0x%x\n",addr);
       break;
-      
+
     case SWI_IOCTL_I2C_FREQ_CONFIG:
       if(copy_from_user(&freq,(void __user *)arg,sizeof(int)))
         return -EFAULT;
       if((ret = swi_set_i2c_freq(i2c_adap,freq * 1000))< 0)
         return ret;
       break;
-      
+
     default:
       break;
   }
