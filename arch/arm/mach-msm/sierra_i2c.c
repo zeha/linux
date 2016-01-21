@@ -52,8 +52,8 @@ static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
   char data_buf[I2C_BUF_SIZE];
   int ret,data_size;
 #if 0 /* Needed for "DM, FIXME (77)" bellow. */
-	unsigned short addr_list[] = {0xFF, I2C_CLIENT_END};
-	struct i2c_board_info info; /* Don't care for content. */
+  unsigned short addr_list[] = {0xFF, I2C_CLIENT_END};
+  struct i2c_board_info info; /* Don't care for content. */
 #endif
 
   if(list_empty(&sierra_i2c_device_list))
@@ -80,10 +80,10 @@ static ssize_t sierra_i2c_read(struct file *fp, char __user *buf, size_t count,
 /* DM, FIXME (77): Should we probe the client here? This check exists in IOCTL
    address setup, but users could drop the bomb directly via open-read-close
    sequence (e.g. cat <device>) and game is over. For now, let's hope that
-	 address validity check is enough.
+   address validity check is enough.
  */
 #if 0
-	/* Check if client really exists. */
+  /* Check if client really exists. */
   addr_list[0] = client->addr;
   if(!i2c_new_probed_device(client->adapter, &info, addr_list, NULL))
     return -ENODEV;
