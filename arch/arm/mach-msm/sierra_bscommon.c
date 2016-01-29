@@ -208,7 +208,6 @@ bool bssupport(
         case BSEM8805:
         case BSMC7350:
         case BSMC7350L:
-        case BSMC7802:
         case BSMC7304:
           supported = true;
           break;
@@ -222,7 +221,6 @@ bool bssupport(
     case BSFEATURE_MINICARD_M2M:
       switch (hwtype)
       {
-        case BSMC7802:
         case BSMC7354:
         case BSMC7350:
         case BSMC7350L:
@@ -249,9 +247,6 @@ bool bssupport(
         case BSAR7554_LARGER_MEMORY:
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
         case BSAR7552RD:
@@ -277,7 +272,6 @@ bool bssupport(
         case BSEM8805:
         case BSMC7350:
         case BSMC7350L:
-        case BSMC7802:
         case BSMC7304:
         case BSWP75XX:
         case BSWP7502:
@@ -297,15 +291,6 @@ bool bssupport(
     case BSFEATURE_SD:
       switch (hwtype)
       {
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-          supported = true;
-          break;
-
         default:
           supported = false;
           break;
@@ -324,20 +309,10 @@ bool bssupport(
         case BSAR7554_LARGER_MEMORY:
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
         case BSMC7354:
         case BSMC7350:
         case BSMC7350L:
-        case BSMC7802:
         case BSMC7304:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSWP75XX:
         case BSWP7502:
         case BSWP7504:
@@ -384,7 +359,6 @@ bool bssupport(
         case BSMC8805:
         case BSEM8805:
         case BSMC7350:
-        case BSMC7802:
         case BSMC7304:
           supported = true;
           break;
@@ -411,15 +385,6 @@ bool bssupport(
         case BSAR7554_LARGER_MEMORY:
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
         case BSWP75XX:
@@ -449,12 +414,6 @@ bool bssupport(
         case BSEM7305:
         case BSMC8805:
         case BSEM8805:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
         case BSAR7550:
         case BSAR7552:
         case BSAR7554:
@@ -467,11 +426,7 @@ bool bssupport(
         case BSAR8652:
         case BSMC7350:
         case BSMC7350L:
-        case BSMC7802:
         case BSMC7304:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR7552RD:
         case BSWP75XX:
@@ -507,7 +462,6 @@ bool bssupport(
         case BSEM8805:
         case BSMC7350:
         case BSMC7350L:
-        case BSMC7802:
         case BSMC7304:
           supported = true;
           break;
@@ -528,10 +482,7 @@ bool bssupport(
         case BSAR7550:
         case BSAR7550_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
-        case BSWP7100:
-        case BSWP7100_LARGER_MEMORY:
         case BSMC7350:
-        case BSWP7100_NEW:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -634,6 +585,7 @@ bool bssupport(
         case BSMC7355:
         case BSEM7655:
         case BSMC7371:
+        case BSMC7354:
           supported = true;
           break;
 
@@ -655,15 +607,6 @@ bool bssupport(
         case BSAR7554_LARGER_MEMORY:
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSAR7554RD:
         case BSAR8652:
         case BSAR7552RD:
@@ -685,15 +628,6 @@ bool bssupport(
     case BSFEATURE_BUZZER:
       switch (hwtype)
       {
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-          supported = true;
-          break;
-          
         default:
           supported = false;
           break;
@@ -714,15 +648,6 @@ bool bssupport(
         case BSAR7558_LARGER_MEMORY:
         case BSAR7554RD:
         case BSAR8652:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSWP75XX:
         case BSWP7502:
         case BSWP7504:
@@ -753,15 +678,6 @@ bool bssupport(
         case BSAR7558_LARGER_MEMORY:
         case BSAR7554RD:
         case BSAR8652:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSAR7552RD:
           supported = true;
           break;
@@ -789,15 +705,6 @@ bool bssupport(
         case BSAR7556_LARGER_MEMORY:
         case BSAR7558_LARGER_MEMORY:
         case BSAR8652:
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-        case BSWP7100_NEW:
-        case BSWP7102_NEW:
-        case BSWP7104_NEW:
         case BSWP75XX:
         case BSWP7502:
         case BSWP7504:
