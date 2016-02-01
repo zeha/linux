@@ -298,7 +298,6 @@ bool bssupport(
         case BSMC7802:
         case BSMC7304:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -358,7 +357,6 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -443,7 +441,6 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR8652:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -496,7 +493,6 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR7552RD:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -571,7 +567,6 @@ bool bssupport(
       {
         case BSMC7350:
         case BSMC7350L:
-        case BSWP7500:
         case BSWP7504:
         case BSWP7504G:
           supported = false;
@@ -691,7 +686,6 @@ bool bssupport(
         case BSAR8652:
         case BSAR7552RD:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -748,7 +742,6 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -824,7 +817,6 @@ bool bssupport(
         case BSWP7102_NEW:
         case BSWP7104_NEW:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -871,7 +863,6 @@ bool bssupport(
         case BSAR7554RD:
         case BSAR7552RD:
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -890,7 +881,6 @@ bool bssupport(
       switch (hwtype)
       {
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:
@@ -911,7 +901,6 @@ bool bssupport(
         /* These products use a Micron 4G2K NAND that requires a flash driver
          * fix.  See msm_nand.c for implementation details. */
         case BSWP75XX:
-        case BSWP7500:
         case BSWP7502:
         case BSWP7504:
         case BSWP7504G:

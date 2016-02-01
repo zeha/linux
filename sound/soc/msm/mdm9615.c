@@ -5168,7 +5168,6 @@ static int __init mdm9615_audio_init(void)
 		case BSAR7554RD:
 		case BSAR7552RD:
 		case BSWP75XX:
-		case BSWP7500:
 		case BSWP7502:
 		case BSWP7504:
 		case BSWP7504G:

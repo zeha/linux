@@ -85,7 +85,7 @@ enum bshwtype
   BSAR7556_LARGER_MEMORY,   /* 0x32 - Automotive 7556 (with Larger Memory Design) */
   BSAR7554RD,               /* 0x33 - Automotive 7554 RD */
   BSAR7552RD,               /* 0x34 - Automotive 7552 RD */
-  BSWP7500,                 /* 0x35 - WP7500 */
+  BS_OBSOLETE_53,           /* 0x35 - WP7500, Obsolete - Unsupported */
   BS_OBSOLETE_54,           /* 0x36 - WP7500-G, Obsolete - Unsupported */
   BS_OBSOLETE_55,           /* 0x37 - WP7501, Obsolete - Unsupported */
   BS_OBSOLETE_56,           /* 0x38 - WP7501-G, Obsolete - Unsupported */
