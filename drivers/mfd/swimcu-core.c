@@ -145,7 +145,6 @@ static int adc_init( struct swimcu *swimcu, int channel )
 		adc_config.hw_compare.value1 = 0;
 		adc_config.hw_compare.value2 = 0;
 		adc_config.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED;
-
 		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_adc_init(swimcu, &adc_config)) {
 			rcode = -EIO;
 			pr_err("%s: fail chan %d\n", __func__, channel);
@@ -224,9 +223,14 @@ EXPORT_SYMBOL_GPL(swimcu_read_adc);
  * Return:    0 if successful
  *           -ERRNO otherwise
  *
- * Abort:    none
+ * Abort:    if >50 events or MCU event query fails
  *
  * Notes:    typically called after trigger from active low MICRO_IRQ_N
+ *           Events are retrieved in blocks of 5. We keep retrieving
+ *           blocks until we have all the events. If after 50 events we
+ *           still have more to retrieve we consider this an error and stop
+ *           so we're not stuck here forever. There is no known condition
+ *           currently that would trigger >5 concurrent events, much less 50.
  *
  ************/
 static int swimcu_process_events(struct swimcu *swimcu)
@@ -235,38 +239,56 @@ static int swimcu_process_events(struct swimcu *swimcu)
 
 	struct mci_event_s events[MCI_EVENT_LIST_SIZE_MAX];
 	int count = MCI_EVENT_LIST_SIZE_MAX;
+	int query_count = 1;
 	int i;
 
-	memset(events, 0, sizeof(events));
-	p_code = swimcu_event_query(swimcu, events, &count);
-	swimcu_log(EVENT, "%s: %d events\n", __func__, count);
+	do {
+		memset(events, 0, sizeof(events));
+		count = MCI_EVENT_LIST_SIZE_MAX;
+		p_code = swimcu_event_query(swimcu, events, &count);
+		swimcu_log(EVENT, "%s: %d events, query %d\n", __func__, count, query_count);
 
-	if (p_code != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
-		return -EIO;
-	}
-	/* handle the events */
-	for (i = 0; i < count; i++) {
-		if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_GPIO) {
-			swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
-				events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
-			swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+		if (p_code != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+			return -EIO;
 		}
-		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
-			swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
-				events[i].data.adc.adch, events[i].data.adc.value);
+		/* handle the events */
+		for (i = 0; i < count; i++) {
+			if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_GPIO) {
+				swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
+					events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+				swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+			}
+			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
+				swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
+					events[i].data.adc.adch, events[i].data.adc.value);
+			}
+			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_RESET) {
+				swimcu_log(EVENT, "%s: MCU reset source 0x%x\n", __func__, events[i].data.reset.source);
+				swimcu_set_reset_source(events[i].data.reset.source);
+			}
+			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WUSRC) {
+				swimcu_log(EVENT, "%s: MCU wakeup source %d %d\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
+				swimcu_set_wakeup_source(events[i].data.wusrc.type, events[i].data.wusrc.value);
+			}
+			else {
+				pr_warn("%s: Unknown event[%d] type %d\n", __func__, i, events[i].type);
+			}
 		}
-		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_RESET) {
-			swimcu_log(EVENT, "%s: MCU reset source 0x%x\n", __func__, events[i].data.reset.source);
-			swimcu_set_reset_source(events[i].data.reset.source);
-		}
-		else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WUSRC) {
-			swimcu_log(EVENT, "%s: MCU wakeup source %d %d\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
-			swimcu_set_wakeup_source(events[i].data.wusrc.type, events[i].data.wusrc.value);
+
+		if (count < MCI_EVENT_LIST_SIZE_MAX) {
+			/* All events retrieved. Done. */
+			break;
 		}
 		else {
-			pr_warn("%s: Unknown event[%d] type %d\n", __func__, i, events[i].type);
+			/* Possibly more events to retrieve */
+			if (++query_count > 10) {
+				/* MCU fault. MAX is arbitrary, but there's no known reason to exceed 1 */
+				pr_err("%s: query max exceeded, %d\n", __func__, query_count);
+				return -EREMOTEIO;
+			}
+			/* else retrieve another block of events */
 		}
-	}
+	} while (true);
 
 	return 0;
 }
