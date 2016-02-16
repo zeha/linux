@@ -362,6 +362,11 @@ int msm_mpm_enable_pin(unsigned int pin, unsigned int enable)
 	spin_unlock_irqrestore(&msm_mpm_lock, flags);
 	return 0;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msm_mpm_enable_pin);
+#endif
+/* SWISTOP */
 
 int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on)
 {
@@ -379,6 +384,11 @@ int msm_mpm_set_pin_wake(unsigned int pin, unsigned int on)
 	spin_unlock_irqrestore(&msm_mpm_lock, flags);
 	return 0;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msm_mpm_set_pin_wake);
+#endif
+/* SWISTOP */
 
 int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 {
@@ -418,6 +428,11 @@ int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 	spin_unlock_irqrestore(&msm_mpm_lock, flags);
 	return 0;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msm_mpm_set_pin_type);
+#endif
+/* SWISTOP */
 
 bool msm_mpm_irqs_detectable(bool from_idle)
 {

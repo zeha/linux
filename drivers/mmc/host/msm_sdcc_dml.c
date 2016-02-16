@@ -221,6 +221,11 @@ int msmsdcc_dml_init(struct msmsdcc_host *host)
 out:
 	return rc;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msmsdcc_dml_init);
+#endif
+/* SWISTOP */
 
 /**
  * Soft reset DML HW
@@ -232,6 +237,11 @@ void msmsdcc_dml_reset(struct msmsdcc_host *host)
 	writel_relaxed(1, (host->dml_base + DML_SW_RESET));
 	mb();
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msmsdcc_dml_reset);
+#endif
+/* SWISTOP */
 
 /**
  * Checks if DML HW is busy or not?
@@ -242,6 +252,11 @@ bool msmsdcc_is_dml_busy(struct msmsdcc_host *host)
 	return !(readl_relaxed(host->dml_base + DML_STATUS) & PRODUCER_IDLE) ||
 		!(readl_relaxed(host->dml_base + DML_STATUS) & CONSUMER_IDLE);
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msmsdcc_is_dml_busy);
+#endif
+/* SWISTOP */
 
 /**
  * Start data transfer.
@@ -289,6 +304,11 @@ void msmsdcc_dml_start_xfer(struct msmsdcc_host *host, struct mmc_data *data)
 	}
 	mb();
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msmsdcc_dml_start_xfer);
+#endif
+/* SWISTOP */
 
 /**
  * Deinitialize DML HW connected with SDCC core
@@ -300,4 +320,9 @@ void msmsdcc_dml_exit(struct msmsdcc_host *host)
 	msmsdcc_dml_reset(host);
 	iounmap(host->dml_base);
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+EXPORT_SYMBOL(msmsdcc_dml_exit);
+#endif
+/* SWISTOP */
 #endif /* CONFIG_MMC_MSM_SPS_SUPPORT */

@@ -82,6 +82,12 @@ static struct dentry *debugfs_file;
 static int  msmsdcc_dbg_init(void);
 #endif
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int param_msm_sdcc_max_speed = -1;
+#endif
+/* SWISTOP */
+
 static int msmsdcc_prep_xfer(struct msmsdcc_host *host, struct mmc_data
 			     *data);
 
@@ -2154,8 +2160,14 @@ out:
 
 static inline void msmsdcc_vreg_deinit_reg(struct msm_mmc_reg_data *vreg)
 {
-	if (vreg->reg)
+	if (vreg->reg) {
 		regulator_put(vreg->reg);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		vreg->reg = NULL;
+#endif
+/* SWISTOP */
+	}
 }
 
 /* This init function should be called only once for each SDCC slot */
@@ -2559,6 +2571,13 @@ static inline unsigned int msmsdcc_get_min_sup_clk_rate(
 static inline unsigned int msmsdcc_get_max_sup_clk_rate(
 				struct msmsdcc_host *host)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (-1 != param_msm_sdcc_max_speed)
+		return (unsigned int)param_msm_sdcc_max_speed;
+#endif
+/* SWISTOP */
+
 	if (host->plat->sup_clk_table && host->plat->sup_clk_cnt)
 		return host->plat->sup_clk_table[host->plat->sup_clk_cnt - 1];
 	else
@@ -5967,7 +5986,11 @@ static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
 
 static const struct of_device_id msmsdcc_dt_match[] = {
 	{.compatible = "qcom,msm-sdcc"},
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	NULL,
+#endif
+/* SWISTOP */
 };
 MODULE_DEVICE_TABLE(of, msmsdcc_dt_match);
 
@@ -6009,6 +6032,16 @@ module_exit(msmsdcc_exit);
 
 MODULE_DESCRIPTION("Qualcomm Multimedia Card Interface driver");
 MODULE_LICENSE("GPL");
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+module_param_named(msm_sdcc_max_speed,
+                   param_msm_sdcc_max_speed, int, S_IRUSR);
+MODULE_PARM_DESC(msm_sdcc_max_speed, "MSM SDCC Maximum speed "
+                 "(default is -1 [Max])");
+#endif
+/* SWISTOP */
+
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -6081,3 +6114,4 @@ static int __init msmsdcc_dbg_init(void)
 	return 0;
 }
 #endif
+
