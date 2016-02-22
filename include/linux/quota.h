@@ -56,6 +56,11 @@ enum quota_type {
 	PRJQUOTA = 2,		/* element used for project quotas */
 };
 
+/* Masks for quota types when used as a bitmask */
+#define QTYPE_MASK_USR (1 << USRQUOTA)
+#define QTYPE_MASK_GRP (1 << GRPQUOTA)
+#define QTYPE_MASK_PRJ (1 << PRJQUOTA)
+
 typedef __kernel_uid32_t qid_t; /* Type in which we store ids in memory */
 typedef long long qsize_t;	/* Type in which we store sizes */
 
@@ -329,6 +334,10 @@ struct quotactl_ops {
 	int (*get_xstate)(struct super_block *, struct fs_quota_stat *);
 	int (*set_xstate)(struct super_block *, unsigned int, int);
 	int (*get_xstatev)(struct super_block *, struct fs_quota_statv *);
+	/*
+	 * used in quota_disable to restore the i_flags of quota files.
+	 */  
+	int (*restore_iflags)(struct super_block *sb, struct inode **, unsigned int *);
 };
 
 struct quota_format_type {
@@ -391,6 +400,7 @@ struct quota_info {
 	struct mutex dqonoff_mutex;		/* Serialize quotaon & quotaoff */
 	struct rw_semaphore dqptr_sem;		/* serialize ops using quota_info struct, pointers from inode to dquots */
 	struct inode *files[MAXQUOTAS];		/* inodes of quotafiles */
+	unsigned int old_flags[MAXQUOTAS];	/* i_flags for each quota file */
 	struct mem_dqinfo info[MAXQUOTAS];	/* Information for each quota type */
 	const struct quota_format_ops *ops[MAXQUOTAS];	/* Operations for each type */
 };
