@@ -141,7 +141,6 @@ struct swimcu_platform_data {
 int swimcu_device_init(struct swimcu *swimcu);
 void swimcu_device_exit(struct swimcu *swimcu);
 
-int swimcu_ping(struct swimcu *swimcu);
 /*
  * ADC Readback
  */

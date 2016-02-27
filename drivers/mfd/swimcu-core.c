@@ -46,70 +46,6 @@ static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 
 static struct mci_adc_config_s adc_config;
 
-/************
- *
- * Name:     swimcu_ping
- *
- * Purpose:  Generate a ping message to MCU and retrieve MCU version.
- *
- * Parms:    swimcu - driver data block
- *
- * Return:    0 if successful
- *           -ERRNO otherwise
- *
- * Abort:    none
- *
- * Notes:    called on startup and on sysfs version query
- *
- ************/
-int swimcu_ping(struct swimcu *swimcu)
-{
-	struct mci_protocol_frame_s  frame;
-	struct mci_protocol_packet_s packet;
-	uint32_t params[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
-
-	/* Ping the micro-controller and wait for response */
-	frame.type = MCI_PROTOCOL_FRAME_TYPE_PING_REQ;
-	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
-	    mci_protocol_frame_send(swimcu, &frame)) {
-		pr_err("Failed to send PING\n");
-		return -EIO;
-	}
-
-	/* Initialize the receiving buffer and count with max number of params */
-	packet.count = 0;
-	while (packet.count < MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX)
-	{
-		params[packet.count] = 0;
-		packet.count++;
-	}
-	packet.datap = params;
-
-	frame.payloadp = &packet;
-	frame.type = MCI_PROTOCOL_FRAME_TYPE_INVALID;
-
-	swimcu->version_major = 0xff;
-
-	/* Receive Ping response from micro-controller */
-	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
-	    mci_protocol_frame_recv(swimcu, &frame)) {
-		pr_err("Failed to receive PING RESPONSE");
-		return -EIO;
-	}
-	else if (MCI_PROTOCOL_FRAME_TYPE_PING_RESP != frame.type) {
-		pr_err("Unexpected frame type %.2x", frame.type);
-		return -EIO;
-	}
-	else {
-		swimcu->version_major =
-		  (u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR];
-		swimcu->version_minor =
-		  (u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR];
-		swimcu_log(FW, "%s: success, ver %d.%d\n", __func__, swimcu->version_major, swimcu->version_minor);
-	}
-
-	return 0;
-}
 
 /************
  *
@@ -418,7 +354,7 @@ int swimcu_device_init(struct swimcu *swimcu)
 
 	if (NULL == pdata) {
 		ret = -EINVAL;
-		pr_err("%s: no pdata, abort\n", __func__);
+		pr_err("%s: no pdata, aborting\n", __func__);
 		return ret;
 	}
 	swimcu_log(INIT, "%s: start\n", __func__);
@@ -427,10 +363,8 @@ int swimcu_device_init(struct swimcu *swimcu)
 
 	swimcu_event_init(swimcu);
 
-	ret = swimcu_ping(swimcu);
-
-	if (0 != ret) {
-		pr_info("%s: no response, abort\n", __func__);
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_ping(swimcu)) {
+		swimcu_log(INIT, "%s: no response, aborting\n", __func__);
 		ret = 0; /* this is not necessarily an error. MCI firmware update procedure will take over */
 		goto exit;
 	}

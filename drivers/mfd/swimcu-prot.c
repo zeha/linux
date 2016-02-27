@@ -24,8 +24,8 @@
  * Max wait time >= MCI_PROTOCOL_RECV_WAIT_INTERVAL * MCI_PROTOCOL_RECV_WAIT_CYCLES
  */
 #define MCI_PROTOCOL_RECV_WAIT_INTERVAL   100  /* microseconds          */
-#define MCI_PROTOCOL_RECV_WAIT_CYCLES     1000 /* number of read cycles */
-#define MCI_PROTOCOL_SEND_RETRIES         1
+#define MCI_PROTOCOL_RECV_WAIT_CYCLES     100  /* number of read cycles */
+#define MCI_PROTOCOL_SEND_RETRIES         5
 #define MCI_PROTOCOL_SEND_WAIT_LOW        750 /* min sleep, usec */
 #define MCI_PROTOCOL_SEND_WAIT_HIGH       1500 /* max sleep, usec */
 
@@ -50,7 +50,7 @@ static int mci_protocol_send(const struct i2c_client *client, const char *buf, i
 		}
 		if ((sent >= count) || (retries-- <= 0))
 			break;
-		udelay(MCI_PROTOCOL_SEND_WAIT_LOW);
+		usleep_range(MCI_PROTOCOL_SEND_WAIT_LOW, MCI_PROTOCOL_SEND_WAIT_HIGH);
 	} while (true);
 
 	if (retries < MCI_PROTOCOL_SEND_RETRIES)
@@ -96,7 +96,7 @@ static bool mci_protocol_read_byte_wait(
 			status = true;
 			break;
 		}
-		udelay(interval);
+		usleep_range(interval, interval*2);
 	}
 
 	if (count < MCI_PROTOCOL_RECV_WAIT_CYCLES-1)
@@ -119,10 +119,10 @@ static bool mci_protocol_read_byte_wait(
 *
 * Abort:    none
 *
-* Notes:
+* Notes:    not compatible with the linux kernel crc16
 *
 ************/
-uint16_t mci_protocol_crc16_update(
+static uint16_t mci_protocol_crc16_update(
 	uint16_t crc,
 	const uint8_t * datap,
 	uint32_t len)
@@ -276,7 +276,7 @@ static uint8_t mci_protocol_frame_encode (
 * Notes:    FD must have been opened and configured.
 *
 ************/
-enum mci_protocol_status_code_e mci_protocol_frame_send(
+static enum mci_protocol_status_code_e mci_protocol_frame_send(
 	struct swimcu *swimcu,
 	struct mci_protocol_frame_s *framep)
 {
@@ -323,7 +323,7 @@ enum mci_protocol_status_code_e mci_protocol_frame_send(
 * Notes:
 *
 ************/
-enum mci_protocol_status_code_e mci_protocol_frame_recv (
+static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 	struct swimcu *swimcu,
 	struct mci_protocol_frame_s  *framep)
 {
@@ -684,6 +684,77 @@ enum mci_protocol_status_code_e mci_protocol_command(
 exit:
 	mutex_unlock(&swimcu->mcu_transaction_mutex);
 
+	return s_code;
+}
+
+/************
+ *
+ * Name:     swimcu_ping
+ *
+ * Purpose:  Generate a ping message to MCU and retrieve MCU version.
+ *
+ * Parms:    swimcu - driver data block
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           error status code otherwise.
+ *
+ * Abort:    on MCU communication error
+ *
+ * Notes:    called on startup and on sysfs version query
+ *
+ ************/
+enum mci_protocol_status_code_e swimcu_ping(struct swimcu *swimcu)
+{
+	enum mci_protocol_status_code_e s_code;
+	struct mci_protocol_frame_s  frame;
+	struct mci_protocol_packet_s packet;
+	uint32_t params[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
+
+	mutex_lock(&swimcu->mcu_transaction_mutex);
+
+	swimcu->version_major = 0;
+	swimcu->version_minor = 0;
+
+	/* Ping the micro-controller and wait for response */
+	frame.type = MCI_PROTOCOL_FRAME_TYPE_PING_REQ;
+	s_code = mci_protocol_frame_send(swimcu, &frame);
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != s_code) {
+		pr_err("%s: Failed to send PING\n", __func__);
+		goto ping_exit;
+	}
+
+	/* Initialize the receiving buffer and count with max number of params */
+	packet.count = 0;
+	while (packet.count < MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX)
+	{
+		params[packet.count] = 0;
+		packet.count++;
+	}
+	packet.datap = params;
+	frame.payloadp = &packet;
+	frame.type = MCI_PROTOCOL_FRAME_TYPE_INVALID;
+
+	/* Receive Ping response from micro-controller */
+	s_code = mci_protocol_frame_recv(swimcu, &frame);
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != s_code) {
+		pr_err("%s: Failed to receive PING RESPONSE", __func__);
+		goto ping_exit;
+	}
+	else if (MCI_PROTOCOL_FRAME_TYPE_PING_RESP != frame.type) {
+		s_code = MCI_PROTOCOL_STATUS_CODE_CODING_ERROR;
+		pr_err("%s: Unexpected frame type %.2x", __func__, frame.type);
+		goto ping_exit;
+	}
+	else {
+		swimcu->version_major =
+			(u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR];
+		swimcu->version_minor =
+			(u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR];
+		swimcu_log(FW, "%s: success, ver %d.%03d\n", __func__, swimcu->version_major, swimcu->version_minor);
+	}
+
+ping_exit:
+	mutex_unlock(&swimcu->mcu_transaction_mutex);
 	return s_code;
 }
 

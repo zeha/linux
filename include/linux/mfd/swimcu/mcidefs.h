@@ -648,12 +648,7 @@ extern enum mci_protocol_status_code_e
                                  uint8_t *countp, uint8_t flags);
 
 extern enum mci_protocol_status_code_e
-            mci_protocol_frame_send(struct swimcu *swimcu, struct mci_protocol_frame_s *framep);
-
-extern enum mci_protocol_status_code_e
-            mci_protocol_frame_recv(struct swimcu *swimcu, struct mci_protocol_frame_s *framep);
-
-extern uint16_t mci_protocol_crc16_update(uint16_t crc, const uint8_t * datap, uint32_t len);
+	    swimcu_ping(struct swimcu *swimcu);
 
 extern enum mci_protocol_status_code_e
             swimcu_to_boot_transit(struct swimcu *swimcu);

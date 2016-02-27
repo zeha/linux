@@ -429,7 +429,7 @@ static ssize_t fw_version_attr_show(
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
 
 	swimcu_ping(swimcu);
-	return scnprintf(buf, PAGE_SIZE, "%d.%d\n", swimcu->version_major, swimcu->version_minor);
+	return scnprintf(buf, PAGE_SIZE, "%03d.%03d\n", swimcu->version_major, swimcu->version_minor);
 }
 
 static ssize_t pm_triggered_attr_show(
