@@ -1033,6 +1033,11 @@ static struct android_usb_function mbim_function = {
 
 #ifdef CONFIG_SND_PCM
 /* PERIPHERAL AUDIO */
+static void audio_function_disable(struct android_usb_function *f)
+{
+	gaudio_cleanup();
+}
+
 static int audio_function_bind_config(struct android_usb_function *f,
 					  struct usb_configuration *c)
 {
@@ -1041,6 +1046,7 @@ static int audio_function_bind_config(struct android_usb_function *f,
 
 static struct android_usb_function audio_function = {
 	.name		= "audio",
+	.disable	= audio_function_disable,
 	.bind_config	= audio_function_bind_config,
 };
 #endif

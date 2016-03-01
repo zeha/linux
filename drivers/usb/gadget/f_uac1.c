@@ -1088,7 +1088,19 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 static void f_audio_disable(struct usb_function *f)
 {
+	struct f_audio		*audio = func_to_audio(f);
+
 	u_audio_clear();
+
+	/* drain audio queues */
+	cancel_work_sync(&audio->capture_work);
+	cancel_work_sync(&audio->playback_work);
+
+	/* disable and reclaim endpoints */
+	usb_ep_disable(audio->in_ep);
+	usb_ep_disable(audio->out_ep);
+	audio->in_ep->driver_data = NULL;
+	audio->out_ep->driver_data = NULL;
 }
 
 /*-------------------------------------------------------------------------*/
