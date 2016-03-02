@@ -18,7 +18,7 @@
 #include "ubi.h"
 
 /**
- * init_seen - allocate memory for used for debugging.
+ * init_seen - allocate memory used for debugging.
  * @ubi: UBI device description object
  */
 static inline int *init_seen(struct ubi_device *ubi)
