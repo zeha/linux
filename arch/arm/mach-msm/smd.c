@@ -69,6 +69,10 @@
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4)
 
+#define SMD_USLEEP_MIN  1000
+#define SMD_USLEEP_MAX  2000
+#define SMD_USLEEP_RETRY_MAX 5
+
 uint32_t SMSM_NUM_ENTRIES = 8;
 uint32_t SMSM_NUM_HOSTS = 3;
 
@@ -1037,6 +1041,12 @@ static int ch_is_open(struct smd_channel *ch)
 		&& (ch->half_ch->get_state(ch->send) == SMD_SS_OPENED);
 }
 
+static int ch_is_opening(struct smd_channel *ch)
+{
+	return (ch->half_ch->get_state(ch->recv) == SMD_SS_OPENING ||
+		ch->half_ch->get_state(ch->send) == SMD_SS_OPENING );
+}
+
 /* provide a pointer and length to readable data in the fifo */
 static unsigned ch_read_buffer(struct smd_channel *ch, void **ptr)
 {
@@ -1455,13 +1465,23 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 	int orig_len = len;
 	int r = 0;
 
-	SMD_DBG("smd_stream_write() %d -> ch%d\n", len, ch->n);
+	SMD_DBG("%s: %d -> ch%d\n", __func__,len, ch->n);
 	if (len < 0)
 		return -EINVAL;
 	else if (len == 0)
 		return 0;
 
 	while ((xfer = ch_write_buffer(ch, &ptr)) != 0) {
+		if (ch_is_opening(ch)) {
+			int cnt = 0;
+			for (cnt = 0; cnt < SMD_USLEEP_RETRY_MAX; ++cnt) {
+				SMD_INFO("%s: ch%d is still opening, will retry in %d~%dus, cnt:%d\n",
+					 __func__, ch->n, SMD_USLEEP_MIN, SMD_USLEEP_MAX, cnt);
+				usleep_range(SMD_USLEEP_MIN, SMD_USLEEP_MAX);
+				if (ch_is_open(ch))
+					break;
+			}
+		}
 		if (!ch_is_open(ch)) {
 			len = orig_len;
 			break;
