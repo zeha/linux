@@ -1966,6 +1966,17 @@ static irqreturn_t udc_irq(struct ci_hdrc *ci)
 			isr_tr_complete_handler(ci);
 
 		if (USBi_SLI & intr) {
+#ifdef CONFIG_SIERRA_VDDMIN
+			/* When ci->gadget.speed = USB_SPEED_UNKNOWN on power up
+			 * USB driver (msm_otg.c) does not suspend properly after power up.
+			 * We allow the interrupt to be handled below (otg_set_suspend).
+			 */
+			if ((ci->driver->suspend) &&
+			    (ci->gadget.speed == USB_SPEED_UNKNOWN)) {
+				ci->gadget.speed = hw_port_is_high_speed(ci) ?
+				USB_SPEED_HIGH : USB_SPEED_FULL;
+			}
+#endif /* CONFIG_SIERRA_VDDMIN */
 			if (ci->gadget.speed != USB_SPEED_UNKNOWN &&
 			    ci->driver->suspend) {
 				ci->suspended = 1;

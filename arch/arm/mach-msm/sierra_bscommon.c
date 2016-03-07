@@ -915,6 +915,35 @@ bool bssupport(
       }
       break;
 
+    case BSFEATURE_VDDMIN_MPP1:
+      switch (hwtype)
+      {
+        case BSQCTMTP:
+        case BSMC7355:
+        case BSEM7355:
+        case BSMC7304:
+        case BSMC7305:
+        case BSEM7305:
+        case BSMC8805:
+        case BSEM8805:
+        case BSEM7330:
+        case BSMC7330:
+        case BSMC7354:
+        case BSWP75XX:
+        case BSWP7502:
+        case BSWP7504:
+        case BSWP7504G:
+        case BSWP85XX:
+        case BSWP8548:
+          supported = false;
+          break;
+
+        default:
+          supported = true;
+          break;
+      }
+      break;
+
     default:
       pr_err("Unknown feature %X", (uint32_t)feature);
       break;

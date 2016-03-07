@@ -259,8 +259,6 @@ static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 static struct pm8xxx_gpio_init pm8018_gpios_cf3[] __initdata = {
 	PM8018_GPIO_DISABLE(3),
 	PM8018_GPIO_OUTPUT(3, 1, HIGH), /* CODEC ON, temporary until Trac#2839 */
-	PM8018_GPIO_DISABLE(4),
-	PM8018_GPIO_OUTPUT(4, 0, LOW),  /* USB_VBUS_EN */
 	PM8018_GPIO_DISABLE(5),
 	PM8018_GPIO_OUTPUT(5, 0, LOW), /* CTRL_MCU_RESET for CF3 */
 };
@@ -1175,12 +1173,9 @@ void msm9615_pm8xxx_gpio_mpp_init_vddmin(void)
 	int rc;
 	int vdd_min_enable = PM8018_VDDMIN_IO;
 
-	enum bshwtype hwtype = bsgethwtype();
-	unsigned int hwrev = bsgethwrev();
-
-  /* MC7304 DV2 and onward reuses MC7305 HW, which define MPP_02 as Ref Volt of
-USB_DP, while MC7304 DV1 and other products all use MPP_01 for this purpose */
-	if (((hwtype == BSMC7304) && (hwrev != BSHWDV1))||(hwtype == BSMC7354))
+	/* MPP_01 (default) or MPP_02 may be used as Ref Volt for USB_DP.  Switch the
+	 * reference to MPP_02 if MPP_01 is not supported by the hardware */
+	if (!bssupport(BSFEATURE_VDDMIN_MPP1))
 	{
 		msm_otg_pdata.vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);
 		vdd_min_enable = PM8018_MPP_PM_TO_SYS(2);
