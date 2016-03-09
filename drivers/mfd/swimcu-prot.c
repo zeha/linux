@@ -299,6 +299,7 @@ static enum mci_protocol_status_code_e mci_protocol_frame_send(
 	ret = mci_protocol_send(swimcu->client, buffer, encoded_len);
 	if (ret != encoded_len) {
 		pr_err("%s: write frame fail to I2C: %d of %d", __func__, ret, encoded_len);
+		swimcu_set_fault_mask(SWIMCU_FAULT_TX_TO);
 		return MCI_PROTOCOL_STATUS_CODE_TX_ERROR;
 	}
 
@@ -348,6 +349,7 @@ static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 	if (!mci_protocol_read_byte_wait(swimcu, MCI_PROTOCOL_FRAME_START_BYTE,
 				MCI_PROTOCOL_RECV_WAIT_INTERVAL,
 				MCI_PROTOCOL_RECV_WAIT_CYCLES)) {
+		swimcu_set_fault_mask(SWIMCU_FAULT_RX_TO);
 		pr_err("Failed to receive frame from MCU %d\n",
 			MCI_PROTOCOL_STATUS_CODE_RX_ERROR);
 		return MCI_PROTOCOL_STATUS_CODE_RX_ERROR;
@@ -360,8 +362,9 @@ static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 	framep->type = (enum mci_protocol_frame_type_e) buffer[MCI_PROTOCOL_FRAME_HEADER_TYPE];
 	swimcu_log(PROT, "%s: header type: %02X\n", __func__, buffer[MCI_PROTOCOL_FRAME_HEADER_TYPE]);
 	switch (framep->type) {
-		case MCI_PROTOCOL_FRAME_TYPE_APPL_ACK:
 		case MCI_PROTOCOL_FRAME_TYPE_APPL_NAK:
+			swimcu_set_fault_mask(SWIMCU_FAULT_TX_NAK);
+		case MCI_PROTOCOL_FRAME_TYPE_APPL_ACK:
 		case MCI_PROTOCOL_FRAME_TYPE_APPL_ACK_ABORT:
 
 			/* Short frame: end of receiving */
@@ -381,6 +384,7 @@ static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 			framep->crc |= 0x00FF & buffer[MCI_PROTOCOL_FRAME_PING_RESP_CRC16_LO];
 
 			if (framep->crc != crc) {
+				swimcu_set_fault_mask(SWIMCU_FAULT_RX_CRC);
 				pr_err("Response CRC mismatch 0x%x (0x%x)", crc, framep->crc);
 				break;
 			}

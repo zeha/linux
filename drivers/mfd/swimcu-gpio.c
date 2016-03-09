@@ -23,10 +23,32 @@
 #include <linux/mfd/swimcu/mciprotocol.h>
 #include <linux/mfd/swimcu/mcidefs.h>
 
-static enum mci_pin_irqc_type_e gpio_irqc[SWIMCU_NUM_GPIO_IRQ] = {
-	MCI_PIN_IRQ_DISABLED,
-	MCI_PIN_IRQ_DISABLED,
-	MCI_PIN_IRQ_DISABLED
+struct gpio_in_cfg {
+	bool pe;
+	enum mci_mcu_pin_pull_select_e ps;
+};
+
+struct gpio_out_cfg {
+	enum mci_mcu_pin_level_e level;
+};
+
+static struct {
+	enum mci_mcu_pin_function_e mux;
+	enum mci_pin_irqc_type_e irqc;
+	enum mci_mcu_pin_direction_e dir;
+	union {
+		struct gpio_in_cfg in;
+		struct gpio_out_cfg out;
+	} parm;
+} gpio_cfg[] = {
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
 };
 
 /* WPx5 GPIOs provided by MCU occur in the range 34 - 41
@@ -34,16 +56,16 @@ static enum mci_pin_irqc_type_e gpio_irqc[SWIMCU_NUM_GPIO_IRQ] = {
 static const struct {
 	int port;
 	int pin;
-	enum mci_pin_irqc_type_e *irqc_type;
+	bool irqc_support;
 } gpio_map[] = {
-	{ 0, 4, NULL },   /* GPIO 34 = PTA4 */
-	{ 0, 3, NULL },   /* GPIO 35 = PTA3 */
-	{ 0, 0, &gpio_irqc[SWIMCU_GPIO_PTA0_IRQ] }, /* GPIO 36 = PTA0 */
-	{ 0, 2, NULL },   /* GPIO 37 = PTA2 */
-	{ 1, 0, &gpio_irqc[SWIMCU_GPIO_PTB0_IRQ] }, /* GPIO 38 = PTB0 */
-	{ 0, 7, &gpio_irqc[SWIMCU_GPIO_PTA7_IRQ] }, /* GPIO 39 = PTA7 */
-	{ 0, 6, NULL },   /* GPIO 40 = PTA6 */
-	{ 0, 5, NULL }    /* GPIO 41 = PTA5 */
+	{ 0, 4, false }, /* GPIO 34 = PTA4 */
+	{ 0, 3, false }, /* GPIO 35 = PTA3 */
+	{ 0, 0, true  }, /* GPIO 36 = PTA0 */
+	{ 0, 2, false }, /* GPIO 37 = PTA2 */
+	{ 1, 0, true  }, /* GPIO 38 = PTB0 */
+	{ 0, 7, true  }, /* GPIO 39 = PTA7 */
+	{ 0, 6, false }, /* GPIO 40 = PTA6 */
+	{ 0, 5, false }  /* GPIO 41 = PTA5 */
 };
 
 /************
@@ -104,22 +126,29 @@ void swimcu_gpio_callback(struct swimcu *swimcu, int port, int pin, int level)
  * Parms:    gpio index - 0 to 7
  *           irq control type (rising, falling, etc).
  *
- * Return:   nothing
+ * Return:   0 if success
+ *           -ERRNO otherwise
  *
  * Abort:    none
  *
  ************/
-void swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e irqc_type)
+int swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e irqc_type)
 {
 	if (gpio < SWIMCU_NUM_GPIO) {
-		if( gpio_map[gpio].irqc_type != NULL ) {
-			*gpio_map[gpio].irqc_type = irqc_type;
+		if (!(gpio_map[gpio].irqc_support) ||
+		     /* currently exported as output */
+		     ((gpio_cfg[gpio].mux == MCI_MCU_PIN_FUNCTION_GPIO) &&
+		      (gpio_cfg[gpio].dir == MCI_MCU_PIN_DIRECTION_OUTPUT))) {
+			swimcu_log(GPIO, "%s: failed gpio %d\n", __func__, gpio);
+			return -EPERM;
+		}
+		else {
+			gpio_cfg[gpio].irqc = irqc_type;
 			swimcu_log(GPIO, "%s: gpio %d irq = %d\n", __func__, gpio, irqc_type);
+			return 0;
 		}
 	}
-	else {
-		pr_err("%s: gpio %d out of range\n", __func__, gpio);
-	}
+	return -EINVAL;
 }
 
 /************
@@ -140,10 +169,8 @@ enum mci_pin_irqc_type_e swimcu_gpio_get_trigger(int gpio)
 	enum mci_pin_irqc_type_e irqc_type = MCI_PIN_IRQ_DISABLED;
 
 	if (gpio < SWIMCU_NUM_GPIO) {
-		if( gpio_map[gpio].irqc_type != NULL ) {
-			irqc_type = *gpio_map[gpio].irqc_type;
-			swimcu_log(GPIO, "%s: gpio %d irq = %d\n", __func__, gpio, irqc_type);
-		}
+		irqc_type = gpio_cfg[gpio].irqc;
+		swimcu_log(GPIO, "%s: gpio %d irq = %d\n", __func__, gpio, irqc_type);
 	}
 	return irqc_type;
 }
@@ -160,7 +187,7 @@ enum mci_pin_irqc_type_e swimcu_gpio_get_trigger(int gpio)
  *           value ptr - returns value
  *
  * Return:   0 if success
- *           -ve otherwise
+ *           -ERRNO otherwise
  *
  * Abort:    none
  *
@@ -174,18 +201,14 @@ int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value)
 
 	memset((void*) &pin_state, 0, sizeof(struct mci_mcu_pin_state_s));
 
-	*value = 0;
-
 	switch (action) {
 		case SWIMCU_GPIO_GET_VAL:
 			swimcu_log(GPIO, "%s: GET VAL gpio%d\n", __func__, gpio);
-			if (MCI_PROTOCOL_STATUS_CODE_SUCCESS ==
-				swimcu_pin_states_get(swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state)) {
-				*value = (pin_state.level == MCI_MCU_PIN_LEVEL_LOW) ? 0 : 1;
-			}
-			else {
+			if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+				swimcu_pin_states_get(swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state))
 				ret = -EIO;
-			}
+			else if (NULL != value)
+				*value = (pin_state.level == MCI_MCU_PIN_LEVEL_LOW) ? 0 : 1;
 			break;
 
 		default:
@@ -207,7 +230,7 @@ int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value)
  *           value - value to set (depends on action)
  *
  * Return:   0 if success
- *           -ve otherwise
+ *           -ERRNO otherwise
  *
  * Abort:    none
  *
@@ -217,30 +240,23 @@ int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value)
 int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
 {
 	struct mci_mcu_pin_state_s pin_state;
-	enum mci_pin_irqc_type_e irqc_type;
 	enum mci_mcu_pin_direction_e direction;
 	int ret = 0;
 
 	memset((void*) &pin_state, 0, sizeof(struct mci_mcu_pin_state_s));
 
-	if (gpio_map[gpio].irqc_type != NULL)
-		irqc_type = *gpio_map[gpio].irqc_type;
-	else
-		irqc_type = MCI_PIN_IRQ_DISABLED;
-
-	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_pin_states_get(swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state))
-		ret = -EIO;
-
-	if (pin_state.mux != MCI_MCU_PIN_FUNCTION_GPIO)
-	{
-		pr_warn("%s: uninitialized gpio%d\n",__func__, gpio);
-
-		pin_state.mux = MCI_MCU_PIN_FUNCTION_GPIO;
-		pin_state.dir = MCI_MCU_PIN_DIRECTION_INPUT;
-		pin_state.params.input.pe = false;
-		pin_state.params.input.ps = (irqc_type == MCI_PIN_IRQ_LOGIC_ZERO) ? MCI_MCU_PIN_PULL_UP : MCI_MCU_PIN_PULL_DOWN;
+	pin_state.mux = gpio_cfg[gpio].mux;
+	pin_state.dir = gpio_cfg[gpio].dir;
+	if (MCI_MCU_PIN_DIRECTION_INPUT == pin_state.dir) {
+		pin_state.params.input.pe = gpio_cfg[gpio].parm.in.pe;
+		pin_state.params.input.ps = gpio_cfg[gpio].parm.in.ps;
 		pin_state.params.input.pfe = false;
-		pin_state.params.input.irqc_type = irqc_type;
+		pin_state.params.input.irqc_type = gpio_cfg[gpio].irqc;
+	}
+	else {
+		pin_state.params.output.sre = MCI_MCU_PIN_SLEW_RATE_FAST;
+		pin_state.params.output.dse = MCI_MCU_PIN_DRIVE_STRENGTH_HIGH;
+		pin_state.level = gpio_cfg[gpio].parm.out.level;
 	}
 
 	switch (action) {
@@ -255,19 +271,18 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
 				swimcu_log(GPIO, "%s: no change DIR %d\n", __func__, value);
 			}
 
-			if (direction == MCI_MCU_PIN_DIRECTION_INPUT) {
-				pin_state.params.input.pe = false;
-				pin_state.params.input.ps = (irqc_type == MCI_PIN_IRQ_LOGIC_ZERO)
-					? MCI_MCU_PIN_PULL_UP : MCI_MCU_PIN_PULL_DOWN;
+			gpio_cfg[gpio].dir = pin_state.dir = direction;
+			if (MCI_MCU_PIN_DIRECTION_INPUT == direction) {
+				gpio_cfg[gpio].parm.in.pe = pin_state.params.input.pe = false;
 				pin_state.params.input.pfe = false;
-				pin_state.params.input.irqc_type = irqc_type;
+				pin_state.params.input.irqc_type = gpio_cfg[gpio].irqc;
 			}
 			else {
 				pin_state.params.output.sre = MCI_MCU_PIN_SLEW_RATE_FAST;
 				pin_state.params.output.dse = MCI_MCU_PIN_DRIVE_STRENGTH_HIGH;
+				gpio_cfg[gpio].parm.out.level = pin_state.level = (value > 1) ?
+					MCI_MCU_PIN_LEVEL_HIGH : MCI_MCU_PIN_LEVEL_LOW;
 			}
-			pin_state.dir = direction;
-			pin_state.level = (value > 1) ? MCI_MCU_PIN_LEVEL_HIGH : MCI_MCU_PIN_LEVEL_LOW;
 
 			break;
 
@@ -278,11 +293,12 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
 			}
 			else if ( pin_state.level != value ) {
 				swimcu_log(GPIO, "%s: change VAL %d to %d\n", __func__, pin_state.level, value);
+				gpio_cfg[gpio].parm.out.level = pin_state.level =
+					(enum mci_mcu_pin_level_e) value;
 			}
 			else {
 				swimcu_log(GPIO, "%s: no change VAL %d\n", __func__, value);
 			}
-			pin_state.level = (enum mci_mcu_pin_level_e) value;
 
 			break;
 
@@ -291,15 +307,25 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
 				pr_err ("%s: PULL %d (is out, illegal operation)\n", __func__, value);
 				ret = -EPERM;
 			}
-			else if ( pin_state.params.input.ps != (enum mci_mcu_pin_pull_select_e) value ) {
-				swimcu_log(GPIO, "%s: change VAL %d to %d\n", __func__, pin_state.level, value);
+			else if ( !pin_state.params.input.pe ||
+				  pin_state.params.input.ps != (enum mci_mcu_pin_pull_select_e) value ) {
+				gpio_cfg[gpio].parm.in.ps = pin_state.params.input.ps = value ?
+					MCI_MCU_PIN_PULL_UP : MCI_MCU_PIN_PULL_DOWN;
+				if (pin_state.params.input.pe)
+					swimcu_log(GPIO, "%s: change PULL %d to %d\n", __func__, pin_state.level, value);
+				else
+					swimcu_log(GPIO, "%s: change PULL OFF to %d\n", __func__, value);
+				gpio_cfg[gpio].parm.in.pe = pin_state.params.input.pe = true;
 			}
 			else {
-				swimcu_log(GPIO, "%s: no change VAL %d\n", __func__, value);
+				swimcu_log(GPIO, "%s: no change PULL %d\n", __func__, value);
 			}
-			pin_state.params.input.pe = true;
-			pin_state.params.input.ps = value ? MCI_MCU_PIN_PULL_UP : MCI_MCU_PIN_PULL_DOWN;
 
+			break;
+
+		case SWIMCU_GPIO_NOOP:
+			/* no change, just refresh MCU config with last settings */
+			swimcu_log(GPIO, "%s: set %d\n", __func__, gpio);
 			break;
 
 		default:
@@ -326,7 +352,7 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
  *           gpio index - 0 to 7
  *
  * Return:   0 if success
- *           -ve otherwise
+ *           -ERRNO otherwise
  *
  * Abort:    none
  *
@@ -335,31 +361,96 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
  ************/
 int swimcu_gpio_open( struct swimcu *swimcu, int gpio )
 {
+	if (gpio > SWIMCU_GPIO_LAST) {
+		return -EINVAL;
+	}
+
+	if (MCI_MCU_PIN_FUNCTION_GPIO != gpio_cfg[gpio].mux) {
+		gpio_cfg[gpio].mux = MCI_MCU_PIN_FUNCTION_GPIO;
+		gpio_cfg[gpio].dir = MCI_MCU_PIN_DIRECTION_INPUT;
+		gpio_cfg[gpio].parm.in.pe = false;
+		gpio_cfg[gpio].parm.in.ps = MCI_MCU_PIN_PULL_DOWN;
+		/* note: irqc not initialized here. it is set independently from boot_source */
+		swimcu_log(GPIO, "%s: gpio%d init\n", __func__, gpio);
+	}
+	else {
+		swimcu_log(GPIO, "%s: gpio%d dir %d\n", __func__, gpio, gpio_cfg[gpio].dir);
+	}
+
+	return swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
+}
+
+/************
+ *
+ * Name:     swimcu_gpio_refresh
+ *
+ * Purpose:  refresh MCU gpios with last settings
+ *
+ * Parms:    swimcu - device data struct
+ *
+ * Return:   nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    called on MCU reset
+ *
+ ************/
+void swimcu_gpio_refresh( struct swimcu *swimcu )
+{
+	int gpio;
+
+	for( gpio = SWIMCU_GPIO_FIRST; gpio <= SWIMCU_GPIO_LAST; gpio++ ) {
+		if (MCI_MCU_PIN_FUNCTION_DISABLED != gpio_cfg[gpio].mux) {
+			swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
+		}
+	}
+
+	swimcu_log(GPIO, "%s\n", __func__);
+}
+
+/************
+ *
+ * Name:     swimcu_gpio_retrieve
+ *
+ * Purpose:  retrieve current gpio settings from MCU
+ *
+ * Parms:    swimcu - device data struct
+ *
+ * Return:   nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    called once on device init
+ *
+ ************/
+void swimcu_gpio_retrieve( struct swimcu *swimcu )
+{
+	int gpio;
 	struct mci_mcu_pin_state_s pin_state;
-	enum mci_pin_irqc_type_e   irqc_type;
-	enum mci_protocol_status_code_e ret;
+	int fail_cnt = 0;
 
-	memset((void*) &pin_state, 0, sizeof(struct mci_mcu_pin_state_s));
+	for( gpio = SWIMCU_GPIO_FIRST; gpio <= SWIMCU_GPIO_LAST; gpio++ ) {
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+			swimcu_pin_states_get(swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state)) {
+			gpio_cfg[gpio].mux = MCI_MCU_PIN_FUNCTION_DISABLED;
+			fail_cnt++;
+		}
+		else {
+			gpio_cfg[gpio].mux = pin_state.mux;
+			gpio_cfg[gpio].dir = pin_state.dir;
+			if (MCI_MCU_PIN_DIRECTION_INPUT == pin_state.dir) {
+				gpio_cfg[gpio].parm.in.pe =  pin_state.params.input.pe;
+				gpio_cfg[gpio].parm.in.ps = pin_state.params.input.ps;
+				gpio_cfg[gpio].irqc = pin_state.params.input.irqc_type;
+			}
+			else {
+				gpio_cfg[gpio].parm.out.level = pin_state.level;
+				gpio_cfg[gpio].irqc = MCI_PIN_IRQ_DISABLED;
+			}
+		}
+	}
 
-	if (gpio_map[gpio].irqc_type != NULL)
-		irqc_type = *gpio_map[gpio].irqc_type;
-	else
-		irqc_type = MCI_PIN_IRQ_DISABLED;
-
-	pin_state.mux = MCI_MCU_PIN_FUNCTION_GPIO;
-	pin_state.dir = MCI_MCU_PIN_DIRECTION_INPUT;
-	pin_state.level = MCI_MCU_PIN_LEVEL_LOW;
-	pin_state.params.input.pe = false;
-	pin_state.params.input.ps = (irqc_type == MCI_PIN_IRQ_LOGIC_ZERO) ? MCI_MCU_PIN_PULL_UP : MCI_MCU_PIN_PULL_DOWN;
-	pin_state.params.input.pfe = false;
-	pin_state.params.input.irqc_type = irqc_type;
-
-	ret = swimcu_pin_config_set( swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state );
-
-	swimcu_log(GPIO, "%s: complete %d\n", __func__, ret);
-	if (ret == MCI_PROTOCOL_STATUS_CODE_SUCCESS)
-		return 0;
-	return -EIO;
+	swimcu_log(INIT, "%s %d\n", __func__, fail_cnt);
 }
 
 /************
@@ -371,7 +462,8 @@ int swimcu_gpio_open( struct swimcu *swimcu, int gpio )
  * Parms:    swimcu - device data struct
  *           gpio index - 0 to 7
  *
- * Return:   nothing
+ * Return:   0 if success
+ *           -ERRNO otherwise
  *
  * Abort:    none
  *
@@ -380,18 +472,14 @@ int swimcu_gpio_open( struct swimcu *swimcu, int gpio )
  ************/
 int swimcu_gpio_close( struct swimcu *swimcu, int gpio )
 {
-	struct mci_mcu_pin_state_s pin_state;
-	enum mci_protocol_status_code_e ret;
+	if (gpio > SWIMCU_GPIO_LAST) {
+		return -EINVAL;
+	}
 
-	memset((void*) &pin_state, 0, sizeof(struct mci_mcu_pin_state_s));
+	gpio_cfg[gpio].mux = MCI_MCU_PIN_FUNCTION_DISABLED;
 
-	pin_state.mux = MCI_MCU_PIN_FUNCTION_DISABLED;
+	swimcu_log(GPIO, "%s: gpio %d\n", __func__, gpio);
 
-	ret = swimcu_pin_config_set( swimcu, gpio_map[gpio].port, gpio_map[gpio].pin, &pin_state );
-
-	swimcu_log(GPIO, "%s: complete %d\n", __func__, ret);
-	if (ret == MCI_PROTOCOL_STATUS_CODE_SUCCESS)
-		return 0;
-	return -EIO;
+	return swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
 }
 

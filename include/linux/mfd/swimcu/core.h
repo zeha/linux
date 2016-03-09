@@ -49,9 +49,13 @@ enum swimcu_adc_index
 #define SWIMCU_FUNC_FLAG_EVENT (1 << 2)
 #define SWIMCU_FUNC_APPL (SWIMCU_FUNC_FLAG_FWUPD | SWIMCU_FUNC_FLAG_PM | SWIMCU_FUNC_FLAG_EVENT)
 
-#define SWIMCU_DRIVER_STATUS_NONE    0
-#define SWIMCU_DRIVER_STATUS_PENDING 1
-#define SWIMCU_DRIVER_STATUS_READY   2
+#define SWIMCU_DRIVER_INIT_FIRST     0
+#define SWIMCU_DRIVER_INIT_EVENT     (1 << 0)
+#define SWIMCU_DRIVER_INIT_ADC       (1 << 1)
+#define SWIMCU_DRIVER_INIT_PING      (1 << 2)
+#define SWIMCU_DRIVER_INIT_FW        (1 << 3)
+#define SWIMCU_DRIVER_INIT_PM        (1 << 4)
+#define SWIMCU_DRIVER_INIT_GPIO      (1 << 5)
 
 #define SWIMCU_DEBUG
 
@@ -90,6 +94,18 @@ enum swimcu_adc_index
 
 extern int swimcu_debug_mask;
 
+#define SWIMCU_FAULT_TX_TO	0x0001
+#define SWIMCU_FAULT_TX_NAK	0x0002
+#define SWIMCU_FAULT_RX_TO	0x0004
+#define SWIMCU_FAULT_RX_CRC	0x0008
+#define SWIMCU_FAULT_RESET	0x0100
+#define SWIMCU_FAULT_EVENT_OFLOW 0x0200
+
+#define SWIMCU_FAULT_COUNT_MAX  9999
+
+extern int swimcu_fault_mask;
+extern int swimcu_fault_count;
+
 struct swimcu_hwmon {
 	struct platform_device *pdev;
 	struct device *classdev;
@@ -100,12 +116,15 @@ struct swimcu {
 	struct i2c_client *client;
 	int i2c_driver_id;
 
+	int driver_init_mask;
+
 	u8 version_major;
 	u8 version_minor;
 
 	struct mutex mcu_transaction_mutex;
 
 	struct mutex adc_mutex;
+	int adc_init_mask;
 
 	struct notifier_block nb;
 
@@ -145,4 +164,6 @@ void swimcu_device_exit(struct swimcu *swimcu);
  * ADC Readback
  */
 int swimcu_read_adc(struct swimcu *swimcu, int channel);
+
+void swimcu_set_fault_mask(int fault);
 #endif

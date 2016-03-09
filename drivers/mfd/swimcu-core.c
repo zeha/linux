@@ -38,13 +38,52 @@
 int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 #endif
 
+int swimcu_fault_mask = 0;
+int swimcu_fault_count = 0;
+
 /* WPx5 ADC2 and ADC3 provided by MCU */
 static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
 	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
 };
 
-static struct mci_adc_config_s adc_config;
+static struct mci_adc_config_s adc_config = {
+	.channel = MCI_PROTOCOL_ADC0_SE0,
+	.resolution_mode = MCI_PROTOCOL_ADC_RESOLUTION_12_BITS,
+	.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE,
+	.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE,
+	.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4,
+	.hw_average = true,
+	.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32,
+	.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW,
+	.hw_compare.value1 = 0,
+	.hw_compare.value2 = 0,
+	.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED,
+};
+
+/************
+*
+* Name:     swimcu_set_fault_mask
+*
+* Purpose:  Register a MCU fault event
+*
+* Parms:    fault - fault bit mask
+*
+* Return:   Nothing
+*
+* Abort:    none
+*
+************/
+void swimcu_set_fault_mask(int fault)
+{
+	if (swimcu_fault_mask == 0) /* first time, reset counter */
+		swimcu_fault_count = 0;
+	swimcu_fault_mask |= fault;
+	if (swimcu_fault_count < SWIMCU_FAULT_COUNT_MAX) {
+		swimcu_fault_count++;
+		swimcu_log(INIT, "%s: 0x%x, cnt %d\n", __func__, fault, swimcu_fault_count);
+	}
+}
 
 
 /************
@@ -67,27 +106,54 @@ static struct mci_adc_config_s adc_config;
 static int adc_init( struct swimcu *swimcu, int channel )
 {
 	int rcode = 0;
+	int adc_mask;
 
 	if (channel < ARRAY_SIZE(adc_chan_cfg)) {
+		adc_mask = (1 << channel);
 		adc_config.channel = adc_chan_cfg[channel];
-		adc_config.resolution_mode = MCI_PROTOCOL_ADC_RESOLUTION_12_BITS;
-		adc_config.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE;
-		adc_config.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE;
-		adc_config.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4;
-		adc_config.hw_average = true;
-		adc_config.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32;
-		adc_config.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW;
-
-		adc_config.hw_compare.value1 = 0;
-		adc_config.hw_compare.value2 = 0;
-		adc_config.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED;
-		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_adc_init(swimcu, &adc_config)) {
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == swimcu_adc_init(swimcu, &adc_config)) {
+			swimcu->adc_init_mask |= adc_mask;
+		}
+		else {
+			swimcu->adc_init_mask &= ~adc_mask;
 			rcode = -EIO;
-			pr_err("%s: fail chan %d\n", __func__, channel);
+			pr_err("swimcu %s: fail chan %d\n", __func__, channel);
 		}
 	}
 
 	return rcode;
+}
+
+/************
+ *
+ * Name:     reset_recovery
+ *
+ * Purpose:  refresh MCU configuration
+ *
+ * Parms:    swimcu - driver data block
+ *
+ * Return:   nothing
+ *
+ * Abort:    if we hit the max fault_count we suspend recovery.
+ *           Chances are that is what is causing the fault.
+ *
+ * Notes:    Called on reset event from MCU.
+ *           This is most likely to occur after
+ *           a MCU firmware update.
+ *
+ ************/
+static void reset_recovery( struct swimcu *swimcu )
+{
+	swimcu->adc_init_mask = 0;   /* re-init ADC before next access */
+	if (swimcu_fault_count < SWIMCU_FAULT_COUNT_MAX) {
+		swimcu_device_init(swimcu);
+		swimcu_gpio_refresh(swimcu); /* restore MCU with last gpio config */
+		swimcu_set_fault_mask(SWIMCU_FAULT_RESET);
+		swimcu_log(INIT, "swimcu %s: complete\n", __func__);
+	}
+	else {
+		swimcu_log(INIT, "swimcu %s: suspended\n", __func__);
+	}
 }
 
 /************
@@ -113,13 +179,23 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 	int rcode;
 	enum mci_protocol_adc_channel_e adc_chan;
 	enum mci_protocol_status_code_e ret;
+	int adc_mask;
 
 	if (channel >= ARRAY_SIZE(adc_chan_cfg)) {
 		pr_err("%s: invalid chan %d\n", __func__, channel);
 		return -EPERM;
 	}
+	adc_mask = (1 << channel);
 
 	mutex_lock(&swimcu->adc_mutex);
+	if (0 == (swimcu->adc_init_mask & adc_mask)) {
+		if (adc_init(swimcu, channel)) {
+			pr_err("%s: fail to init chan %d\n", __func__, channel);
+			rcode = -EIO;
+			goto read_adc_exit;
+		}
+	}
+
 	adc_chan = adc_chan_cfg[channel];
 
 	swimcu_log(ADC, "%s: channel %d\n", __func__, channel);
@@ -129,7 +205,11 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 
 	if (ret != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
 		pr_warn("%s restart failed on chan %d, try init\n", __func__, adc_chan);
-		adc_init(swimcu, channel);
+		if (adc_init(swimcu, channel)) {
+			pr_err("%s: fail to init chan %d\n", __func__, channel);
+			rcode = -EIO;
+			goto read_adc_exit;
+		}
 	}
 
 	/* convert ADC value to mV */
@@ -142,6 +222,7 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 		pr_warn("%s adc read failed on chan %d\n", __func__, adc_chan);
 	}
 
+read_adc_exit:
 	mutex_unlock(&swimcu->adc_mutex);
 
 	return rcode;
@@ -193,6 +274,8 @@ static int swimcu_process_events(struct swimcu *swimcu)
 				swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
 					events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
 				swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
+				swimcu_set_wakeup_source(MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS,
+					GET_WUSRC_VALUE(events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin));
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
 				swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
@@ -200,10 +283,11 @@ static int swimcu_process_events(struct swimcu *swimcu)
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_RESET) {
 				swimcu_log(EVENT, "%s: MCU reset source 0x%x\n", __func__, events[i].data.reset.source);
+				reset_recovery(swimcu);
 				swimcu_set_reset_source(events[i].data.reset.source);
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WUSRC) {
-				swimcu_log(EVENT, "%s: MCU wakeup source %d %d\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
+				swimcu_log(EVENT, "%s: MCU wakeup source %d 0x%x\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
 				swimcu_set_wakeup_source(events[i].data.wusrc.type, events[i].data.wusrc.value);
 			}
 			else {
@@ -220,6 +304,7 @@ static int swimcu_process_events(struct swimcu *swimcu)
 			if (++query_count > 10) {
 				/* MCU fault. MAX is arbitrary, but there's no known reason to exceed 1 */
 				pr_err("%s: query max exceeded, %d\n", __func__, query_count);
+				swimcu_set_fault_mask(SWIMCU_FAULT_EVENT_OFLOW);
 				return -EREMOTEIO;
 			}
 			/* else retrieve another block of events */
@@ -327,6 +412,7 @@ void swimcu_device_exit(struct swimcu *swimcu)
 	swimcu_pm_sysfs_deinit(swimcu);
 	platform_device_unregister(swimcu->hwmon.pdev);
 	platform_device_unregister(swimcu->gpio.pdev);
+	swimcu_log(INIT, "%s\n", __func__);
 }
 EXPORT_SYMBOL_GPL(swimcu_device_exit);
 
@@ -349,7 +435,6 @@ EXPORT_SYMBOL_GPL(swimcu_device_exit);
 int swimcu_device_init(struct swimcu *swimcu)
 {
 	int ret;
-	int channel;
 	struct swimcu_platform_data *pdata = dev_get_platdata(swimcu->dev);
 
 	if (NULL == pdata) {
@@ -357,60 +442,81 @@ int swimcu_device_init(struct swimcu *swimcu)
 		pr_err("%s: no pdata, aborting\n", __func__);
 		return ret;
 	}
-	swimcu_log(INIT, "%s: start\n", __func__);
+	swimcu_log(INIT, "%s: start 0x%x\n", __func__, swimcu->driver_init_mask);
 
-	mutex_init(&swimcu->mcu_transaction_mutex);
+	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_EVENT)) {
+		mutex_init(&swimcu->mcu_transaction_mutex);
+		swimcu_event_init(swimcu);
+		swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_EVENT;
+	}
 
-	swimcu_event_init(swimcu);
+	/* Even though the MCU may not be functional now, we must still create the sysfs
+	hwmon entry here to ensure it is always at hwmon1.
+	Otherwise, if the MCU comes up later, it would be put at the end, at hwmon7 */
+	swimcu->adc_init_mask = 0;
+	if(pdata->nr_adc > 0) {
+		if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_ADC)) {
+			mutex_init(&swimcu->adc_mutex);
+
+			if (pdata->nr_adc > SWIMCU_NUM_ADC)
+				pdata->nr_adc = SWIMCU_NUM_ADC;
+
+			ret = swimcu_client_dev_register(swimcu, "swimcu-hwmon",
+				&(swimcu->hwmon.pdev));
+			if (ret != 0) {
+				dev_err(swimcu->dev, "hwmon client register failed: %d\n", ret);
+				ret = 0; /* non-fatal */
+			}
+			else {
+				swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_ADC;
+			}
+		}
+	}
 
 	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != swimcu_ping(swimcu)) {
 		swimcu_log(INIT, "%s: no response, aborting\n", __func__);
 		ret = 0; /* this is not necessarily an error. MCI firmware update procedure will take over */
 		goto exit;
 	}
+	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_PING)) {
+		/* first communication with MCU since statup */
+		swimcu_gpio_retrieve(swimcu); /* get gpio config from MCU */
+	}
+	swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_PING;
 
-	if(pdata->func_flags & SWIMCU_FUNC_FLAG_FWUPD) {
-		ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_FWUPD);
-		if (ret != 0) {
-			dev_err(swimcu->dev, "FW sysfs init failed: %d\n", ret);
-			goto exit;
+	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {
+		if(pdata->func_flags & SWIMCU_FUNC_FLAG_FWUPD) {
+			ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_FWUPD);
+			if (ret != 0) {
+				dev_err(swimcu->dev, "FW sysfs init failed: %d\n", ret);
+				goto exit;
+			}
 		}
+		swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_FW;
 	}
 
-	if(pdata->func_flags & SWIMCU_FUNC_FLAG_PM) {
-		ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_PM);
-		if (ret != 0) {
-			dev_err(swimcu->dev, "PM sysfs init failed: %d\n", ret);
-			goto exit;
+	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_PM)) {
+		if(pdata->func_flags & SWIMCU_FUNC_FLAG_PM) {
+			ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_PM);
+			if (ret != 0) {
+				dev_err(swimcu->dev, "PM sysfs init failed: %d\n", ret);
+				goto exit;
+			}
 		}
+		swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_PM;
 	}
 
 	if(pdata->nr_gpio > 0) {
-		ret = swimcu_client_dev_register(swimcu, "swimcu-gpio",
-			&(swimcu->gpio.pdev));
-		if (ret != 0) {
-			dev_err(swimcu->dev, "gpio client register failed: %d\n", ret);
-			ret = 0; /* non-fatal */
-		}
-	}
-
-	if(pdata->nr_adc > 0) {
-		mutex_init(&swimcu->adc_mutex);
-
-		if (pdata->nr_adc > SWIMCU_NUM_ADC)
-			pdata->nr_adc = SWIMCU_NUM_ADC;
-
-		for (channel = 0; channel < pdata->nr_adc; channel++) {
-			ret = adc_init(swimcu, channel);
-			if (0 != ret)
-				goto exit;
-		}
-
-		ret = swimcu_client_dev_register(swimcu, "swimcu-hwmon",
-			&(swimcu->hwmon.pdev));
-		if (ret != 0) {
-			dev_err(swimcu->dev, "hwmon client register failed: %d\n", ret);
-			ret = 0; /* non-fatal */
+		if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_GPIO)) {
+			ret = swimcu_client_dev_register(swimcu, "swimcu-gpio",
+				&(swimcu->gpio.pdev));
+			if (ret != 0) {
+				dev_err(swimcu->dev, "gpio client register failed: %d\n", ret);
+				ret = 0; /* non-fatal */
+			}
+			else {
+				swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_GPIO;
+			}
 		}
 	}
 
@@ -426,7 +532,7 @@ int swimcu_device_init(struct swimcu *swimcu)
 	return 0;
 
 exit:
-	swimcu_device_exit(swimcu);
+	swimcu_log(INIT, "%s: abort 0x%x\n", __func__, swimcu->driver_init_mask);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(swimcu_device_init);

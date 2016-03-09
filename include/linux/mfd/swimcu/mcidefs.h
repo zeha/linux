@@ -692,7 +692,7 @@ extern enum mci_protocol_status_code_e swimcu_event_query(
 /*
  * MCU GPIO set/get IRQ trigger value.
  */
-extern void swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e type);
+extern int swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e type);
 
 extern enum mci_pin_irqc_type_e swimcu_gpio_get_trigger(int gpio);
 

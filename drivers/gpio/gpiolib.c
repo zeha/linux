@@ -178,7 +178,10 @@ static struct ext_gpio_map ext_gpio_cf3[]={
 	{"35",SWIMCU_GPIO_TO_SYS(1),FUNCTION_UNALLOCATED},
 	{"36",SWIMCU_GPIO_TO_SYS(2),FUNCTION_UNALLOCATED},
 	{"37",SWIMCU_GPIO_TO_SYS(3),FUNCTION_UNALLOCATED},
-	/* GPIOs 38-41 not supported yet */
+	{"38",SWIMCU_GPIO_TO_SYS(4),FUNCTION_UNALLOCATED},
+	{"39",SWIMCU_GPIO_TO_SYS(5),FUNCTION_UNALLOCATED},
+	{"40",SWIMCU_GPIO_TO_SYS(6),FUNCTION_UNALLOCATED},
+	{"41",SWIMCU_GPIO_TO_SYS(7),FUNCTION_UNALLOCATED},
 #endif /* CONFIG_GPIO_SWIMCU */
 	{"42",80,FUNCTION_UNALLOCATED}
 };
@@ -1469,6 +1472,10 @@ static int __init gpiolib_sysfs_init(void)
 
 	gpio_ext_chip.mask = bsgetgpioflag();
 	/* bit X in mask represents GPIO_(X+1) */
+#ifdef CONFIG_GPIO_SWIMCU
+	/* for MCU, expose 38 - 41 (not accessible to mpss) */
+	gpio_ext_chip.mask |= (0xFULL << 37);
+#endif
 	for(gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
 	{
 		if (kstrtol(ext_gpio[gpio].gpio_name, 0, &ext_num) == 0) {

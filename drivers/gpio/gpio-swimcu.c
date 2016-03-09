@@ -113,7 +113,7 @@ static int swimcu_gpio_set_pull_up(struct gpio_chip *chip, unsigned gpio)
 		pr_err("%s: gpio%d error ret=%d\n", __func__, gpio, ret);
 	}
 	else {
-		swimcu_log(GPIO, "%s: gpio%d IN\n", __func__, gpio);
+		swimcu_log(GPIO, "%s: gpio%d UP\n", __func__, gpio);
 	}
 
 	return ret;
@@ -130,7 +130,7 @@ static int swimcu_gpio_set_pull_down(struct gpio_chip *chip, unsigned gpio)
 		pr_err("%s: gpio%d error ret=%d\n", __func__, gpio, ret);
 	}
 	else {
-		swimcu_log(GPIO, "%s: gpio%d OUT\n", __func__, gpio);
+		swimcu_log(GPIO, "%s: gpio%d DOWN\n", __func__, gpio);
 	}
 
 	return ret;

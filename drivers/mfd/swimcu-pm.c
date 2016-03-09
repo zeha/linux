@@ -41,6 +41,14 @@ static int swimcu_reset_source = 0;
 module_param_named(
         reset_source, swimcu_reset_source, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+/* mcu fault mask, to record communication errors and irregular MCU behaviour */
+module_param_named(
+        fault_mask, swimcu_fault_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+/* mcu fault count, number of fault events */
+module_param_named(
+        fault_count, swimcu_fault_count, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
 /* we can't free the memory here as it is freed by the i2c device on exit */
 static void release_kobj(struct kobject *kobj)
 {
@@ -56,6 +64,7 @@ static const struct pin_trigger_map {
         enum mci_pin_irqc_type_e type;
         char *name;
 } pin_trigger[] = {
+        {MCI_PIN_IRQ_DISABLED,     "none"},
         {MCI_PIN_IRQ_DISABLED,     "off"},
         {MCI_PIN_IRQ_LOGIC_ZERO,   "low"},
         {MCI_PIN_IRQ_RISING_EDGE,  "rising"},
@@ -69,10 +78,6 @@ static uint32_t wakeup_time = 0;
 
 #define MAX_PM_ENABLE 1
 static int pm_enable = 0;
-
-#define GET_WUSRC_PORT(x) ((x & 0xff00) >> 8)
-#define GET_WUSRC_PIN(x)  (x & 0xff)
-
 
 enum wusrc_index {
 	WUSRC_INVALID = -1,
@@ -122,7 +127,6 @@ static enum wusrc_index find_wusrc_index_from_kobj(struct kobject *kobj)
 
 	for (wi = 0; wi <= WUSRC_MAX; wi++) {
 		if (wusrc_value[wi].kobj == kobj) {
-			swimcu_log(PM, "%s: found %d\n", __func__, wi);
 			break;
 		}
 	}
@@ -156,7 +160,6 @@ static enum wusrc_index find_wusrc_index_from_id(enum mci_protocol_wakeup_source
 
 	for (wi = 0; wi <= WUSRC_MAX; wi++) {
 		if ((type == wusrc_param[wi].type) && (id == wusrc_param[wi].id)) {
-			swimcu_log(PM, "%s: found %d", __func__, wi);
 			break;
 		}
 	}
@@ -171,9 +174,9 @@ static enum wusrc_index find_wusrc_index_from_id(enum mci_protocol_wakeup_source
 
 /************
 *
-* Name:     swimcu_pm_boot_enable
+* Name:     swimcu_pm_ulpm_enable
 *
-* Purpose:  Configure MCU with triggers and enter low power mode
+* Purpose:  Configure MCU with triggers and enter ultra low power mode
 *
 * Parms:    swimcu - device driver data
 *	    pm - 0 (do nothing) or 1 (initiate power down)
@@ -184,7 +187,7 @@ static enum wusrc_index find_wusrc_index_from_id(enum mci_protocol_wakeup_source
 * Abort:    none
 *
 ************/
-static int pm_set_mcu_boot_enable(struct swimcu *swimcu, int pm)
+static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 {
 	int ret = 0;
 	enum mci_protocol_status_code_e rc;
@@ -205,13 +208,20 @@ static int pm_set_mcu_boot_enable(struct swimcu *swimcu, int pm)
 	for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
 		if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
 			gpio = wusrc_param[wi].id;
-			if (swimcu_gpio_get_trigger(gpio) !=  MCI_PIN_IRQ_DISABLED) { /* configured for wakeup */
+			if (swimcu_gpio_get_trigger(gpio) != MCI_PIN_IRQ_DISABLED) { /* configured for wakeup */
 				ext_gpio = SWIMCU_GPIO_TO_SYS(gpio);
 				ret = gpio_request(ext_gpio, KBUILD_MODNAME);
-				if (ret < 0)
+				if (ret < 0) {
 					swimcu_log(PM, "%s: %d in use\n", __func__, ext_gpio);
-				else
+					ret = swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
+					if (ret < 0) {
+						pr_err("%s: irqc set fail %d\n", __func__, gpio);
+						goto wu_fail;
+					}
+				}
+				else {
 					swimcu_log(PM, "%s: request %d\n", __func__, ext_gpio);
+				}
 				wu_pin_bits |= wusrc_param[wi].mask;
 				gpio_cnt++;
 			}
@@ -343,7 +353,10 @@ static ssize_t pm_gpio_attr_store(struct kobject *kobj,
 	for (ti = ARRAY_SIZE(pin_trigger) - 1; ti >= 0; ti--) {
 	/* if never found we exit at ti == -1: invalid */
 		if (sysfs_streq(buf, pin_trigger[ti].name)) {
-			swimcu_gpio_set_trigger(gpio, pin_trigger[ti].type);
+			if (swimcu_gpio_set_trigger(gpio, pin_trigger[ti].type) < 0) {
+				swimcu_log(PM, "%s: failed gpio %d\n", __func__, gpio);
+				return -EPERM;
+			}
 			wusrc_value[wi].triggered = 0;
 			swimcu_log(PM, "%s: setting gpio %d to trigger %d\n", __func__, gpio, ti);
 			break;
@@ -394,7 +407,7 @@ static ssize_t pm_enable_attr_store(struct kobject *kobj,
 	if (0 == (ret = kstrtoint(buf, 0, &tmp_enable))) {
 		if (tmp_enable <= MAX_PM_ENABLE) {
 			pm_enable = tmp_enable;
-			if (0 == (ret = pm_set_mcu_boot_enable(swimcu, pm_enable)))
+			if (0 == (ret = pm_set_mcu_ulpm_enable(swimcu, pm_enable)))
 				ret = count;
 		}
 		else {
@@ -501,7 +514,7 @@ void swimcu_set_wakeup_source(enum mci_protocol_wakeup_source_type_e type, u16 v
 ************/
 void swimcu_set_reset_source(enum mci_protocol_reset_source_e value)
 {
-	swimcu_log(PM, "%s: 0x%x\n", __func__, value);
+	swimcu_log(INIT, "%s: 0x%x\n", __func__, value);
 	swimcu_reset_source = value;
 }
 

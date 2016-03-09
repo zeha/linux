@@ -72,6 +72,10 @@ int swimcu_gpio_open(struct swimcu *swimcu, int gpio);
 
 int swimcu_gpio_close(struct swimcu *swimcu, int gpio);
 
+void swimcu_gpio_refresh( struct swimcu *swimcu );
+
+void swimcu_gpio_retrieve( struct swimcu *swimcu );
+
 int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value);
 
 int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value);
