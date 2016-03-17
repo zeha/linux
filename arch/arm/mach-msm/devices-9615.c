@@ -346,7 +346,51 @@ struct platform_device swi_msm9615_device_uart_gsbi5 = {
 #endif /* CONFIG_SIERRA_GSBI5_UART */
 
 #ifdef CONFIG_SIERRA_GSBI4_UART
-static struct resource resources_uart_gsbi4[] = {
+static struct resource resources_uart_hs_gsbi4[] = {
+	{
+		.start	= GSBI4_UARTDM_IRQ,
+		.end	= GSBI4_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART4DM_PHYS,
+		.end	= MSM_UART4DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI4_PHYS,
+		.end	= MSM_GSBI4_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start = DMOV_HSUART_GSBI4_TX_CHAN,
+		.end = DMOV_HSUART_GSBI4_RX_CHAN,
+		.name = "uartdm_channels",
+		.flags = IORESOURCE_DMA,
+	},
+	{
+		.start = DMOV_HSUART_GSBI4_TX_CRCI,
+		.end = DMOV_HSUART_GSBI4_RX_CRCI,
+		.name = "uartdm_crci",
+		.flags = IORESOURCE_DMA,
+	},
+};
+
+static u64 msm_uart_dm4_dma_mask = DMA_BIT_MASK(32);
+struct platform_device msm9615_device_uart_hs_gsbi4 = {
+	.name	= "msm_serial_hs",
+	.id	= 0,
+	.num_resources	= ARRAY_SIZE(resources_uart_hs_gsbi4),
+	.resource	= resources_uart_hs_gsbi4,
+	.dev = {
+		.dma_mask = &msm_uart_dm4_dma_mask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	}
+};
+
+static struct resource resources_uart_hsl_gsbi4[] = {
 	{
 		.start	= GSBI4_UARTDM_IRQ,
 		.end	= GSBI4_UARTDM_IRQ,
@@ -366,11 +410,11 @@ static struct resource resources_uart_gsbi4[] = {
 	},
 };
 
-struct platform_device msm9615_device_uart_gsbi4 = {
+struct platform_device msm9615_device_uart_hsl_gsbi4 = {
 	.name	= "msm_serial_hsl",
 	.id	= 0,
-	.num_resources	= ARRAY_SIZE(resources_uart_gsbi4),
-	.resource	= resources_uart_gsbi4,
+	.num_resources	= ARRAY_SIZE(resources_uart_hsl_gsbi4),
+	.resource	= resources_uart_hsl_gsbi4,
 };
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 

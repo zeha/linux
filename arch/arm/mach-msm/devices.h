@@ -120,7 +120,8 @@ extern struct platform_device msm9615_device_qup_spi_gsbi3;
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
 
 #if defined(CONFIG_SIERRA_GSBI4_UART)
-extern struct platform_device msm9615_device_uart_gsbi4;
+extern struct platform_device msm9615_device_uart_hs_gsbi4;
+extern struct platform_device msm9615_device_uart_hsl_gsbi4;
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 
 #endif /* CONFIG_SIERRA */

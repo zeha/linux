@@ -1387,7 +1387,8 @@ static struct platform_device *common_devices[] = {
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
 
 #ifdef CONFIG_SIERRA_GSBI4_UART
-	&msm9615_device_uart_gsbi4,
+	&msm9615_device_uart_hsl_gsbi4,
+	&msm9615_device_uart_hs_gsbi4,
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 
 #if defined(CONFIG_SIERRA_GSBI5_I2C_UART) || \

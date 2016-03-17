@@ -63,6 +63,10 @@
 
 #include "msm_serial_hs_hwreg.h"
 
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+#include <linux/sierra_bsudefs.h>
+#endif /* CONFIG_SIERRA_GSBI4_UART */
+
 static int hs_serial_debug_mask = 1;
 module_param_named(debug_mask, hs_serial_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -175,7 +179,7 @@ struct msm_hs_port {
 #define UARTDM_TX_BUF_SIZE UART_XMIT_SIZE
 #define UARTDM_RX_BUF_SIZE 512
 #define RETRY_TIMEOUT 5
-#define UARTDM_NR 256
+#define UARTDM_NR 2
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -233,6 +237,48 @@ static ssize_t set_clock(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(clock, S_IWUSR | S_IRUGO, show_clock, set_clock);
+
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+const static char dm_func_string[] = "DM\n";
+const static char cons_func_string[] = "CONSOLE\n";
+const static char app_func_string[] = "APP\n";
+const static char inv_func_string[] = "UNAVAILABLE\n";
+static int8_t uart_func[UARTDM_NR];
+static char* uart_func_str_pt[UARTDM_NR] = {0};
+
+static ssize_t show_uart_config(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int line;
+	struct msm_serial_hs_platform_data *pdata;
+
+	struct platform_device *pdev = to_platform_device(dev);
+
+	/* Use line (ttyHSx) number from pdata or device tree if specified */
+	pdata = pdev->dev.platform_data;
+	if (pdata)
+		line = pdata->userid;
+	else
+		line = pdev->id;
+
+	if(line >= UARTDM_NR) {
+		pr_info("invalid line number %d", line);
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+
+	if(uart_func_str_pt[line]) {
+		sprintf(buf, "%s", uart_func_str_pt[line]);
+		return strlen((const char*)uart_func_str_pt[line]) + 1;
+	} else {
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+}
+
+static DEVICE_ATTR(config, 0444, show_uart_config, NULL);
+#endif /* CONFIG_SIERRA_GSBI4_UART */
 
 static inline unsigned int use_low_power_wakeup(struct msm_hs_port *msm_uport)
 {
@@ -1930,6 +1976,10 @@ static int msm_hs_probe(struct platform_device *pdev)
 	struct resource *resource;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+	int line;
+#endif
+
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
 		printk(KERN_ERR "Invalid plaform device ID = %d\n", pdev->id);
 		return -EINVAL;
@@ -1939,6 +1989,37 @@ static int msm_hs_probe(struct platform_device *pdev)
 	uport = &msm_uport->uport;
 
 	uport->dev = &pdev->dev;
+
+#if defined(CONFIG_SIERRA_GSBI4_UART)
+	/* create config file for APP usage */
+	ret = device_create_file(&pdev->dev, &dev_attr_config);
+	if (unlikely(ret))
+		pr_err("%s():Can't create config attribute\n", __func__);
+
+	if (pdata) {
+		line = pdata->userid;
+	} else {
+		line = pdev->id;
+	}
+
+	uart_func[line] = bsgetuartfun(line);
+
+	if (uart_func[line] == -1) {
+		uart_func[line] = BSUARTFUNC_INVALID;
+	}
+
+	switch (uart_func[line]) {
+	case BSUARTFUNC_APP:
+		pr_info("ttyHS%d is open for customer usage\n", line);
+		uart_func_str_pt[line] = (char *)app_func_string;
+		break;
+	default:
+		pr_info("ttyHS%d, function %d, not allowed to control by A5.\n",
+			line, uart_func[line]);
+		uart_func_str_pt[line] = (char *)inv_func_string;
+		return -EPERM;;
+	}
+#endif /* CONFIG_SIERRA_GSBI4_UART */
 
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!resource))

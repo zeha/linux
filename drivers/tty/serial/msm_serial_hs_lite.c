@@ -1883,10 +1883,10 @@ static DEVICE_ATTR(fifo_tx, S_IWUSR | S_IRUGO, show_msm_fifo_tx,
 #if (defined(CONFIG_SIERRA_GSBI4_UART) || \
      defined(CONFIG_SIERRA_GSBI5_UART) || \
      defined(CONFIG_SIERRA_GSBI5_I2C_UART))
-const static char dm_func_string[] = "DM";
-const static char cons_func_string[] = "CONSOLE";
-const static char app_func_string[] = "APP";
-const static char inv_func_string[] = "UNAVAILABLE";
+const static char dm_func_string[] = "DM\n";
+const static char cons_func_string[] = "CONSOLE\n";
+const static char app_func_string[] = "APP\n";
+const static char inv_func_string[] = "UNAVAILABLE\n";
 static int8_t uart_func[UART_NR];
 static char* uart_func_str_pt[UART_NR] = {0};
 
@@ -2028,6 +2028,51 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	if (unlikely(line < 0 || line >= UART_NR))
 		return -ENXIO;
 
+#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_UART) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
+	/* create config file for APP usage */
+	ret = device_create_file(&pdev->dev, &dev_attr_config);
+	if (unlikely(ret))
+		pr_err("%s():Can't create config attribute\n", __func__);
+
+	uart_func[line] = bsgetuartfun(line);
+
+	if ((uart_func[line] == -1) ||
+	    ((line == BS_UART1_LINE) &&
+	     (uart_func[line] != BSUARTFUNC_CONSOLE) &&
+	     (uart_func[line] != BSUARTFUNC_DM))) {
+		/* for UART1, the CONSOLE and DM are managed by the HSL driver,
+		 * other functionalities are managed by the HS driver */
+		uart_func[line] = BSUARTFUNC_INVALID;
+	}
+
+	if ((line == BS_UART2_LINE) && (uart_func[line] == BSUARTFUNC_INVALID)) {
+		/* UART2 is set to console by default */
+		uart_func[BS_UART2_LINE] = BSUARTFUNC_CONSOLE;
+	}
+
+	switch (uart_func[line]) {
+	case BSUARTFUNC_DM:
+		pr_info("ttyHSL%d is reserved for DM service\n", line);
+		uart_func_str_pt[line] = (char *)dm_func_string;
+		break;
+	case BSUARTFUNC_APP:
+		pr_info("ttyHSL%d is open for customer usage\n", line);
+		uart_func_str_pt[line] = (char *)app_func_string;
+		break;
+	case BSUARTFUNC_CONSOLE:
+		pr_info("ttyHSL%d is reserved for CONSOLE service\n", line);
+		uart_func_str_pt[line] = (char *)cons_func_string;
+		break;
+	default:
+		pr_info("ttyHSL%d, function %d, not allowed to control by A5. \n",
+			line, uart_func[line]);
+		uart_func_str_pt[line] = (char *)inv_func_string;
+		return -EPERM;;
+	}
+#endif /* CONFIG_SIERRA_GSBIn_UART */
+
 	pr_info("detected port #%d (ttyHSL%d)\n", pdev->id, line);
 
 	port = get_port_from_line(line);
@@ -2119,48 +2164,6 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		pr_err("getting irq failed\n");
 		return -ENXIO;
 	}
-
-#if (defined(CONFIG_SIERRA_GSBI4_UART) || \
-     defined(CONFIG_SIERRA_GSBI5_UART) || \
-     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
-	/* create config file for APP usage */
-	ret = device_create_file(&pdev->dev, &dev_attr_config);
-	if (unlikely(ret))
-		pr_err("%s():Can't create config attribute\n", __func__);
-
-	uart_func[line] = bsgetuartfun(line);
-	
-	if(uart_func[line] == -1)
-	{
-		uart_func[line] = BSUARTFUNC_INVALID;
-	}
-	
-	if((line == BS_UART2_LINE) && (uart_func[line] == BSUARTFUNC_INVALID))
-	{
-		/* UART2 is set to console by default */
-		uart_func[BS_UART2_LINE] = BSUARTFUNC_CONSOLE;
-	}
-	
-	switch(uart_func[line])
-	{
-		case BSUARTFUNC_DM:
-			pr_info("ttyHSL%d is reserved for DM service\n", line);
-			uart_func_str_pt[line] = (char *)dm_func_string;
-			break;
-		case BSUARTFUNC_CONSOLE:
-			pr_info("ttyHSL%d is reserved for CONSOLE service\n", line);
-			uart_func_str_pt[line] = (char *)cons_func_string;
-			break;
-		case BSUARTFUNC_APP:
-			pr_info("ttyHSL%d is open for customer usage\n", line);
-			uart_func_str_pt[line] = (char *)app_func_string;
-			break;
-		default:
-			pr_info("ttyHSL%d, function %d, not allowed to control by A5. \n", line, uart_func[line]);
-			uart_func_str_pt[line] = (char *)inv_func_string;
-			return -EPERM;;
-	}
-#endif /* CONFIG_SIERRA_GSBIn_UART */
 
 	device_set_wakeup_capable(&pdev->dev, 1);
 	platform_set_drvdata(pdev, port);

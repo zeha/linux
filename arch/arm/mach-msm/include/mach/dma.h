@@ -199,17 +199,23 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #elif defined(CONFIG_ARCH_MSM9615)
 
-#define DMOV_GP_CHAN          4
+#define DMOV_GP_CHAN			4
 
-#define DMOV_CE_IN_CHAN       0
-#define DMOV_CE_IN_CRCI       12
+#define DMOV_CE_IN_CHAN 		0
+#define DMOV_CE_IN_CRCI 		12
 
-#define DMOV_CE_OUT_CHAN      1
-#define DMOV_CE_OUT_CRCI      13
+#define DMOV_CE_OUT_CHAN		1
+#define DMOV_CE_OUT_CRCI		13
 
-#define DMOV_NAND_CHAN        3
-#define DMOV_NAND_CRCI_CMD    15
-#define DMOV_NAND_CRCI_DATA   3
+#define DMOV_NAND_CHAN			3
+#define DMOV_NAND_CRCI_CMD		15
+#define DMOV_NAND_CRCI_DATA		3
+
+#define DMOV_HSUART_GSBI4_TX_CHAN	14
+#define DMOV_HSUART_GSBI4_TX_CRCI	9
+
+#define DMOV_HSUART_GSBI4_RX_CHAN	15
+#define DMOV_HSUART_GSBI4_RX_CRCI	8
 
 #elif defined(CONFIG_ARCH_FSM9XXX)
 /* defined in dma-fsm9xxx.h */

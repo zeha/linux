@@ -1666,6 +1666,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 
 #if defined(CONFIG_SIERRA_GSBI4_UART)
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, ""),
+	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hs.0"),
 	CLK_LOOKUP("core_clk", gsbi4_uart_clk.c, "msm_serial_hsl.0"),
 #endif /* CONFIG_SIERRA_GSBI4_UART) */
 
@@ -1703,6 +1704,7 @@ static struct clk_lookup msm_clocks_9615[] = {
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
 
 #if defined(CONFIG_SIERRA_GSBI4_UART)
+	CLK_LOOKUP("iface_clk", gsbi4_p_clk.c, "msm_serial_hs.0"),
 	CLK_LOOKUP("iface_clk", gsbi4_p_clk.c, "msm_serial_hsl.0"),
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 
