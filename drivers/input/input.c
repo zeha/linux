@@ -1679,7 +1679,13 @@ static int input_dev_suspend(struct device *dev)
 	 * Keys that are pressed now are unlikely to be
 	 * still pressed when we resume.
 	 */
+#if defined(CONFIG_SIERRA_PWRKEY)
+	/* input: don't send dummy release event when system resumes */
+	if (!test_bit(INPUT_PROP_NO_DUMMY_RELEASE, input_dev->propbit))
+		input_dev_release_keys(input_dev);
+#else
 	input_dev_release_keys(input_dev);
+#endif
 
 	/* Turn off LEDs and sounds, if any are active. */
 	input_dev_toggle(input_dev, false);

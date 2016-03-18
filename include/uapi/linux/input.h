@@ -166,6 +166,11 @@ struct input_keymap_entry {
 #define INPUT_PROP_SEMI_MT		0x03	/* touch rectangle only */
 #define INPUT_PROP_TOPBUTTONPAD		0x04	/* softbuttons at top of pad */
 
+#if defined(CONFIG_SIERRA_PWRKEY)
+/* input: don't send dummy release event when system resumes */
+#define INPUT_PROP_NO_DUMMY_RELEASE	0x05	/* no dummy event */
+#endif
+
 #define INPUT_PROP_MAX			0x1f
 #define INPUT_PROP_CNT			(INPUT_PROP_MAX + 1)
 

@@ -70,8 +70,16 @@ static int pmic8xxx_pwrkey_suspend(struct device *dev)
 {
 	struct pmic8xxx_pwrkey *pwrkey = dev_get_drvdata(dev);
 
+#if defined(CONFIG_SIERRA_PWRKEY)
+	/* input: pwrkey: Handle out-of-order press and release interrupts */
+	if (device_may_wakeup(dev)) {
+		enable_irq_wake(pwrkey->key_press_irq);
+		enable_irq_wake(pwrkey->key_release_irq);
+	}
+#else
 	if (device_may_wakeup(dev))
 		enable_irq_wake(pwrkey->key_press_irq);
+#endif
 
 	return 0;
 }
@@ -80,8 +88,16 @@ static int pmic8xxx_pwrkey_resume(struct device *dev)
 {
 	struct pmic8xxx_pwrkey *pwrkey = dev_get_drvdata(dev);
 
+#if defined(CONFIG_SIERRA_PWRKEY)
+	/* input: pwrkey: Handle out-of-order press and release interrupts */
+	if (device_may_wakeup(dev)) {
+		disable_irq_wake(pwrkey->key_press_irq);
+		disable_irq_wake(pwrkey->key_release_irq);
+	}
+#else
 	if (device_may_wakeup(dev))
 		disable_irq_wake(pwrkey->key_press_irq);
+#endif
 
 	return 0;
 }
@@ -194,6 +210,10 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 		goto free_pwrkey;
 	}
 
+#if defined(CONFIG_SIERRA_PWRKEY)
+	/* don't send dummy release event when system resumes */
+	__set_bit(INPUT_PROP_NO_DUMMY_RELEASE, pwr->propbit);
+#endif
 	input_set_capability(pwr, EV_KEY, KEY_POWER);
 
 	pwr->name = "pmic8xxx_pwrkey";
@@ -214,6 +234,10 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	}
 
 	pwrkey->key_press_irq = key_press_irq;
+#if defined(CONFIG_SIERRA_PWRKEY)
+	/* input: pwrkey: Handle out-of-order press and release interrupts */
+	pwrkey->key_release_irq = key_release_irq;
+#endif
 	pwrkey->pwr = pwr;
 
 	platform_set_drvdata(pdev, pwrkey);
