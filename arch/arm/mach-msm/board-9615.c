@@ -1772,6 +1772,7 @@ int gpio_cf3_low_power_reset_toggle(void)
 
 #endif /* CONFIG_SIERRA */
 
+#if defined(CONFIG_OF)
 static const char *msm9615_dt_match[] __initconst = {
        "qcom,msm9615",
        NULL
@@ -1779,6 +1780,9 @@ static const char *msm9615_dt_match[] __initconst = {
 
 DT_MACHINE_START(MSM9615_CDP_DT, "QCT MSM9615 CDP (Flattened Device Tree)")
 	.dt_compat = msm9615_dt_match,
+#else
+MACHINE_START(MSM9615_CDP, "QCT MSM9615 CDP")
+#endif
 	.map_io = msm9615_map_io,
 	.init_irq = msm9615_init_irq,
 	.handle_irq = gic_handle_irq,
