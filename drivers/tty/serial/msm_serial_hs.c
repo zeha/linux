@@ -1785,6 +1785,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	msm_uport->imr_reg |= UARTDM_ISR_CURRENT_CTS_BMSK;
 
 	msm_hs_write(uport, UARTDM_TFWR_ADDR, 0);  /* TXLEV on empty TX fifo */
+
 	/*
 	 * Complete all device write related configuration before
 	 * queuing RX request. Hence mb() requires here.
@@ -2010,20 +2011,22 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	switch (uart_func[line]) {
 	case BSUARTFUNC_APP:
-		pr_info("ttyHS%d is open for customer usage\n", line);
+		pr_info("ttyHS%d could be used as generic serial port.\n", line);
 		uart_func_str_pt[line] = (char *)app_func_string;
 		break;
 	default:
-		pr_info("ttyHS%d, function %d, not allowed to control by A5.\n",
+		pr_info("ttyHS%d, function %d is not valid on application processor.\n",
 			line, uart_func[line]);
 		uart_func_str_pt[line] = (char *)inv_func_string;
-		return -EPERM;;
+		return -EPERM;
 	}
 #endif /* CONFIG_SIERRA_GSBI4_UART */
 
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (unlikely(!resource))
+	if (unlikely(!resource)) {
+		pr_err("getting uartdm_resource failed\n");
 		return -ENXIO;
+	}
 	uport->mapbase = resource->start;  /* virtual address */
 
 	uport->membase = ioremap(uport->mapbase, PAGE_SIZE);
@@ -2069,28 +2072,31 @@ static int msm_hs_probe(struct platform_device *pdev)
 	msm_uport->imr_reg = 0x0;
 
 	msm_uport->clk = clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(msm_uport->clk))
+	if (IS_ERR(msm_uport->clk)) {
+		pr_err("Error getting clk\n");
 		return PTR_ERR(msm_uport->clk);
+	}
 
 	msm_uport->pclk = clk_get(&pdev->dev, "iface_clk");
 	/*
 	 * Some configurations do not require explicit pclk control so
 	 * do not flag error on pclk get failure.
 	 */
-	if (IS_ERR(msm_uport->pclk))
+	if (IS_ERR(msm_uport->pclk)) {
+		pr_warning(KERN_WARNING "pclk is not set\n");
 		msm_uport->pclk = NULL;
+	}
 
 	ret = clk_set_rate(msm_uport->clk, uport->uartclk);
 	if (ret) {
-		printk(KERN_WARNING "Error setting clock rate on UART\n");
+		pr_err("Error setting UART clock rate\n");
 		return ret;
 	}
 
 	msm_uport->hsuart_wq = alloc_workqueue("k_hsuart",
 					WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!msm_uport->hsuart_wq) {
-		pr_err("%s(): Unable to create workqueue hsuart_wq\n",
-								__func__);
+		pr_err("Unable to create workqueue hsuart_wq\n");
 		return -ENOMEM;
 	}
 

@@ -2054,22 +2054,22 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 
 	switch (uart_func[line]) {
 	case BSUARTFUNC_DM:
-		pr_info("ttyHSL%d is reserved for DM service\n", line);
+		pr_info("ttyHSL%d is reserved for DM service.\n", line);
 		uart_func_str_pt[line] = (char *)dm_func_string;
 		break;
 	case BSUARTFUNC_APP:
-		pr_info("ttyHSL%d is open for customer usage\n", line);
+		pr_info("ttyHSL%d could be used as generic serial port.\n", line);
 		uart_func_str_pt[line] = (char *)app_func_string;
 		break;
 	case BSUARTFUNC_CONSOLE:
-		pr_info("ttyHSL%d is reserved for CONSOLE service\n", line);
+		pr_info("ttyHSL%d is reserved for CONSOLE service.\n", line);
 		uart_func_str_pt[line] = (char *)cons_func_string;
 		break;
 	default:
-		pr_info("ttyHSL%d, function %d, not allowed to control by A5. \n",
+		pr_info("ttyHSL%d, function %d is not valid on application processor.\n",
 			line, uart_func[line]);
 		uart_func_str_pt[line] = (char *)inv_func_string;
-		return -EPERM;;
+		return -EPERM;
 	}
 #endif /* CONFIG_SIERRA_GSBIn_UART */
 
