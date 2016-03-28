@@ -135,6 +135,17 @@ static void ci_hdrc_msm_notify_event(struct ci_hdrc *ci, unsigned event)
 		writel(0, USB_AHBBURST);
 		writel(0, USB_AHBMODE);
 		usb_phy_init(ci->transceiver);
+#ifdef CONFIG_SIERRA_USB_OTG
+		/* try wake GPIO IRQ installation here instead at probe time
+		 * since hw_device_reset may toggle the GPIO and cause
+		 * ci_hdrc_msm_resume_irq as soon as the IRQ is enabled at
+		 * ci_hdrc_msm_suspend
+		 */
+		if (ci->platdata && !ci->platdata->context) {
+			/* USB wakeup work-around for MDM9615 */
+			ci_hdrc_msm_install_wake_gpio(ci);
+		}
+#endif
 		break;
 	case CI_HDRC_CONTROLLER_STOPPED_EVENT:
 		dev_info(dev, "CI_HDRC_CONTROLLER_STOPPED_EVENT received\n");
@@ -189,8 +200,10 @@ static int ci_hdrc_msm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, plat_ci);
 
+#ifndef CONFIG_SIERRA_USB_OTG
 	/* USB wakeup work-around for MDM9615 */
 	ci_hdrc_msm_install_wake_gpio(platform_get_drvdata(plat_ci));
+#endif
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
