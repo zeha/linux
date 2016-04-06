@@ -5836,7 +5836,8 @@ msmsdcc_runtime_resume(struct device *dev)
 			mmc_host_clk_release(mmc);
 		}
 
-		mmc_resume_host(mmc);
+		if (mmc->card)
+			mmc_resume_host(mmc);
 
 		/*
 		 * FIXME: Clearing of flags must be handled in clients
