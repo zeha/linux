@@ -66,7 +66,7 @@ struct msm_nand_bus_vote {
 };
 
 #define MSM_NAND_DMA_BUFFER_SIZE SZ_8K
-#define MSM_NAND_DMA_BUFFER_SLOTS \
+#define MSM_NAND_DMA_BUFFER_SLOT_SZ \
 	(MSM_NAND_DMA_BUFFER_SIZE / (sizeof(((atomic_t *)0)->counter) * 8))
 
 #define MSM_NAND_CFG0_RAW_ONFI_IDENTIFIER 0x88000800
@@ -272,18 +272,30 @@ static void *msm_nand_get_dma_buffer(struct msm_nand_chip *chip, size_t size)
 {
 	unsigned int bitmask, free_bitmask, old_bitmask;
 	unsigned int need_mask, current_need_mask;
-	int free_index;
+	int free_index = 0;
 
-	need_mask = (1UL << DIV_ROUND_UP(size, MSM_NAND_DMA_BUFFER_SLOTS)) - 1;
+	need_mask = (1UL << DIV_ROUND_UP(size, MSM_NAND_DMA_BUFFER_SLOT_SZ)) - 1;
 	bitmask = atomic_read(&chip->dma_buffer_busy);
 	free_bitmask = ~bitmask;
+
+	if(free_bitmask == 0) {
+		/* Nothing is free, get out. */
+		pr_err("%s: No free slots for NAND flash DMA transfers.\n", __func__);
+		return NULL;
+	}
+
 	do {
+
 		free_index = __ffs(free_bitmask);
 		current_need_mask = need_mask << free_index;
 
-		if (size + free_index * MSM_NAND_DMA_BUFFER_SLOTS >=
-						 MSM_NAND_DMA_BUFFER_SIZE)
+		if (size + free_index * MSM_NAND_DMA_BUFFER_SLOT_SZ >=
+						 MSM_NAND_DMA_BUFFER_SIZE) {
+			pr_err("%s: Increase NAND flash DMA buffer size, "
+				   "%d bytes is not enough.\n",
+					__func__, MSM_NAND_DMA_BUFFER_SIZE);
 			return NULL;
+		}
 
 		if ((bitmask & current_need_mask) == 0) {
 			old_bitmask =
@@ -292,7 +304,7 @@ static void *msm_nand_get_dma_buffer(struct msm_nand_chip *chip, size_t size)
 					       bitmask | current_need_mask);
 			if (old_bitmask == bitmask)
 				return chip->dma_buffer +
-					free_index * MSM_NAND_DMA_BUFFER_SLOTS;
+					free_index * MSM_NAND_DMA_BUFFER_SLOT_SZ;
 			free_bitmask = 0; /* force return */
 		}
 		/* current free range was too small, clear all free bits */
@@ -310,8 +322,8 @@ static void msm_nand_release_dma_buffer(struct msm_nand_chip *chip,
 	int index;
 	unsigned int used_mask;
 
-	used_mask = (1UL << DIV_ROUND_UP(size, MSM_NAND_DMA_BUFFER_SLOTS)) - 1;
-	index = ((uint8_t *)buffer - chip->dma_buffer) / MSM_NAND_DMA_BUFFER_SLOTS;
+	used_mask = (1UL << DIV_ROUND_UP(size, MSM_NAND_DMA_BUFFER_SLOT_SZ)) - 1;
+	index = ((uint8_t *)buffer - chip->dma_buffer) / MSM_NAND_DMA_BUFFER_SLOT_SZ;
 	atomic_sub(used_mask << index, &chip->dma_buffer_busy);
 
 	wake_up(&chip->wait_queue);
@@ -1160,10 +1172,11 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from_in,
 
 		mb();
 		{
+		    unsigned int addr = 0;
+
 			msm_nand_bus_vote_set(chip, 1);
 		    /* msm_dmov_exec_cmd may return one of the standard errors
 		       (most likely EIO), or 0 if everything is OK. */
-		    unsigned int addr = 0;
 		    addr = msm_virt_to_dma(chip, &dma_buffer->cmdptr);
 		    err = msm_dmov_exec_cmd(chip->dma_channel,
 					    DMOV_CMD_PTR_LIST | DMOV_CMD_ADDR(addr));
@@ -2224,6 +2237,7 @@ static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len
 	int ret;
 	struct mtd_oob_ops ops;
 	u_char buf_cache[mtd->writesize];
+	int c;
 
 #if defined(CONFIG_MTD_MSM_NAND_VERBOSE)
    pr_info("%s: %llx %i\n", __func__, from, len);
@@ -2235,7 +2249,7 @@ static int msm_nand_read_multipage(struct mtd_info *mtd, loff_t from, size_t len
    ops.retlen = 0;
    ops.ooblen = 0;
    ops.oobbuf = NULL;
-   int c = 1;
+   c = 1;
 
    ret = msm_nand_read_oob(mtd, from, &ops);
    memcpy(buf, buf_cache, mtd->writesize);
@@ -2704,7 +2718,7 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	unsigned long end_page = (unsigned long)(((unsigned long)to + (unsigned long)len - 1) / ((unsigned long)mtd->writesize));
 
 	/* Input data pointer. */
-	u_char *buf_ptr = buf;
+	u_char *buf_ptr = (u_char *)buf;
 
 	/* Local lenght. */
 	size_t llen = 0;
