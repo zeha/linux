@@ -1361,7 +1361,7 @@ static int mdm9615_auxpcm_mode_put(struct snd_kcontrol *kcontrol,
 		mdm9615_auxpcm_mode = AFE_PCM_CFG_MODE_PCM;
 		break;
 	}
-	pr_info("%s: mdm9615_auxpcm_mode = %d"
+	pr_debug("%s: mdm9615_auxpcm_mode = %d"
 		"ucontrol->value.integer.value[0] = %d\n", __func__,
 		mdm9615_auxpcm_mode,
 		(int)ucontrol->value.integer.value[0]);
@@ -1593,10 +1593,6 @@ static int mdm9615_ar7_sec_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
           ARRAY_SIZE(mdm9615_ar7_dapm_widgets));
 
   codec_clk = clk_get(cpu_dai->dev, "sec_pcm_clk");
-  if (bssupport(BSFEATURE_CF3))
-  {
-	xo_handle_a1 = msm_xo_get( MSM_XO_TCXO_A1, "cf3_mclk");
-  }
 
   return 0;
 }
@@ -1921,6 +1917,10 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 #ifdef CONFIG_MFD_WM8944
 	}
+	if (bssupport(BSFEATURE_CF3))
+	{
+		xo_handle_a1 = msm_xo_get( MSM_XO_TCXO_A1, "cf3_mclk");
+	}
 #endif
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
@@ -1957,12 +1957,14 @@ static int mdm9615_ar7_sec_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
  	pr_info("%s()\n", __func__);
 
-  	err = snd_soc_add_platform_controls(platform, mdm9615_ar7_i2s_controls,
-		ARRAY_SIZE(mdm9615_ar7_i2s_controls));
-
-	if (err < 0) {
-		pr_info("returning loc 1 err = %d\n", err);
-		return err;
+	if(!bssupport(BSFEATURE_WM8944)) {
+	/* for WM8944 platforms, i2s_controls are already added in primary i2s init */
+		err = snd_soc_add_platform_controls(platform, mdm9615_ar7_i2s_controls,
+			ARRAY_SIZE(mdm9615_ar7_i2s_controls));
+		if (err < 0) {
+			pr_info("returning loc 1 err = %d\n", err);
+			return err;
+		}
 	}
 
 	snd_soc_dapm_new_controls(dapm, mdm9615_ar7_dapm_widgets,
@@ -1992,6 +1994,11 @@ static int mdm9615_mc7_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
    install_codec_i2s_gpio();
 
    codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+   if (bssupport(BSFEATURE_CF3))
+   {
+	xo_handle_a1 = msm_xo_get( MSM_XO_TCXO_A1, "cf3_mclk");
+   }
+
    return 0;
 }
 
@@ -3064,6 +3071,9 @@ static int mdm9615_mc7_auxpcm_startup(struct snd_pcm_substream *substream)
    int ret = 0;
 
    pr_info("%s(): substream = %s\n", __func__, substream->name);
+
+   msm_gpiomux_install(msm9615_audio_pri_pcm_codec_configs,
+		ARRAY_SIZE(msm9615_audio_pri_pcm_codec_configs));
 
    if (atomic_inc_return(&msm9615_auxpcm_ref) == 1) {
        ret = mdm9615_aux_pcm_get_gpios();
@@ -4681,36 +4691,8 @@ static struct snd_soc_dai_link mdm9615_dai_ar8_common[] = {
 		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
 		.ignore_pmdown_time = 1, /* this dailink has playback support */
 	},
-	/* AUX PCM Backend DAI Links */
-	{
-		.name = LPASS_BE_AUXPCM_RX,
-		.stream_name = "AUX PCM Playback",
-		.cpu_dai_name = "msm-dai-q6.2",
-		.platform_name = "msm-pcm-routing",
-		.dpcm_capture = 1,
-		.dpcm_playback = 1,
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.init = &mdm9615_ar7_sec_auxpcm_init,
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
-		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
-		.ops = &mdm9615_auxpcm_be_ops,
-	},
-	{
-		.name = LPASS_BE_AUXPCM_TX,
-		.stream_name = "AUX PCM Capture",
-		.cpu_dai_name = "msm-dai-q6.3",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.dpcm_capture = 1,
-		.dpcm_playback = 1,
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
-		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
-		.ops = &mdm9615_auxpcm_be_ops,
-	},
+};
+static struct snd_soc_dai_link mdm9615_dai_ar8_sec_pcm[] = {
 	/* SECONDARY AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_SEC_AUXPCM_RX,
@@ -4721,6 +4703,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar8_common[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
+		.init = &mdm9615_ar7_sec_auxpcm_init,
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 		.be_hw_params_fixup = mdm9615_ar7_sec_auxpcm_be_params_fixup,
@@ -4766,6 +4749,35 @@ static struct snd_soc_dai_link mdm9615_dai_ar8_common[] = {
 	},
 };
 static struct snd_soc_dai_link mdm9615_dai_ar8_wm8944[] = {
+	/* AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_AUXPCM_RX,
+		.stream_name = "AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.2",
+		.platform_name = "msm-pcm-routing",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_auxpcm_be_ops,
+	},
+	{
+		.name = LPASS_BE_AUXPCM_TX,
+		.stream_name = "AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
+		.ops = &mdm9615_auxpcm_be_ops,
+	},
 	{
 		.name = LPASS_BE_PRI_I2S_RX,
 		.stream_name = "Primary I2S Playback",
@@ -4796,8 +4808,41 @@ static struct snd_soc_dai_link mdm9615_dai_ar8_wm8944[] = {
 		.ops = &msm9615_i2s_be_ops,
 	},
 };
-static struct snd_soc_dai_link mdm9615_dai_ar8_nocodec[] = {
-		{
+
+/* AR8/CF3 if no codec detected, primary PCM bus available.
+   Must be same or less dai links than mdm9615_dai_ar8_wm8944 */
+static struct snd_soc_dai_link mdm9615_dai_ar8_pri_pcm[] = {
+	/* AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_AUXPCM_RX,
+		.stream_name = "AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.2",
+		.platform_name = "msm-pcm-routing",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.init = &mdm9615_mc7_auxpcm_init,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
+		.be_hw_params_fixup = mdm9615_ext_auxpcm_be_params_fixup,
+		.ops = &mdm9615_mc7_auxpcm_be_ops,
+	},
+	{
+		.name = LPASS_BE_AUXPCM_TX,
+		.stream_name = "AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
+		.be_hw_params_fixup = mdm9615_ext_auxpcm_be_params_fixup,
+		.ops = &mdm9615_mc7_auxpcm_be_ops,
+	},
+	{
 		.name = LPASS_BE_PRI_I2S_RX,
 		.stream_name = "Primary I2S Playback",
 		.cpu_dai_name = "msm-dai-q6.0",
@@ -4830,6 +4875,7 @@ static struct snd_soc_dai_link mdm9615_dai_ar8_nocodec[] = {
 
 static struct snd_soc_dai_link mdm9615_dai_ar8[
 					 ARRAY_SIZE(mdm9615_dai_ar8_common) +
+					 ARRAY_SIZE(mdm9615_dai_ar8_sec_pcm) +
 					 ARRAY_SIZE(mdm9615_dai_ar8_wm8944)];
 #endif
 
@@ -5123,6 +5169,7 @@ static int __init mdm9615_audio_init(void)
 	int ret;
 #if defined(CONFIG_SIERRA_INTERNAL_CODEC) || defined(CONFIG_SIERRA_EXTERNAL_CODEC)
 	enum bshwtype hwtype;
+	int dai_links;
 #endif
 
 	/* Set GPIO headset detection by default */
@@ -5177,22 +5224,29 @@ static int __init mdm9615_audio_init(void)
 #if defined(CONFIG_MFD_WM8944)
 			memcpy(mdm9615_dai_ar8, mdm9615_dai_ar8_common,
 				sizeof(mdm9615_dai_ar8_common));
+			dai_links = ARRAY_SIZE(mdm9615_dai_ar8_common);
+			if (!bssupport(BSFEATURE_CF3))
+			{
+				memcpy(mdm9615_dai_ar8 + dai_links,
+					mdm9615_dai_ar8_sec_pcm, sizeof(mdm9615_dai_ar8_sec_pcm));
+				dai_links += ARRAY_SIZE(mdm9615_dai_ar8_sec_pcm);
+			}
 			if( wm8944_get_intf_type() > WM8944_INTERFACE_TYPE_NONE ) /* wm8944 was found */
 			{
 				snd_soc_card_mdm9615.name = "mdm9615-wm8944-snd-card";
-				memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
-					mdm9615_dai_ar8_wm8944,
-			        sizeof(mdm9615_dai_ar8_wm8944));
+				memcpy(mdm9615_dai_ar8 + dai_links,
+					mdm9615_dai_ar8_wm8944, sizeof(mdm9615_dai_ar8_wm8944));
+				dai_links += ARRAY_SIZE(mdm9615_dai_ar8_wm8944);
 			}
 			else
 			{
 				snd_soc_card_mdm9615.name = "mdm9615-nocodec-snd-card";
-				memcpy(mdm9615_dai_ar8 + ARRAY_SIZE(mdm9615_dai_ar8_common),
-					mdm9615_dai_ar8_nocodec,
-			        sizeof(mdm9615_dai_ar8_nocodec));
+				memcpy(mdm9615_dai_ar8 + dai_links,
+					mdm9615_dai_ar8_pri_pcm, sizeof(mdm9615_dai_ar8_pri_pcm));
+				dai_links += ARRAY_SIZE(mdm9615_dai_ar8_pri_pcm);
 			}
 			snd_soc_card_mdm9615.dai_link = mdm9615_dai_ar8;
-			snd_soc_card_mdm9615.num_links = ARRAY_SIZE(mdm9615_dai_ar8);
+			snd_soc_card_mdm9615.num_links = dai_links;
 #endif
 		break;
 
