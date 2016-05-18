@@ -257,6 +257,8 @@ static struct pm8xxx_gpio_init pm8018_gpios[] __initdata = {
 };
 
 static struct pm8xxx_gpio_init pm8018_gpios_cf3[] __initdata = {
+	PM8018_GPIO_INPUT(1, PM_GPIO_PULL_DN), /* RF_HW_ID1, pulldown for now to avoid leakage */
+	PM8018_GPIO_INPUT(2, PM_GPIO_PULL_DN), /* RF_HW_ID0, pulldown for now to avoid leakage */
 	PM8018_GPIO_DISABLE(3),
 	PM8018_GPIO_OUTPUT(3, 1, HIGH), /* CODEC ON, temporary until Trac#2839 */
 	PM8018_GPIO_DISABLE(5),
