@@ -353,6 +353,48 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 #endif
 };
 
+#ifdef CONFIG_SIERRA
+static struct pm8xxx_adc_amux pm8018_adc_channels_data_cf3[] = {
+	{"vcoin", CHANNEL_VCOIN, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vbat", CHANNEL_VBAT, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"vph_pwr", CHANNEL_VPH_PWR, CHAN_PATH_SCALING2, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	/* AMUX8 is used to read either Batt_id/Batt_therm.
+	 * Current configuration is to support Batt_id. If clients
+	 * want to read the Batt_therm, the scaling function needs to be
+	 * updated to use ADC_SCALE_BATT_THERM instead of ADC_SCALE_DEFAULT.
+	 * E.g.
+	 * {"batt_therm", CHANNEL_BATT_ID_THERM, CHAN_PATH_SCALING1,
+	 * AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_BATT_THERM},
+	 */
+	{"batt_id", CHANNEL_BATT_ID_THERM, CHAN_PATH_SCALING1,
+		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pmic_therm", CHANNEL_DIE_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PMIC_THERM},
+	{"625mv", CHANNEL_625MV, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"125v", CHANNEL_125V, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+#ifdef CONFIG_SIERRA_XO_THERM
+	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+#endif
+	{"mpp_05", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1,
+		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+	/* ADC_MPP_1_ATEST_8 can be replaced by a more meaningful name like
+	 * ADC_MPP_1_MPP1, please see:
+	 * solution 00028985 [PM8018] detail guide of using MPP as ADC input
+	 * Note that mpp_01 is used as BSFEATURE_VDDMIN_MPP1 in other platform
+	 */
+	{"mpp_01", ADC_MPP_1_ATEST_8, CHAN_PATH_SCALING1,
+		AMUX_RSV2, ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
+};
+#endif /* CONFIG_SIERRA */
+
 static struct pm8xxx_adc_properties pm8018_adc_data = {
 	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
 	.bitresolution		= 15,
@@ -1601,6 +1643,17 @@ static void __init msm9615_common_init(void)
 	msm9615_device_qup_spi_gsbi3.dev.platform_data =
 				&msm9615_qup_spi_gsbi3_pdata;
 #endif /* CONFIG_SIERRA_GSBI3_SPI */
+
+#ifdef CONFIG_SIERRA
+	/* update CF3 specific ADC channel table */
+	if (bssupport(BSFEATURE_CF3))
+	{
+		pm8018_adc_pdata.adc_channel = pm8018_adc_channels_data_cf3;
+		pm8018_adc_pdata.adc_num_board_channel =
+						ARRAY_SIZE(pm8018_adc_channels_data_cf3);
+	}
+#endif
+
 	msm9615_device_ssbi_pmic1.dev.platform_data =
 						&msm9615_ssbi_pm8018_pdata;
 	pm8018_platform_data.num_regulators = msm_pm8018_regulator_pdata_len;
