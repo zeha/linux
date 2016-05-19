@@ -264,24 +264,6 @@ bool bssupport(
       }
       break;
 
-    case BSFEATURE_WP:
-      switch (hwtype)
-      {
-        case BSWP7100:
-        case BSWP7102:
-        case BSWP7104:
-        case BSWP7100_LARGER_MEMORY:
-        case BSWP7102_LARGER_MEMORY:
-        case BSWP7104_LARGER_MEMORY:
-          supported = true;
-          break;
-
-        default:
-          supported = false;
-          break;
-      }
-      break;
-
     case BSFEATURE_W_DISABLE:
       switch (hwtype)
       {

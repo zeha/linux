@@ -169,7 +169,6 @@ enum bsfeature
   BSFEATURE_MINICARD_M2M,   /* if the HW support MC M2M features */
   BSFEATURE_EM,             /* if the device is EM product */
   BSFEATURE_AR,             /* if the hardware is an AR product */
-  BSFEATURE_WP,             /* if the hardware is a WP71 product */
   BSFEATURE_CF3,            /* if the hardware is a CF3 product */
   BSFEATURE_W_DISABLE,      /* if W_DISABLE is supported */
   BSFEATURE_SD,             /* if SD is supported */
