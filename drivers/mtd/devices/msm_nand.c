@@ -65,7 +65,7 @@ struct msm_nand_bus_vote {
 	struct delayed_work vote_work;
 };
 
-#define MSM_NAND_DMA_BUFFER_SIZE SZ_8K
+#define MSM_NAND_DMA_BUFFER_SIZE SZ_16K
 #define MSM_NAND_DMA_BUFFER_SLOT_SZ \
 	(MSM_NAND_DMA_BUFFER_SIZE / (sizeof(((atomic_t *)0)->counter) * 8))
 
@@ -339,9 +339,8 @@ unsigned flash_rd_reg(struct msm_nand_chip *chip, unsigned addr)
 	} *dma_buffer;
 	unsigned rv;
 
-	/* DM, FIXME: msm_nand_get_dma_buffer may return NULL. */
-	dma_buffer = msm_nand_get_dma_buffer(chip, sizeof(*dma_buffer));
-	wait_event(chip->wait_queue, dma_buffer);
+	wait_event(chip->wait_queue, (dma_buffer = msm_nand_get_dma_buffer
+				(chip, sizeof(*dma_buffer))));
 
 	dma_buffer->cmd.cmd = CMD_LC | CMD_OCB | CMD_OCU;
 	dma_buffer->cmd.src = addr;
@@ -374,9 +373,8 @@ void flash_wr_reg(struct msm_nand_chip *chip, unsigned addr, unsigned val)
 		unsigned data;
 	} *dma_buffer;
 
-	/* DM, FIXME: msm_nand_get_dma_buffer may return NULL. */
-	dma_buffer = msm_nand_get_dma_buffer(chip, sizeof(*dma_buffer));
-	wait_event(chip->wait_queue, dma_buffer);
+	wait_event(chip->wait_queue, (dma_buffer = msm_nand_get_dma_buffer
+				(chip, sizeof(*dma_buffer))));
 
 	dma_buffer->cmd.cmd = CMD_LC | CMD_OCB | CMD_OCU;
 	dma_buffer->cmd.src = msm_virt_to_dma(chip, &dma_buffer->data);
@@ -2453,8 +2451,8 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	else
 		page_count = ops->len / (mtd->writesize + mtd->oobsize);
 
-	dma_buffer = msm_nand_get_dma_buffer(chip, sizeof(*dma_buffer));
-	wait_event(chip->wait_queue, dma_buffer);
+	wait_event(chip->wait_queue, (dma_buffer = msm_nand_get_dma_buffer
+				(chip, sizeof(*dma_buffer))));
 
 	while (page_count-- > 0) {
 		cmd = dma_buffer->cmd;
