@@ -938,7 +938,7 @@ bool bsuart4modem(uint uart_num )
 
   uart_fun =  bsgetuartfun(uart_num);
 
-  if((uart_fun != -1) && (uart_fun != BSUARTFUNC_INVALID) &&
+  if((uart_fun != -1) && (uart_fun != BSUARTFUNC_DISABLED) &&
      (uart_fun != BSUARTFUNC_DM) && (uart_fun != BSUARTFUNC_CONSOLE) &&
      (uart_fun != BSUARTFUNC_APP))
   {

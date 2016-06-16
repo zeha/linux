@@ -204,7 +204,7 @@ enum bsfeature
  *
  * Purpose:  Enumerated list of different functions supported by App processor
  *
- * Members:  BSUARTFUNC_INVALID  - UART unavilable for APP
+ * Members:  BSUARTFUNC_DISABLED  - UART disabled
  *           BSUARTFUNC_DM - UART reserved for DM service
  *           BSUARTFUNC_CONSOLE - UART reserved for CONSOLE service
  *           BSUARTFUNC_APP - UART open for all application usage
@@ -214,10 +214,10 @@ enum bsfeature
  ************/
 enum bsuartfunc
 {
-  BSUARTFUNC_INVALID = 0,
-  BSUARTFUNC_DM      = 2,
-  BSUARTFUNC_CONSOLE = 16,
-  BSUARTFUNC_APP     = 17,
+  BSUARTFUNC_DISABLED = 0,
+  BSUARTFUNC_DM       = 2,
+  BSUARTFUNC_CONSOLE  = 16,
+  BSUARTFUNC_APP      = 17,
 };
 
 /************

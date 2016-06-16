@@ -243,6 +243,7 @@ const static char dm_func_string[] = "DM\n";
 const static char cons_func_string[] = "CONSOLE\n";
 const static char app_func_string[] = "APP\n";
 const static char inv_func_string[] = "UNAVAILABLE\n";
+const static char dis_func_string[] = "DISABLED\n";
 static int8_t uart_func[UARTDM_NR];
 static char* uart_func_str_pt[UARTDM_NR] = {0};
 
@@ -2006,7 +2007,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	uart_func[line] = bsgetuartfun(line);
 
 	if (uart_func[line] == -1) {
-		uart_func[line] = BSUARTFUNC_INVALID;
+		uart_func[line] = BSUARTFUNC_DISABLED;
 	}
 
 	switch (uart_func[line]) {

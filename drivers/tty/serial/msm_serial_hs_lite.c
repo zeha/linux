@@ -1887,6 +1887,7 @@ const static char dm_func_string[] = "DM\n";
 const static char cons_func_string[] = "CONSOLE\n";
 const static char app_func_string[] = "APP\n";
 const static char inv_func_string[] = "UNAVAILABLE\n";
+const static char dis_func_string[] = "DISABLED\n";
 static int8_t uart_func[UART_NR];
 static char* uart_func_str_pt[UART_NR] = {0};
 
@@ -2038,18 +2039,26 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 
 	uart_func[line] = bsgetuartfun(line);
 
-	if ((uart_func[line] == -1) ||
-	    ((line == BS_UART1_LINE) &&
-	     (uart_func[line] != BSUARTFUNC_CONSOLE) &&
-	     (uart_func[line] != BSUARTFUNC_DM))) {
-		/* for UART1, the CONSOLE and DM are managed by the HSL driver,
-		 * other functionalities are managed by the HS driver */
-		uart_func[line] = BSUARTFUNC_INVALID;
+	if (uart_func[line] == -1) {
+		uart_func[line] = BSUARTFUNC_DISABLED;
 	}
+	else {
 
-	if ((line == BS_UART2_LINE) && (uart_func[line] == BSUARTFUNC_INVALID)) {
-		/* UART2 is set to console by default */
-		uart_func[BS_UART2_LINE] = BSUARTFUNC_CONSOLE;
+		if ((line == BS_UART1_LINE) &&
+		   (uart_func[line] != BSUARTFUNC_CONSOLE) &&
+		   (uart_func[line] != BSUARTFUNC_DM)) {
+			/* for UART1, the CONSOLE and DM are managed by the HSL driver,
+			* other functionalities are managed by the HS driver */
+			uart_func[line] = BSUARTFUNC_DISABLED;
+		}
+		else if ((line == BS_UART2_LINE) &&
+	   		(uart_func[line] != BSUARTFUNC_DM) &&
+			(uart_func[line] != BSUARTFUNC_APP) &&
+			(uart_func[line] != BSUARTFUNC_CONSOLE) &&
+			(uart_func[line] != BSUARTFUNC_DISABLED)) {
+			/* UART2 is set to console by default if the mapping is invalid */
+			uart_func[line] = BSUARTFUNC_CONSOLE;
+		}
 	}
 
 	switch (uart_func[line]) {
@@ -2065,6 +2074,10 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		pr_info("ttyHSL%d is reserved for CONSOLE service.\n", line);
 		uart_func_str_pt[line] = (char *)cons_func_string;
 		break;
+	case BSUARTFUNC_DISABLED:
+		pr_info("ttyHSL%d is disabled.\n", line);
+		uart_func_str_pt[line] = (char *)dis_func_string;
+		return -EPERM;
 	default:
 		pr_info("ttyHSL%d, function %d is not valid on application processor.\n",
 			line, uart_func[line]);
