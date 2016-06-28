@@ -1336,9 +1336,9 @@ static int ep_enable(struct usb_ep *ep,
 		hwep->qh.ptr->cap &= ~QH_MULT;
 		mult = ((hwep->ep.maxpacket >> QH_MULT_SHIFT) + 1) & 0x03;
 		hwep->qh.ptr->cap |= (mult << __ffs(QH_MULT));
-	} else {
-		hwep->qh.ptr->cap |= QH_ZLT;
 	}
+
+	hwep->qh.ptr->cap |= QH_ZLT;
 
 	hwep->qh.ptr->cap |=
 		(hwep->ep.maxpacket << __ffs(QH_MAX_PKT)) & QH_MAX_PKT;
