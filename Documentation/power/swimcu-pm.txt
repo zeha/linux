@@ -1,7 +1,7 @@
 Sierra Wireless MCU Ultra Low Power Management
 	(C) 2016 Sierra Wireless, GPL
 
-V1.0
+V1.02
 
 The Sierra Wireless WPx5 product series are equipped with an
 on-board MCU whose prime function is to allow the system to
@@ -64,6 +64,9 @@ Available boot sources are:
 
 Once boot sources are configured, ULPM may be enabled by writing 1 to:
 	/sys/module/swimcu_pm/boot_source/enable
+Alternatively, if no boot sources are desired (software power down),
+then 2 is written to this location. In this mode only the power switch
+may be used to return from ULPM mode.
 
 If a boot source is triggered, either before entering or upon
 returning from ULPM, the triggered status is set to 1 for that
@@ -135,8 +138,8 @@ The fault bits are defined as follows:
 	1	TX NAK		(NAK received on TX message)
 	2	RX timeout	(max RX wait time exceeded)
 	3	RX CRC		(CRC failed on RX message)
-	4	Reset		(MCU reset detected,
+	8	Reset		(MCU reset detected,
 					may be normal operation)
-	5	Event overflow	(max concurrent events exceeded,
+	9	Event overflow	(max concurrent events exceeded,
 					event handling disabled)
 

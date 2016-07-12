@@ -32,6 +32,11 @@
 #define SWIMCU_APPL_I2C_FREQ	100
 #define SWIMCU_APPL_I2C_ID	1
 
+#define SWIMCU_PM_OFF		0
+#define SWIMCU_PM_BOOT_SOURCE	1
+#define SWIMCU_PM_POWER_SWITCH	2
+#define SWIMCU_PM_MAX		SWIMCU_PM_POWER_SWITCH
+
 #define SWIMCU_ADC_VREF		1800
 
 enum swimcu_adc_index

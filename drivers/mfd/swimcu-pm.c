@@ -76,8 +76,7 @@ static const struct pin_trigger_map {
 #define MAX_WAKEUP_TIME (4294967) /* 2^32 / 1000 */
 static uint32_t wakeup_time = 0;
 
-#define MAX_PM_ENABLE 1
-static int pm_enable = 0;
+static int pm_enable = SWIMCU_PM_OFF;
 
 enum wusrc_index {
 	WUSRC_INVALID = -1,
@@ -199,63 +198,65 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	struct mci_pm_profile_config_s pm_config;
 	u16 wu_source = 0;
 
-	if (pm == 0) {
+	if (pm == SWIMCU_PM_OFF) {
 		swimcu_log(PM, "%s: disable\n", __func__);
 		return 0;
 	}
 
-	/* setup GPIO wakeup sources */
-	for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
-		if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
-			gpio = wusrc_param[wi].id;
-			if (swimcu_gpio_get_trigger(gpio) != MCI_PIN_IRQ_DISABLED) { /* configured for wakeup */
-				ext_gpio = SWIMCU_GPIO_TO_SYS(gpio);
-				ret = gpio_request(ext_gpio, KBUILD_MODNAME);
-				if (ret < 0) {
-					swimcu_log(PM, "%s: %d in use\n", __func__, ext_gpio);
-					ret = swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
+	if (pm == SWIMCU_PM_BOOT_SOURCE) {
+		/* setup GPIO wakeup sources */
+		for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
+			if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
+				gpio = wusrc_param[wi].id;
+				if (swimcu_gpio_get_trigger(gpio) != MCI_PIN_IRQ_DISABLED) { /* configured for wakeup */
+					ext_gpio = SWIMCU_GPIO_TO_SYS(gpio);
+					ret = gpio_request(ext_gpio, KBUILD_MODNAME);
 					if (ret < 0) {
-						pr_err("%s: irqc set fail %d\n", __func__, gpio);
-						goto wu_fail;
+						swimcu_log(PM, "%s: %d in use\n", __func__, ext_gpio);
+						ret = swimcu_gpio_set(swimcu, SWIMCU_GPIO_NOOP, gpio, 0);
+						if (ret < 0) {
+							pr_err("%s: irqc set fail %d\n", __func__, gpio);
+							goto wu_fail;
+						}
 					}
+					else {
+						swimcu_log(PM, "%s: request %d\n", __func__, ext_gpio);
+					}
+					wu_pin_bits |= wusrc_param[wi].mask;
+					gpio_cnt++;
 				}
-				else {
-					swimcu_log(PM, "%s: request %d\n", __func__, ext_gpio);
-				}
-				wu_pin_bits |= wusrc_param[wi].mask;
-				gpio_cnt++;
 			}
 		}
-	}
-	if (gpio_cnt > 0) {
-		wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS;
-		wu_config.args.pins = wu_pin_bits;
-		if( MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
-		   (rc = swimcu_wakeup_source_config(swimcu, &wu_config,
-			 MCI_PROTOCOL_WAKEUP_SOURCE_OPTYPE_SET))) {
-			pr_err("%s: ext pin wu fail %d\n", __func__, rc);
-			ret = -EIO;
-			goto wu_fail;
+		if (gpio_cnt > 0) {
+			wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS;
+			wu_config.args.pins = wu_pin_bits;
+			if( MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+			   (rc = swimcu_wakeup_source_config(swimcu, &wu_config,
+				MCI_PROTOCOL_WAKEUP_SOURCE_OPTYPE_SET))) {
+				pr_err("%s: ext pin wu fail %d\n", __func__, rc);
+				ret = -EIO;
+				goto wu_fail;
+			}
+			wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_EXT_PINS;
+			swimcu_log(PM, "%s: wu on pins 0x%x\n", __func__, wu_pin_bits);
 		}
-		wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_EXT_PINS;
-		swimcu_log(PM, "%s: wu on pins 0x%x\n", __func__, wu_pin_bits);
+
+		if (wakeup_time > 0) {
+			wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER;
+			wu_config.args.timeout = wakeup_time * 1000; /* convert to msec */
+			if( MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+			   (rc = swimcu_wakeup_source_config(swimcu, &wu_config,
+				MCI_PROTOCOL_WAKEUP_SOURCE_OPTYPE_SET)) ) {
+				pr_err("%s: timer wu fail %d\n", __func__, rc);
+				ret = -EIO;
+				goto wu_fail;
+			}
+			wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_TIMER_1;
+			swimcu_log(PM, "%s: wu on timer %u\n", __func__, wakeup_time);
+		}
 	}
 
-	if (wakeup_time > 0) {
-		wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER;
-		wu_config.args.timeout = wakeup_time * 1000; /* convert to msec */
-		if( MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
-		   (rc = swimcu_wakeup_source_config(swimcu, &wu_config,
-			MCI_PROTOCOL_WAKEUP_SOURCE_OPTYPE_SET)) ) {
-			pr_err("%s: timer wu fail %d\n", __func__, rc);
-			ret = -EIO;
-			goto wu_fail;
-		}
-		wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_TIMER_1;
-		swimcu_log(PM, "%s: wu on timer %u\n", __func__, wakeup_time);
-	}
-
-	if (wu_source != 0) {
+	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH)) {
 		pm_config.active_power_mode = MCI_PROTOCOL_POWER_MODE_RUN;
 		pm_config.active_idle_time = 100;
 		pm_config.standby_power_mode = MCI_PROTOCOL_POWER_MODE_VLPS;
@@ -405,7 +406,7 @@ static ssize_t pm_enable_attr_store(struct kobject *kobj,
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_boot_source_kobj);
 
 	if (0 == (ret = kstrtoint(buf, 0, &tmp_enable))) {
-		if (tmp_enable <= MAX_PM_ENABLE) {
+		if (tmp_enable <= SWIMCU_PM_MAX) {
 			pm_enable = tmp_enable;
 			if (0 == (ret = pm_set_mcu_ulpm_enable(swimcu, pm_enable)))
 				ret = count;
