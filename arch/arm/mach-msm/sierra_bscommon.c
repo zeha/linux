@@ -30,6 +30,9 @@
 bool bshwconfigread = false;
 union bshwconfig bscfg;
 
+/* if enabled, gpio 6 is used for system reset */
+#define BS_GPIO_RESET_PIN  6
+
 
 /* Local structures and functions */
 /************
@@ -915,6 +918,33 @@ uint64_t bsgetgpioflag(void)
   return result;
 }
 EXPORT_SYMBOL(bsgetgpioflag);
+
+/************
+ *
+ * Name:     bsgpioresetenabled
+ *
+ * Purpose:  To check if GPIO reset is enabled
+ *
+ * Parms:    none
+ *
+ * Return:   true - GPIO reset enabled
+ * 	     false - otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    GPIO6 is used for system reset to support the mangOH reference design
+ *
+ ************/
+inline bool bsgpioresetenabled(void)
+{
+  int gpioflags = bsgetgpioflag();
+  bool ret = false;
+  if (gpioflags & (0x1UL << (BS_GPIO_RESET_PIN - 1)))
+  {
+    ret = true;
+  }
+  return ret;
+}
 
 /************
  *

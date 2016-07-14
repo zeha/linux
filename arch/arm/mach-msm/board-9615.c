@@ -1723,7 +1723,7 @@ int gpio_cf3_low_power_reset_toggle(void)
 	int ret = -EACCES;
 
 	/* This is allowed for CF3 devices only. */
-	if (bssupport(BSFEATURE_CF3))
+	if (bssupport(BSFEATURE_CF3) && bsgpioresetenabled())
 	{
 		ret = 0;
 

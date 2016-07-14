@@ -559,10 +559,10 @@ int __init msm9615_init_gpiomux(void)
 	 * arch/arm/mach-msm/board-9615.c:bssupport().
 	 */
 #ifdef CONFIG_SIERRA
-	if (bssupport(BSFEATURE_CF3))
+	if (bssupport(BSFEATURE_CF3) && bsgpioresetenabled())
 	{
 		msm_gpiomux_install(low_power_reset_configs,
-			ARRAY_SIZE(low_power_reset_configs));
+				ARRAY_SIZE(low_power_reset_configs));
 	}
 #endif
 

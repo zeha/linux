@@ -25,4 +25,5 @@ extern uint64_t bsgetgpioflag(void);
 extern bool bsuart4modem(uint uart_num );
 extern int8_t bsgetuartfun(uint);
 extern int8_t bsgetriowner(void);
+extern bool bsgpioresetenabled(void);
 #endif
