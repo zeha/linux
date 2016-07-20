@@ -406,13 +406,15 @@ static ssize_t pm_enable_attr_store(struct kobject *kobj,
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_boot_source_kobj);
 
 	if (0 == (ret = kstrtoint(buf, 0, &tmp_enable))) {
-		if (tmp_enable <= SWIMCU_PM_MAX) {
-			pm_enable = tmp_enable;
-			if (0 == (ret = pm_set_mcu_ulpm_enable(swimcu, pm_enable)))
-				ret = count;
-		}
-		else {
+		if ((tmp_enable < SWIMCU_PM_OFF) || (tmp_enable > SWIMCU_PM_MAX)) {
 			ret = -ERANGE;
+		}
+		else if ((pm_enable > SWIMCU_PM_OFF) ||
+			/* ULPM already initiated */
+		        (0 == (ret = pm_set_mcu_ulpm_enable(swimcu, tmp_enable)))) {
+			/* send ULPM command */
+			pm_enable = tmp_enable;
+			ret = count;
 		}
 	}
 	if (ret < 0)
