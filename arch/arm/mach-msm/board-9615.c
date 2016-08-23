@@ -952,6 +952,7 @@ static struct slim_boardinfo msm_slim_devices[] = {
 static struct swimcu_platform_data swimcu_appl_pdata = {
 	.nr_gpio = SWIMCU_NR_GPIOS,
 	.gpio_base = SWIMCU_GPIO_BASE,
+	.gpio_irq_base = SWIMCU_GPIO_IRQ_BASE,
 	.nr_adc = SWIMCU_NR_ADCS,
 	.adc_base = SWIMCU_ADC_BASE,
 	.func_flags = SWIMCU_FUNC_APPL,

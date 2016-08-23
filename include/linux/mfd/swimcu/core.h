@@ -131,6 +131,9 @@ struct swimcu {
 	struct mutex adc_mutex;
 	int adc_init_mask;
 
+	int gpio_irq_base;
+	struct mutex gpio_irq_lock;
+
 	struct notifier_block nb;
 
 	struct kobject pm_boot_source_kobj;
@@ -153,6 +156,7 @@ struct swimcu {
 struct swimcu_platform_data {
 	int gpio_base;
 	int nr_gpio;
+	int gpio_irq_base;
 	int adc_base;
 	int nr_adc;
 	u16 func_flags;

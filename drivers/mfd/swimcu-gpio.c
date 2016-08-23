@@ -57,16 +57,61 @@ static const struct {
 	int port;
 	int pin;
 	bool irqc_support;
+	enum swimcu_gpio_irq_index irq;
 } gpio_map[] = {
-	{ 0, 4, false }, /* GPIO 34 = PTA4 */
-	{ 0, 3, false }, /* GPIO 35 = PTA3 */
-	{ 0, 0, true  }, /* GPIO 36 = PTA0 */
-	{ 0, 2, false }, /* GPIO 37 = PTA2 */
-	{ 1, 0, true  }, /* GPIO 38 = PTB0 */
-	{ 0, 7, true  }, /* GPIO 39 = PTA7 */
-	{ 0, 6, false }, /* GPIO 40 = PTA6 */
-	{ 0, 5, false }  /* GPIO 41 = PTA5 */
+	{ 0, 4, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 34 = PTA4 */
+	{ 0, 3, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 35 = PTA3 */
+	{ 0, 0, true,  SWIMCU_GPIO_PTA0_IRQ },/* GPIO 36 = PTA0 */
+	{ 0, 2, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 37 = PTA2 */
+	{ 1, 0, true,  SWIMCU_GPIO_PTB0_IRQ },/* GPIO 38 = PTB0 */
+	{ 0, 7, true,  SWIMCU_GPIO_PTA7_IRQ },/* GPIO 39 = PTA7 */
+	{ 0, 6, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 40 = PTA6 */
+	{ 0, 5, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 41 = PTA5 */
 };
+
+/************
+ *
+ * Name:     swimcu_get_gpio_from_irq
+ *
+ * Purpose:  return index into gpio_map given irq number
+ *
+ * Parms:    irq - 0 to 2
+ *
+ * Return:   gpio index - 0 to 7 on success
+ *           8 on failure
+ *
+ * Abort:    none
+ *
+ ************/
+enum swimcu_gpio_index swimcu_get_gpio_from_irq(enum swimcu_gpio_irq_index irq)
+{
+	enum swimcu_gpio_index gpio = SWIMCU_GPIO_INVALID;
+
+	for (gpio = SWIMCU_GPIO_FIRST; gpio <= SWIMCU_GPIO_LAST; gpio++) {
+		if (irq == gpio_map[gpio].irq) {
+			break;
+		}
+	}
+	return gpio;
+}
+
+/************
+ *
+ * Name:     swimcu_get_irq_from_gpio
+ *
+ * Purpose:  return irq number given gpio index
+ *
+ * Parms:    gpio - 0 to 7
+ *
+ * Return:   irq - 0 to 2 on success or -1 if pin does not support interrupts.
+ *
+ * Abort:    none
+ *
+ ************/
+inline enum swimcu_gpio_irq_index swimcu_get_irq_from_gpio(enum swimcu_gpio_index gpio)
+{
+	return gpio_map[gpio].irq;
+}
 
 /************
  *
@@ -98,7 +143,7 @@ enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin)
  *
  * Name:     swimcu_gpio_callback
  *
- * Purpose:  callback for gpio irq event (stub for now)
+ * Purpose:  callback for gpio irq event
  *
  * Parms:    swimcu - device data struct
  *           port - 0 or 1 corresponding to PTA or PTB
@@ -113,7 +158,10 @@ enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin)
 void swimcu_gpio_callback(struct swimcu *swimcu, int port, int pin, int level)
 {
 	enum swimcu_gpio_index gpio = swimcu_get_gpio_from_port_pin(port, pin);
+	enum swimcu_gpio_irq_index swimcu_irq = swimcu_get_irq_from_gpio(gpio);
 
+	/* Handle work related to gpio irq */
+	swimcu_gpio_work(swimcu, swimcu_irq);
 	swimcu_log(GPIO, "%s: gpio %d level = %d\n", __func__, gpio, level);
 }
 

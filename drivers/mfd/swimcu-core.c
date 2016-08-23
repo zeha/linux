@@ -274,8 +274,6 @@ static int swimcu_process_events(struct swimcu *swimcu)
 				swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
 					events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
 				swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
-				swimcu_set_wakeup_source(MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS,
-					GET_WUSRC_VALUE(events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin));
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
 				swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
