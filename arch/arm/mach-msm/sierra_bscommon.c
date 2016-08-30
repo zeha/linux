@@ -921,6 +921,33 @@ EXPORT_SYMBOL(bsgetgpioflag);
 
 /************
  *
+ * Name:     bsgpioenabled
+ *
+ * Purpose:  To check if gpio is enabled for use in APPS
+ *
+ * Parms:    none
+ *
+ * Return:   true - gpio enabled
+ * 	     false - otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bsgpioenabled(int gpio)
+{
+  int gpioflags = bsgetgpioflag();
+  bool ret = false;
+  if (gpioflags & (0x1UL << (gpio - 1)))
+  {
+    ret = true;
+  }
+  return ret;
+}
+
+/************
+ *
  * Name:     bsgpioresetenabled
  *
  * Purpose:  To check if GPIO reset is enabled

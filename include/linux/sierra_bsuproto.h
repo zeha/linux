@@ -26,4 +26,5 @@ extern bool bsuart4modem(uint uart_num );
 extern int8_t bsgetuartfun(uint);
 extern int8_t bsgetriowner(void);
 extern bool bsgpioresetenabled(void);
+extern bool bsgpioenabled(int gpio);
 #endif

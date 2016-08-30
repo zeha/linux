@@ -291,6 +291,40 @@ static struct msm_gpiomux_config low_power_reset_configs[] __initdata = {
 	},
 };
 
+static struct gpio_map {
+	int ext_num;
+	int int_num;
+} user_gpio_map_cf3[] = {
+	{2, 59},
+	{6, 66},
+	{7, 79},
+	{8, 29},
+	{13,84},
+	{16,62},
+	{21,50},
+	{22,49},
+	{23,54},
+	{24,61},
+	{25,73},
+	{32,30},
+	{33,78},
+	{42,80},
+};
+
+static struct gpiomux_setting ext_gpio_init_setting = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config ext_gpio_init_configs[] = {
+	{
+		.settings = {
+				[GPIOMUX_SUSPENDED] = &ext_gpio_init_setting,
+		},
+	},
+};
 #endif /* CONFIG_SIERRA */
 
 #ifdef CONFIG_LTC4088_CHARGER
@@ -508,6 +542,7 @@ static struct msm_gpiomux_config msm9615_wlan_configs[] __initdata = {
 int __init msm9615_init_gpiomux(void)
 {
 	int rc;
+	int i;
 
 	rc = msm_gpiomux_init(NR_GPIO_IRQS);
 	if (rc) {
@@ -552,17 +587,31 @@ int __init msm9615_init_gpiomux(void)
 			ARRAY_SIZE(msm9615_ebi2_lcdc_configs));
 #endif
 
-	/*
-	 * Install LowPower_RESET only for WP85xx device family. This also includes
-	 * at least one platform which is not from WP85 family. For complete list of
-	 * BSFEATURE_CF3 platforms please, take a look at the
-	 * arch/arm/mach-msm/board-9615.c:bssupport().
-	 */
 #ifdef CONFIG_SIERRA
-	if (bssupport(BSFEATURE_CF3) && bsgpioresetenabled())
+	if (bssupport(BSFEATURE_CF3))
 	{
-		msm_gpiomux_install(low_power_reset_configs,
-				ARRAY_SIZE(low_power_reset_configs));
+		/* initialize user gpios as input no pull */
+		for (i = 0; i < ARRAY_SIZE(user_gpio_map_cf3); i++)
+		{
+			if (bsgpioenabled(user_gpio_map_cf3[i].ext_num))
+			{
+				ext_gpio_init_configs[0].gpio = user_gpio_map_cf3[i].int_num;
+				msm_gpiomux_install(ext_gpio_init_configs,
+						ARRAY_SIZE(ext_gpio_init_configs));
+			}
+		}
+
+		/*
+		* Install LowPower_RESET only for WP85xx device family. This also includes
+		* at least one platform which is not from WP85 family. For complete list of
+		* BSFEATURE_CF3 platforms please, take a look at the
+		* arch/arm/mach-msm/board-9615.c:bssupport().
+		*/
+		if (bsgpioresetenabled())
+		{
+			msm_gpiomux_install(low_power_reset_configs,
+					ARRAY_SIZE(low_power_reset_configs));
+		}
 	}
 #endif
 
