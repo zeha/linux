@@ -2114,6 +2114,12 @@ void cipso_v4_req_delattr(struct request_sock *req)
 	struct ip_options_rcu *opt;
 	struct inet_request_sock *req_inet;
 
+    if(req == NULL) {
+		pr_err("%s: req parameter is NULL, exiting.\n", __func__);
+		return;
+	}
+
+	/* inet_rsk is only casting req, so no need to check if req_inet == NULL */
 	req_inet = inet_rsk(req);
 	opt = req_inet->opt;
 	if (opt == NULL || opt->opt.cipso == 0)
