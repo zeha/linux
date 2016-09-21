@@ -101,7 +101,21 @@ static DEFINE_IDR(dirent_idr);
 #define IONAME_PREFIX "gpio"
 #define GPIO_NAME_MAX 4 /* max characters in ioname following the prefix, any more will be ignored */
 #define IONAME_MAX (sizeof(IONAME_PREFIX) + GPIO_NAME_MAX)
+
 #define GPIO_NAME_RI "RI"
+#define GPIO_NAME_DSR "DSR"
+#define GPIO_NAME_DCD "DCD"
+#define GPIO_NAME_DTR "DTR"
+
+/* GPIOs with dual function as UART have aliases of rs232 signals */
+enum gpio_uart_alias {
+	GPIO_UART_RI,
+	GPIO_UART_DTR,
+	GPIO_UART_DCD,
+	GPIO_UART_DSR,
+	GPIO_UART_MAX,
+};
+static int gpio_uart_alias_map[GPIO_UART_MAX];
 
 struct ext_gpio_map{
 	char *gpio_name;
@@ -165,7 +179,13 @@ static struct ext_gpio_map ext_gpio_cf3[]={
 	{"8", 29,FUNCTION_UNALLOCATED},
 	{"13",84,FUNCTION_UNALLOCATED},
 	{"16",62,FUNCTION_UNALLOCATED},
-	{GPIO_NAME_RI,62,FUNCTION_UNALLOCATED}, /* RI is an alias of 16 */
+	{GPIO_NAME_RI,62,FUNCTION_UNALLOCATED},  /* RI is an alias of 16 */
+	{"17",68,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_DTR,68,FUNCTION_UNALLOCATED}, /* DTR is an alias of 17 */
+	{"18",67,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_DCD,67,FUNCTION_UNALLOCATED}, /* DCD is an alias of 18 */
+	{"19",65,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_DSR,65,FUNCTION_UNALLOCATED}, /* DSR is an alias of 19 */
 	{"21",50,FUNCTION_UNALLOCATED},
 	{"22",49,FUNCTION_UNALLOCATED},
 	{"23",54,FUNCTION_UNALLOCATED},
@@ -196,7 +216,6 @@ static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
 };
-static int gpio_ri = -1;
 
 /**
  * gpio_map_name_to_num() - Return the internal GPIO number for an
@@ -291,43 +310,47 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 }
 
 /**
- * gpio_sync_ri() - sync gpio RI function with riowner
- * Context: After ext_gpio and gpio_ri have been set.
+ * gpio_sync_ri() - sync gpio RI, DSR, DCD, DTR functions with riowner
+ * Context: After ext_gpio, and gpio_uart_alias_map have been set
+ * Note: gpio DSR, DCD, and DTR are only supported on WPx5
  *
  * Returns 1 if apps, 0 if modem, or -1 if RI not found.
  */
-static int gpio_sync_ri( void )
+static void gpio_sync_ri( void )
 {
-	int riowner = -1;
+	int riowner;
+	int i;
+	int gpio_uart;
+	int gpio_uart_func;
 
-	if (gpio_ri >= 0) {
-		/* Check if RI gpio is owned by APP core
-		 * In this case, set that gpio for RI management
-		 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER */
-		riowner = bsgetriowner();
-		if (1 == riowner) {
-			if (ext_gpio[gpio_ri].function != FUNCTION_EMBEDDED_HOST) {
-				pr_info( "%s: RI owner is APP\n", __func__ );
-				ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
-			}
-		}
-		else {
-			if (ext_gpio[gpio_ri].function != FUNCTION_UNALLOCATED) {
-				pr_info( "%s: RI owner is Modem\n", __func__ );
-				ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
-			}
-		}
-		/* also sync the numeric equivalent, if any */
-		if ((gpio_ri > 0) && (ext_gpio[gpio_ri-1].gpio_num == ext_gpio[gpio_ri].gpio_num)) {
-			ext_gpio[gpio_ri-1].function = ext_gpio[gpio_ri].function;
-			pr_debug( "->gpio%s = %d\n", ext_gpio[gpio_ri-1].gpio_name, ext_gpio[gpio_ri-1].function );
-		}
+	/* Check if RI gpio is owned by APP core
+	 * In this case, set that gpio for RI management
+	 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER
+	 * Note: If RI owner is APP, then APP also controls DSR, DCD, and DTR
+	 */
+	riowner = bsgetriowner();
+	if (1 == riowner) {
+		pr_info( "%s: RI owner is APP\n", __func__);
+		gpio_uart_func = FUNCTION_EMBEDDED_HOST;
+	}
+	else {
+		pr_info( "%s: RI owner is Modem\n", __func__);
+		gpio_uart_func = FUNCTION_UNALLOCATED;
 	}
 
-	return riowner;
+	for (i = 0; i < GPIO_UART_MAX; i++) {
+		gpio_uart = gpio_uart_alias_map[i];
+		if (gpio_uart >= 0) {
+			ext_gpio[gpio_uart].function = gpio_uart_func;
+		}
+		/* also sync the numeric equivalent, if any */
+		if ((gpio_uart > 0) && (ext_gpio[gpio_uart-1].gpio_num == ext_gpio[gpio_uart].gpio_num)) {
+			ext_gpio[gpio_uart-1].function = ext_gpio[gpio_uart].function;
+			pr_debug( "->gpio%s = %d\n", ext_gpio[gpio_uart-1].gpio_name, ext_gpio[gpio_uart-1].function );
+		}
+	}
 }
 #endif /*CONFIG_SIERRA_EXT_GPIO*/
-
 
 static int gpiod_request(struct gpio_desc *desc, const char *label);
 static void gpiod_free(struct gpio_desc *desc);
@@ -1495,11 +1518,21 @@ static int __init gpiolib_sysfs_init(void)
 				pr_debug( "->gpio%s = %d\n", ext_gpio[gpio+1].gpio_name, ext_gpio[gpio+1].function );
 			}
 		}
-		else if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0) {
-			gpio_ri = gpio;
-			gpio_sync_ri();
+
+		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0) {
+			gpio_uart_alias_map[GPIO_UART_RI] = gpio;
+		}
+		else if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_DSR) == 0) {
+			gpio_uart_alias_map[GPIO_UART_DSR] = gpio;
+		}
+		else if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_DCD) == 0) {
+			gpio_uart_alias_map[GPIO_UART_DCD] = gpio;
+		}
+		else if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_DTR) == 0) {
+			gpio_uart_alias_map[GPIO_UART_DTR] = gpio;
 		}
 	}
+	gpio_sync_ri();
 
 	gpio_ext_chip.dev = gpio_desc[0].chip->dev;
 	status = gpiochip_export(&gpio_ext_chip);
