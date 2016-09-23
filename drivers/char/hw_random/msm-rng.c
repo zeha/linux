@@ -148,7 +148,7 @@ static int msm_rng_probe(struct platform_device *pdev)
 	if (IS_ERR(rng->base))
 		return PTR_ERR(rng->base);
 
-	rng->clk = devm_clk_get(&pdev->dev, "core");
+	rng->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(rng->clk))
 		return PTR_ERR(rng->clk);
 
