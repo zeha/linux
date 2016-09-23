@@ -1326,33 +1326,21 @@ static int __init msm9615_wl18xx_init(void)
 
 	memset(&msm_wl1251_pdata, 0, sizeof(msm_wl1251_pdata));
 
-	ret = gpio_request(MSM_WIFI_IRQ_GPIO, "wl18xxx_gpio");
-	if (ret < 0) {
-		pr_err("%s: failed to request GPIO%d\n", __func__, MSM_WIFI_IRQ_GPIO);
-		goto fail;
-	}
-	if (gpio_direction_input(MSM_WIFI_IRQ_GPIO)) {
-		pr_err("%s: failed to set GPIO%d to input\n", __func__, MSM_WIFI_IRQ_GPIO);
-		goto fail_irq;
-	}
-
 	msm_wl1251_pdata.irq = gpio_to_irq(MSM_WIFI_IRQ_GPIO);
 	if (msm_wl1251_pdata.irq < 0)
-		goto fail_irq;
+		goto fail;
 
 	msm_wl1251_pdata.use_eeprom = true;
 	msm_wl1251_pdata.board_ref_clock = WL12XX_REFCLOCK_38;
 	msm_wl1251_pdata.board_tcxo_clock = 0;
 	ret = wl12xx_set_platform_data(&msm_wl1251_pdata);
 	if (ret < 0)
-		goto fail_irq;
+		goto fail;
 
 	pr_info("wl18xx board initialization done\n");
 
 	return;
 
-fail_irq:
-	gpio_free(MSM_WIFI_IRQ_GPIO);
 fail:
 	pr_err("%s: wl1251 board initialisation failed\n", __func__);
 }
