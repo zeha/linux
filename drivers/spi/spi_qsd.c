@@ -1517,47 +1517,6 @@ err_setup_exit:
 	return rc;
 }
 
-#ifdef CONFIG_SIERRA_GSBI3_SPI
-void swi_reg_bit_set(struct spi_device *spi, int reg_addr, int bit_offset,int set_flag)
-{
-	u32 spi_ioc;
-	u32 spi_ioc_orig;
-	struct msm_spi	*dd;
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	spi_ioc = readl_relaxed(dd->base + reg_addr);
-	spi_ioc_orig = spi_ioc;
-	if (set_flag)
-		spi_ioc |= bit_offset;
-	else
-		spi_ioc &= ~bit_offset;
-
-	if (spi_ioc != spi_ioc_orig)
-		writel_relaxed(spi_ioc,dd->base + reg_addr);
-		clk_disable_unprepare(dd->pclk);
-}
-
-int swi_read_deassert_time(struct spi_device *spi)
-{
-	struct msm_spi	*dd;
-	int ret;
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	ret = readl_relaxed(dd->base + SPI_DEASSERT_WAIT);
-	clk_disable_unprepare(dd->pclk);
-	return ret;
-}
-
-void swi_write_deassert_time(struct spi_device *spi,u8 value)
-{
-	struct msm_spi	*dd;
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	writel_relaxed(value, dd->base + SPI_DEASSERT_WAIT);
-	clk_disable_unprepare(dd->pclk);
-}
-#endif
-
 #ifdef CONFIG_DEBUG_FS
 static int debugfs_iomem_x32_set(void *data, u64 val)
 {

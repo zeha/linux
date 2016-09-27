@@ -378,6 +378,5 @@ obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_SIERRA_SMEM) += sierra_smem.o sierra_smem_errdump.o
 obj-$(CONFIG_SIERRA_GSBI2_I2C_GPIO) += sierra_i2c.o
 obj-$(CONFIG_SIERRA_GSBI5_I2C_UART) += sierra_i2c.o
-obj-$(CONFIG_SIERRA_GSBI3_SPI) += sierra_spi.o
 obj-$(CONFIG_SIERRA) += sierra_bscommon.o
 #SWISTOP
