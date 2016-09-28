@@ -4661,14 +4661,15 @@ static int msm_otg_pm_resume(struct device *dev)
 	dev_dbg(dev, "OTG PM resume\n");
 
 	atomic_set(&motg->pm_suspended, 0);
-	if (motg->async_int || motg->sm_work_pending) {
-		pm_runtime_get_noresume(dev);
-		ret = msm_otg_resume(motg);
 
+	if (motg->async_int || motg->sm_work_pending) {
 		/* Update runtime PM status */
 		pm_runtime_disable(dev);
+		pm_runtime_get_noresume(dev);
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
+
+		ret = msm_otg_resume(motg);
 
 		if (motg->sm_work_pending) {
 			motg->sm_work_pending = false;
