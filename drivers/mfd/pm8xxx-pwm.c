@@ -23,6 +23,7 @@
 #include <linux/err.h>
 #include <linux/debugfs.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/sierra_bsudefs.h>
 //#include <linux/mfd/pm8xxx/pwm.h>
 
 
@@ -62,6 +63,11 @@ enum pm_pwm_pre_div {
 	PM_PWM_PDIV_6,
 };
 
+enum {
+	PWMF_REQUESTED = 1 << 0,
+	PWMF_ENABLED = 1 << 1,
+	PWMF_EXPORTED = 1 << 2,
+};
 
 /**
  * struct pm8xxx_pwm_period - PWM period structure
@@ -99,9 +105,8 @@ struct pm8xxx_pwm_platform_data {
 	int dtest_channel;
 };
 
-
-
 #define PM8XXX_PWM_CHANNELS		3
+#define PM8XXX_PWM_BASE			0
 
 /*
  * For the lack of better term to distinguish functional
@@ -271,6 +276,7 @@ struct pwm_device {
 	int			pwm_id;		/* = bank/channel id */
 	int			in_use;
 	const char		*label;
+	unsigned long		flags;
 	struct pm8xxx_pwm_period	period;
 	int			pwm_value;
 	int			pwm_period;
@@ -286,9 +292,12 @@ struct pwm_device {
 
 struct pm8xxx_pwm_chip {
 	struct pwm_device		*pwm_dev;
+	const char * name;
 	u8				pwm_channels;
 	u8				pwm_total_pre_divs;
 	u8				bank_mask;
+	u8				pwm_flags;
+	int				base;
 	struct mutex			pwm_mutex;
 	struct device			*dev;
 	bool				is_lpg_supported;
@@ -765,11 +774,15 @@ struct pwm_device *pwm_request(int pwm_id, const char *label)
 
 	mutex_lock(&pwm_chip->pwm_mutex);
 	pwm = &pwm_chip->pwm_dev[pwm_id];
-	if (!pwm->in_use) {
+	if (test_bit(PWMF_ENABLED, &pwm->flags)) {
+		mutex_unlock(&pwm_chip->pwm_mutex);
+		return ERR_PTR(-EBUSY);
+	} else if (!pwm->in_use) {
 		pwm->in_use = 1;
 		pwm->label = label;
 	} else {
-		pwm = ERR_PTR(-EBUSY);
+		mutex_unlock(&pwm_chip->pwm_mutex);
+		return ERR_PTR(-EBUSY);
 	}
 	mutex_unlock(&pwm_chip->pwm_mutex);
 
@@ -845,6 +858,7 @@ int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
 
 	pm8xxx_pwm_calc_pwm_value(pwm, period_us, duty_us);
 	pm8xxx_pwm_save_pwm_value(pwm);
+	pwm->pwm_duty = duty_us;
 
 	if (pwm_chip->is_lpg_supported) {
 		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1],
@@ -888,14 +902,16 @@ int pwm_enable(struct pwm_device *pwm)
 		pr_err("pwm_id: %d: stale handle?\n", pwm->pwm_id);
 		rc = -EINVAL;
 	} else {
-		if (pwm_chip->is_lpg_supported) {
-			if (pwm->dtest_mode_supported)
-				pm8xxx_pwm_set_dtest(pwm, 1);
-			rc = pm8xxx_pwm_bank_enable(pwm, 1);
-			pm8xxx_pwm_bank_sel(pwm);
-			pm8xxx_pwm_start(pwm, 1, 0);
-		} else {
-			pm8xxx_pwm_enable(pwm);
+		if (!test_and_set_bit(PWMF_ENABLED, &pwm->flags)) {
+			if (pwm_chip->is_lpg_supported) {
+				if (pwm->dtest_mode_supported)
+					pm8xxx_pwm_set_dtest(pwm, 1);
+				rc = pm8xxx_pwm_bank_enable(pwm, 1);
+				pm8xxx_pwm_bank_sel(pwm);
+				pm8xxx_pwm_start(pwm, 1, 0);
+			} else {
+				pm8xxx_pwm_enable(pwm);
+			}
 		}
 	}
 	mutex_unlock(&pwm->chip->pwm_mutex);
@@ -916,14 +932,16 @@ void pwm_disable(struct pwm_device *pwm)
 
 	mutex_lock(&pwm->chip->pwm_mutex);
 	if (pwm->in_use) {
-		if (pwm_chip->is_lpg_supported) {
-			if (pwm->dtest_mode_supported)
-				pm8xxx_pwm_set_dtest(pwm, 0);
-			pm8xxx_pwm_bank_sel(pwm);
-			pm8xxx_pwm_start(pwm, 0, 0);
-			pm8xxx_pwm_bank_enable(pwm, 0);
-		} else {
-			pm8xxx_pwm_disable(pwm);
+		if (test_and_clear_bit(PWMF_ENABLED, &pwm->flags)) {
+			if (pwm_chip->is_lpg_supported) {
+				if (pwm->dtest_mode_supported)
+					pm8xxx_pwm_set_dtest(pwm, 0);
+				pm8xxx_pwm_bank_sel(pwm);
+				pm8xxx_pwm_start(pwm, 0, 0);
+				pm8xxx_pwm_bank_enable(pwm, 0);
+			} else {
+				pm8xxx_pwm_disable(pwm);
+			}
 		}
 	}
 	mutex_unlock(&pwm->chip->pwm_mutex);
@@ -1159,281 +1177,333 @@ int pm8xxx_pwm_lut_enable(struct pwm_device *pwm, int start)
 }
 EXPORT_SYMBOL_GPL(pm8xxx_pwm_lut_enable);
 
-#if defined(CONFIG_DEBUG_FS)
-
-struct pm8xxx_pwm_dbg_device;
-
-struct pm8xxx_pwm_user {
-	int				pwm_id;
-	struct pwm_device		*pwm;
-	int				period;
-	int				duty_cycle;
-	int				enable;
-	struct pm8xxx_pwm_dbg_device	*dbgdev;
+#if defined(CONFIG_SYSFS) && !defined(CONFIG_PWM_SYSFS)
+struct pwm_export {
+	struct device child;
+	struct pwm_device *pwm;
 };
 
-struct pm8xxx_pwm_dbg_device {
-	struct mutex		dbg_mutex;
-	struct device		*dev;
-	struct dentry		*dent;
+static struct pwm_export *child_to_pwm_export(struct device *child)
+{
+	return container_of(child, struct pwm_export, child);
+}
 
-	struct pm8xxx_pwm_user	*user;
+static struct pwm_device *child_to_pwm_device(struct device *child)
+{
+	struct pwm_export *export = child_to_pwm_export(child);
+	return export->pwm;
+}
+
+static ssize_t pwm_period_show(struct device *child,
+			struct device_attribute *attr,
+			char *buf)
+{
+	const struct pwm_device *pwm = child_to_pwm_device(child);
+	return sprintf(buf, "%d\n", pwm->pwm_period);
+}
+
+static ssize_t pwm_period_store(struct device *child,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	struct pwm_device *pwm = child_to_pwm_device(child);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = pwm_config(pwm, pwm->pwm_duty, val);
+	return ret ? : size;
+}
+
+static ssize_t pwm_duty_cycle_show(struct device *child,
+			struct device_attribute *attr,
+			char *buf)
+{
+	const struct pwm_device *pwm = child_to_pwm_device(child);
+	return sprintf(buf, "%u\n", pwm->pwm_duty);
+}
+
+static ssize_t pwm_duty_cycle_store(struct device *child,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	struct pwm_device *pwm = child_to_pwm_device(child);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = pwm_config(pwm, val, pwm->pwm_period);
+	return ret ? : size;
+}
+
+static ssize_t pwm_enable_show(struct device *child,
+			struct device_attribute *attr,
+			char *buf)
+{
+	const struct pwm_device *pwm = child_to_pwm_device(child);
+	int enabled = test_bit(PWMF_ENABLED, &pwm->flags);
+	return sprintf(buf, "%d\n", enabled);
+}
+
+static ssize_t pwm_enable_store(struct device *child,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	struct pwm_device *pwm = child_to_pwm_device(child);
+	int val, ret;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	switch (val) {
+	case 0:
+		pwm_disable(pwm);
+		break;
+	case 1:
+		ret = pwm_enable(pwm);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret ? : size;
+}
+
+static DEVICE_ATTR(period, 0644, pwm_period_show, pwm_period_store);
+static DEVICE_ATTR(duty_cycle, 0644, pwm_duty_cycle_show, pwm_duty_cycle_store);
+static DEVICE_ATTR(enable, 0644, pwm_enable_show, pwm_enable_store);
+
+
+static struct attribute *pwm_attrs[] = {
+	&dev_attr_period.attr,
+	&dev_attr_duty_cycle.attr,
+	&dev_attr_enable.attr,
+	NULL
 };
+ATTRIBUTE_GROUPS(pwm);
 
-static struct pm8xxx_pwm_dbg_device *pmic_dbg_device;
-
-static int dbg_pwm_check_period(int period)
+static void pwm_export_release(struct device *child)
 {
-	if (period < PM8XXX_PWM_PERIOD_MIN || period > PM8XXX_PWM_PERIOD_MAX) {
-		pr_err("period is invalid: %d\n", period);
-		return -EINVAL;
-	}
-	return 0;
+	struct pwm_export *export = child_to_pwm_export(child);
+	kfree(export);
 }
 
-static int dbg_pwm_check_duty_cycle(int duty_cycle, const char *func_name)
+static int pwm_export_child(struct device *parent, struct pwm_device *pwm)
 {
-	if (duty_cycle <= 0 || duty_cycle > 100) {
-		pr_err("%s: duty_cycle is invalid: %d\n",
-		      func_name, duty_cycle);
-		return -EINVAL;
-	}
-	return 0;
-}
+	struct pwm_export *export;
+	int ret;
 
-static void dbg_pwm_check_handle(struct pm8xxx_pwm_user *puser)
-{
-	struct pwm_device *tmp;
+	if (test_and_set_bit(PWMF_EXPORTED, &pwm->flags))
+		return -EBUSY;
 
-	if (puser->pwm == NULL) {
-		tmp = pwm_request(puser->pwm_id, "pwm-dbg");
-		if (PTR_ERR(puser->pwm)) {
-			pr_err("pwm_request: err=%ld\n", PTR_ERR(puser->pwm));
-			puser->pwm = NULL;
-		} else {
-			pr_debug("[id=%d] pwm_request ok\n", puser->pwm_id);
-			puser->pwm = tmp;
-		}
-	}
-}
-
-static int dbg_pwm_enable_set(void *data, u64 val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-	int     rc;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	rc = dbg_pwm_check_duty_cycle(puser->duty_cycle, __func__);
-	if (!rc) {
-		puser->enable = val;
-		dbg_pwm_check_handle(puser);
-		if (puser->pwm) {
-			if (puser->enable)
-				pwm_enable(puser->pwm);
-			else
-				pwm_disable(puser->pwm);
-		}
-	}
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-static int dbg_pwm_enable_get(void *data, u64 *val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	*val = puser->enable;
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(dbg_pwm_enable_fops,
-			dbg_pwm_enable_get, dbg_pwm_enable_set,
-			"%lld\n");
-
-static int dbg_pwm_duty_cycle_set(void *data, u64 val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-	int     rc;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	rc = dbg_pwm_check_duty_cycle(val, __func__);
-	if (!rc) {
-		puser->duty_cycle = val;
-		dbg_pwm_check_handle(puser);
-		if (puser->pwm) {
-			int     duty_us;
-
-			duty_us = puser->duty_cycle * puser->period / 100;
-			pwm_config(puser->pwm, duty_us, puser->period);
-		}
-	}
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-static int dbg_pwm_duty_cycle_get(void *data, u64 *val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	*val = puser->duty_cycle;
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(dbg_pwm_duty_cycle_fops,
-			dbg_pwm_duty_cycle_get, dbg_pwm_duty_cycle_set,
-			"%lld\n");
-
-static int dbg_pwm_period_set(void *data, u64 val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-	int     rc;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	rc = dbg_pwm_check_period(val);
-	if (!rc)
-		puser->period = val;
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-static int dbg_pwm_period_get(void *data, u64 *val)
-{
-	struct pm8xxx_pwm_user	  *puser = data;
-	struct pm8xxx_pwm_dbg_device    *dbgdev = puser->dbgdev;
-
-	mutex_lock(&dbgdev->dbg_mutex);
-	*val = puser->period;
-	mutex_unlock(&dbgdev->dbg_mutex);
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(dbg_pwm_period_fops,
-			dbg_pwm_period_get, dbg_pwm_period_set, "%lld\n");
-
-static int pm8xxx_pwm_dbg_probe(struct device *dev)
-{
-	struct pm8xxx_pwm_dbg_device    *dbgdev;
-	struct dentry		   *dent;
-	struct dentry		   *temp;
-	struct pm8xxx_pwm_user	  *puser;
-	int			     i;
-	int rc = 0;
-
-	if (dev == NULL) {
-		pr_err("no parent data passed in.\n");
-		return -EINVAL;
-	}
-
-	dbgdev = kzalloc(sizeof *dbgdev, GFP_KERNEL);
-	if (dbgdev == NULL) {
-		pr_err("kzalloc() failed.\n");
+	export = kzalloc(sizeof(*export), GFP_KERNEL);
+	if (!export) {
+		clear_bit(PWMF_EXPORTED, &pwm->flags);
 		return -ENOMEM;
 	}
 
-	dbgdev->user = kcalloc(pwm_chip->pwm_channels,
-				sizeof(struct pm8xxx_pwm_user), GFP_KERNEL);
-	if (dbgdev->user == NULL) {
-		pr_err("kcalloc() failed.\n");
-		rc = -ENOMEM;
-		goto user_error;
+	export->pwm = pwm;
+
+	export->child.release = pwm_export_release;
+	export->child.parent = parent;
+	export->child.devt = MKDEV(0, 0);
+	export->child.groups = pwm_groups;
+	dev_set_name(&export->child, "pwm%u", pwm->pwm_id);
+
+	ret = device_register(&export->child);
+	if (ret) {
+		clear_bit(PWMF_EXPORTED, &pwm->flags);
+		kfree(export);
+		return ret;
 	}
-
-	mutex_init(&dbgdev->dbg_mutex);
-
-	dbgdev->dev = dev;
-
-	dent = debugfs_create_dir("pm8xxx-pwm-dbg", NULL);
-	if (dent == NULL || IS_ERR(dent)) {
-		pr_err("ERR debugfs_create_dir: dent=%p\n", dent);
-		rc = -ENOMEM;
-		goto dir_error;
-	}
-
-	dbgdev->dent = dent;
-
-	for (i = 0; i < pwm_chip->pwm_channels; i++) {
-		char pwm_ch[] = "0";
-
-		pwm_ch[0] = '0' + i;
-		dent = debugfs_create_dir(pwm_ch, dbgdev->dent);
-		if (dent == NULL || IS_ERR(dent)) {
-			pr_err("ERR: pwm=%d: dir: dent=%p\n", i, dent);
-			rc = -ENOMEM;
-			goto debug_error;
-		}
-
-		puser = &dbgdev->user[i];
-		puser->dbgdev = dbgdev;
-		puser->pwm_id = i;
-		temp = debugfs_create_file("period", S_IRUGO | S_IWUSR,
-				dent, puser, &dbg_pwm_period_fops);
-		if (temp == NULL || IS_ERR(temp)) {
-			pr_err("ERR: pwm=%d: period: dent=%p\n", i, dent);
-			rc = -ENOMEM;
-			goto debug_error;
-		}
-
-		temp = debugfs_create_file("duty-cycle", S_IRUGO | S_IWUSR,
-				dent, puser, &dbg_pwm_duty_cycle_fops);
-		if (temp == NULL || IS_ERR(temp)) {
-			pr_err("ERR: pwm=%d: duty-cycle: dent=%p\n", i, dent);
-			rc = -ENOMEM;
-			goto debug_error;
-		}
-
-		temp = debugfs_create_file("enable", S_IRUGO | S_IWUSR,
-				dent, puser, &dbg_pwm_enable_fops);
-		if (temp == NULL || IS_ERR(temp)) {
-			pr_err("ERR: pwm=%d: enable: dent=%p\n", i, dent);
-			rc = -ENOMEM;
-			goto debug_error;
-		}
-	}
-
-	pmic_dbg_device = dbgdev;
 
 	return 0;
-
-debug_error:
-	debugfs_remove_recursive(dbgdev->dent);
-dir_error:
-	kfree(dbgdev->user);
-user_error:
-	kfree(dbgdev);
-	return rc;
 }
 
-static int pm8xxx_pwm_dbg_remove(void)
+static ssize_t pwm_export_store(struct device *parent,
+			struct device_attribute *attr,
+			const char *buf, size_t len)
 {
-	if (pmic_dbg_device) {
-		kfree(pmic_dbg_device->user);
-		debugfs_remove_recursive(pmic_dbg_device->dent);
-		kfree(pmic_dbg_device);
+	struct pwm_device *pwm;
+	unsigned int hwpwm;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &hwpwm);
+	if (ret < 0)
+		return ret;
+
+	if (hwpwm >= pwm_chip->pwm_channels)
+		return -ENODEV;
+
+	/* check if pin is configured as pwm */
+	if (((0x1 << (hwpwm + 4)) & pwm_chip->pwm_flags) != (0x1 << (hwpwm + 4)))
+		return -EACCES;
+
+	/* check if the modem has already taken control of pwm */
+	if (((0x1 << hwpwm) & pwm_chip->pwm_flags) == (0x1 << hwpwm))
+		return -EACCES;
+
+
+	pwm = pwm_request(hwpwm, buf);
+	if (pwm < 0)
+		return pwm;
+
+	ret = pwm_export_child(parent, pwm);
+
+	return ret ? : len;
+}
+static DEVICE_ATTR(export, 0200, NULL, pwm_export_store);
+
+static int pwm_unexport_match(struct device *child, void *data)
+{
+	return child_to_pwm_device(child) == data;
+}
+
+static int pwm_unexport_child(struct device *parent, struct pwm_device *pwm)
+{
+	struct device *child;
+
+	if (!test_and_clear_bit(PWMF_EXPORTED, &pwm->flags))
+		return -ENODEV;
+
+	child = device_find_child(parent, pwm, pwm_unexport_match);
+	if (!child)
+		return -ENODEV;
+
+	/* for device_find_child() */
+	put_device(child);
+	device_unregister(child);
+	pwm_free(pwm);
+
+	return 0;
+}
+
+static ssize_t pwm_unexport_store(struct device *parent,
+			struct device_attribute *attr,
+			const char *buf, size_t len)
+{
+	unsigned int hwpwm;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &hwpwm);
+	if (ret < 0)
+		return ret;
+
+	if (hwpwm >= pwm_chip->pwm_channels)
+		return -ENODEV;
+
+	ret = pwm_unexport_child(parent, &pwm_chip->pwm_dev[hwpwm]);
+
+	return ret ? : len;
+}
+static DEVICE_ATTR(unexport, 0200, NULL, pwm_unexport_store);
+
+static ssize_t npwm_show(struct device *parent, struct device_attribute *attr,
+			char *buf)
+{
+	return sprintf(buf, "%d\n", pwm_chip->pwm_channels);
+}
+static DEVICE_ATTR_RO(npwm);
+
+static struct attribute *pwm_chip_attrs[] = {
+	&dev_attr_export.attr,
+	&dev_attr_unexport.attr,
+	&dev_attr_npwm.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(pwm_chip);
+
+static struct class pwm_class = {
+	.name		= "pwm",
+	.owner		= THIS_MODULE,
+	.dev_groups	= pwm_chip_groups,
+};
+
+static int pwmchip_sysfs_match(struct device *parent, const void *data)
+{
+	return dev_get_drvdata(parent) == data;
+}
+
+void pwmchip_sysfs_unexport(struct pm8xxx_pwm_chip *chip)
+{
+	struct device *parent;
+
+	parent = class_find_device(&pwm_class, NULL, chip, pwmchip_sysfs_match);
+	if (parent) {
+		/* for class_find_device() */
+		put_device(parent);
+		device_unregister(parent);
+	}
+}
+
+void pwmchip_sysfs_export(struct pm8xxx_pwm_chip *chip)
+{
+	struct device *parent;
+
+	/*
+	 * If device_create() fails the pwm_chip is still usable by
+	 * the kernel its just not exported.
+	 */
+	parent = device_create(&pwm_class, chip->dev, MKDEV(0, 0), chip,
+			       "pwmchip%d", chip->base);
+	if (IS_ERR(parent)) {
+		dev_warn(chip->dev,
+			 "device_create failed for pwm_chip sysfs export\n");
+	}
+}
+
+static int pwm_sysfs_init(void)
+{
+	int i, ret;
+	uint8_t pwm_flags;
+	uint32_t period_t, duty_t;
+	struct pwm_device *pwm;
+	const char *label = "pwm";
+	class_register(&pwm_class);
+	pwmchip_sysfs_export(pwm_chip);
+
+	/* Read shared memory and configure PWMs */
+	pwm_flags = bsgetpwmflags();
+
+	for (i = 0; i < PM8XXX_PWM_CHANNELS; i++)
+	{
+		if (((0x1 << i) & pwm_flags) == (0x1 << i))
+		{
+			period_t = bsgetpwmperiod(i);
+			duty_t = bsgetpwmduty(i);
+			pwm = pwm_request(i, label);
+			if (pwm < 0){
+				pr_err("pwm_sysfs_init: failed to retrieve pwm\n");
+				continue;
+			}
+			ret = pwm_config(pwm, duty_t, period_t);
+			if (ret < 0){
+				pr_err("pwm_sysfs_init: failed to configure pwm:%d\n", pwm);
+				continue;
+			}
+		}
 	}
 	return 0;
 }
 
+void pwm_sysfs_remove(void)
+{
+	pwmchip_sysfs_unexport(pwm_chip);
+	class_unregister(&pwm_class);
+}
 #else
-
-static int pm8xxx_pwm_dbg_probe(struct device *dev)
+inline static int pwm_sysfs_init(struct device *dev)
 {
 	return 0;
 }
-
-static int pm8xxx_pwm_dbg_remove(void)
-{
-	return 0;
-}
-
 #endif
 
 static int pm8xxx_pwm_probe(struct platform_device *pdev)
@@ -1482,6 +1552,8 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 		chip->pwm_total_pre_divs = NUM_PWM_PRE_DIVIDE;
 	}
 
+	chip->base = PM8XXX_PWM_BASE;
+	chip->pwm_flags = bsgetpwmflags();
 	chip->pwm_dev = kcalloc(chip->pwm_channels, sizeof(struct pwm_device),
 								GFP_KERNEL);
 	if (chip->pwm_dev == NULL) {
@@ -1500,8 +1572,8 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, chip);
 
-	if (pm8xxx_pwm_dbg_probe(&pdev->dev) < 0)
-		pr_err("could not set up debugfs\n");
+/* Set up sysfs */
+	pwm_sysfs_init();
 
 	pr_notice("OK\n");
 	return 0;
@@ -1510,8 +1582,6 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 static int pm8xxx_pwm_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_pwm_chip	*chip = dev_get_drvdata(pdev->dev.parent);
-
-	pm8xxx_pwm_dbg_remove();
 	kfree(chip->pwm_dev);
 	mutex_destroy(&chip->pwm_mutex);
 	platform_set_drvdata(pdev, NULL);

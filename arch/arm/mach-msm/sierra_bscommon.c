@@ -921,6 +921,103 @@ EXPORT_SYMBOL(bsgetgpioflag);
 
 /************
  *
+ * Name:     bsgetpwmflags()
+ *
+ * Purpose:  Return the PWM available flags
+ *
+ * Parms:    none
+ *
+ * Return:   PWM available flags
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint8_t bsgetpwmflags(void)
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+  uint8_t result = 0;
+
+  if (bscheckcoworkmsgmsk())
+  {
+    result=mp->bcpwmflags;
+  }
+  else
+  {
+    pr_err("Cooperative mode pwm read procedure failed.\n");
+  }
+  return result;
+}
+EXPORT_SYMBOL(bsgetpwmflags);
+
+/************
+ *
+ * Name:     bsgetpwmduty(int pwm)
+ *
+ * Purpose:  Returns the duty cycle for pwm id
+ *
+ * Parms:    (IN)pwm...PWM id
+ *
+ * Return:   duty cycle
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint32_t bsgetpwmduty(int pwm)
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+  uint32_t result = 0;
+
+  if (bscheckcoworkmsgmsk() && 0 <= pwm && NUM_PWM > pwm )
+  {
+    result=mp->bcpwmduty[pwm];
+  }
+  else
+  {
+    pr_err("Cooperative mode pwm read procedure failed.");
+  }
+  return result;
+}
+EXPORT_SYMBOL(bsgetpwmduty);
+
+
+/************
+ *
+ * Name:     bsgetpwmperiod(int pwm)
+ *
+ * Purpose:  Returns the period for pwm id
+ *
+ * Parms:    (IN)pwm...PWM id
+ *
+ * Return:   PWM period
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint32_t bsgetpwmperiod(int pwm)
+{
+  volatile struct bccoworkmsg *mp = (volatile struct bccoworkmsg *)BS_COWORK_MSG_START;
+  uint32_t result = 0;
+
+  if (bscheckcoworkmsgmsk() && 0 <= pwm && NUM_PWM > pwm)
+  {
+    result=mp->bcpwmperiod[pwm];
+  }
+  else
+  {
+    pr_err("Cooperative mode pwm read procedure failed.");
+  }
+  return result;
+}
+EXPORT_SYMBOL(bsgetpwmperiod);
+
+/************
+ *
  * Name:     bsgpioenabled
  *
  * Purpose:  To check if gpio is enabled for use in APPS

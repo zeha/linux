@@ -72,6 +72,8 @@
 #define ERDUMP_SAVE_CMD_FRAME              0xFF06
 #define ERDUMP_SAVE_CMD_END                0xFF0F
 
+/* Number of PWMs in shared memory, changing will affect shared memory structure bccoworkmsg */
+#define NUM_PWM                            0x2
 
 /* Structures */
 
@@ -201,8 +203,13 @@ struct __packed bccoworkmsg
   uint8_t  bcsleepind;       /* Sleep inidcation function */
   uint8_t  bcresettype;      /* reset type */
   uint32_t bcgpioflag_ext;   /* Extension of External GPIO owner flags (bits 16-47) */
-  uint8_t  bcreserved_u8[1]; /* The unused memory for uint 8 */
-  uint32_t bcreserved[11];   /* The unused memory */
+  uint8_t  bcpwmflags;       /* Most significant 4 bits indicate if pin is PWM */
+                             /* Least significant 4 bits indicate if PWM is enabled */
+  uint32_t bchsicfun;        /* HSIC function */
+  uint32_t bcdiagipaddr[3];  /* DIAG IP ADDRESS */
+  uint32_t bcpwmperiod[NUM_PWM];   /* PWM period */
+  uint32_t bcpwmduty[NUM_PWM];     /* PWM duty cycle */
+  uint32_t bcreserved[3];    /* The unused memory */
   uint32_t bcendmarker;      /* indicates end of structure */
 };
 
