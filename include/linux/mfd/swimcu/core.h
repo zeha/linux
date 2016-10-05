@@ -35,9 +35,10 @@
 #define SWIMCU_PM_OFF		0
 #define SWIMCU_PM_BOOT_SOURCE	1
 #define SWIMCU_PM_POWER_SWITCH	2
-#define SWIMCU_PM_MAX		SWIMCU_PM_POWER_SWITCH
+#define SWIMCU_PM_MAX           SWIMCU_PM_POWER_SWITCH
 
-#define SWIMCU_ADC_VREF		1800
+#define SWIMCU_ADC_VREF         1800
+#define SWIMCU_ADC_INTERVAL_MAX 65535
 
 enum swimcu_adc_index
 {
@@ -47,6 +48,15 @@ enum swimcu_adc_index
 	SWIMCU_ADC_LAST = SWIMCU_ADC_PTB1,
 	SWIMCU_NUM_ADC = SWIMCU_ADC_LAST+1,
 	SWIMCU_ADC_INVALID = SWIMCU_NUM_ADC,
+};
+
+enum swimcu_adc_compare_mode
+{
+	SWIMCU_ADC_COMPARE_DISABLED = 0,
+	SWIMCU_ADC_COMPARE_ABOVE,
+	SWICMU_ADC_COMPARE_BELOW,
+	SWIMCU_ADC_COMPARE_WITHIN,
+	SWIMCU_ADC_COMPARE_BEYOND,
 };
 
 #define SWIMCU_FUNC_FLAG_FWUPD (1 << 0)
@@ -138,6 +148,7 @@ struct swimcu {
 
 	struct kobject pm_boot_source_kobj;
 	struct kobject pm_firmware_kobj;
+	struct kobject pm_boot_source_adc_kobj;
 
 	/* Client devices */
 	struct swimcu_gpio gpio;
@@ -173,6 +184,11 @@ void swimcu_device_exit(struct swimcu *swimcu);
  * ADC Readback
  */
 int swimcu_read_adc(struct swimcu *swimcu, int channel);
+int swimcu_adc_init_and_start(struct swimcu *swimcu, enum swimcu_adc_index adc);
+int swimcu_adc_set_trigger_mode(enum swimcu_adc_index adc, int trigger, int interval);
+int swimcu_adc_set_compare_mode(enum swimcu_adc_index adc, enum swimcu_adc_compare_mode mode,
+				unsigned compare_val1, unsigned compare_val2);
+int swimcu_get_adc_from_chan(int channel);
 
 void swimcu_set_fault_mask(int fault);
 #endif
