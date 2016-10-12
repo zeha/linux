@@ -43,6 +43,20 @@
 #include <linux/binfmts.h>
 #include "smack.h"
 
+ /***************************** ????? ******************************************
+  * Move this elsewhere. It is defined in include/linux/key.h in later
+  * kernel versions.
+  * The permissions required on a key that we're looking up.
+  *****************************************************************************/
+ #define	KEY_NEED_VIEW	0x01	/* Require permission to view attributes */
+ #define	KEY_NEED_READ	0x02	/* Require permission to read content */
+ #define	KEY_NEED_WRITE	0x04	/* Require permission to update / modify */
+ #define	KEY_NEED_SEARCH	0x08	/* Require permission to search (keyring) or find (key) */
+ #define	KEY_NEED_LINK	0x10	/* Require permission to link */
+ #define	KEY_NEED_SETATTR 0x20	/* Require permission to change attributes */
+ #define	KEY_NEED_ALL	0x3f	/* All the above permissions */
+
+
 #define TRANS_TRUE	"TRUE"
 #define TRANS_TRUE_SIZE	4
 
