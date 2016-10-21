@@ -16,6 +16,7 @@
 #include <mach/irqs.h>
 #include <linux/mfd/pm8xxx/pm8018.h>
 #include <linux/regulator/msm-gpio-regulator.h>
+#include <linux/mfd/wm8944/core.h>
 
 /*
  * MDM9x15 I2S.
@@ -46,6 +47,7 @@ struct i2c_registry {
 
 /* wm8944 */
 #define WM8944_I2C_SLAVE_ADDR           (0x1a)
+#define WM8944_INTERRUPT_BASE           (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8018_IRQS)
 
 /*
  * MDM9x15 I2S.
@@ -63,7 +65,7 @@ struct i2c_registry {
 #define SWIMCU_GPIO_BASE                (PM8018_MPP_BASE + PM8018_NR_MPPS)
 #define SWIMCU_GPIO_TO_SYS(mcu_gpio)    (mcu_gpio + SWIMCU_GPIO_BASE)
 #define SWIMCU_NR_GPIOS                 8
-#define SWIMCU_GPIO_IRQ_BASE            PM8018_IRQ_BASE + NR_PM8018_IRQS
+#define SWIMCU_GPIO_IRQ_BASE            WM8944_INTERRUPT_BASE + WM8944_IRQ_RANGE
 #define SWIMCU_IS_GPIO(gpio)            ((gpio >= SWIMCU_GPIO_BASE) && (gpio < SWIMCU_GPIO_BASE + SWIMCU_NR_GPIOS))
 #define SWIMCU_ADC_BASE                 2
 #define SWIMCU_ADC_TO_SYS(mcu_adc)      (mcu_adc + SWIMCU_ADC_BASE)

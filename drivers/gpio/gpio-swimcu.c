@@ -327,7 +327,7 @@ void swimcu_irq_init(struct swimcu *swimcu, int irq_base)
 	int i;
 
 	mutex_init(&swimcu->gpio_irq_lock);
-	swimcu->gpio_irq_base = irq_alloc_descs(irq_base, 0, SWIMCU_NUM_GPIO_IRQ, 0);
+	swimcu->gpio_irq_base = irq_alloc_descs(-1, irq_base, SWIMCU_NUM_GPIO_IRQ, -1);
 	if (swimcu->gpio_irq_base < 0)
 	{
 		dev_warn(swimcu->dev, "Allocating irqs failed with %d\n",

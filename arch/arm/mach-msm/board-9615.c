@@ -895,8 +895,6 @@ static struct i2c_registry msm9615_i2c_devices[] __initdata = {
 
 #ifdef CONFIG_MFD_WM8944
 
-#define WM8944_INTERRUPT_BASE (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8018_IRQS)
-
 static struct wm8944_pdata wm8944_platform_data = {
 	.gpio_defaults[0] = 0x0003, /* IRQ output */
 	.gpio_defaults[1] = 0xC000, /* reset value */

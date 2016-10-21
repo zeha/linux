@@ -36,6 +36,7 @@ struct regmap;
 #define WM8944_IRQ_GP1       12
 #define WM8944_IRQ_GP2       13
 #define WM8944_IRQ_TEMP      15
+#define WM8944_IRQ_RANGE     WM8944_IRQ_TEMP + 1
 
 #define WM8944_INTERFACE_TYPE_UNKNOWN  -1
 #define WM8944_INTERFACE_TYPE_NONE      0
