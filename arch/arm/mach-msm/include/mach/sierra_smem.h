@@ -72,7 +72,10 @@
 #define ERDUMP_SAVE_CMD_FRAME              0xFF06
 #define ERDUMP_SAVE_CMD_END                0xFF0F
 
-/* Number of PWMs in shared memory, changing will affect shared memory structure bccoworkmsg */
+/* Number of PWMs in shared memory, changing will affect shared memory structure
+ * bccoworkmsg. If value is updated, must update bccoworkmsg definition in
+ * bcidefs.h on mpss as well.
+ */
 #define NUM_PWM                            0x2
 
 /* Structures */
@@ -181,9 +184,9 @@ struct __packed bcboottoappmsg
 
 /*************
  *
- * Name:     bccoworkmsg - Coopertive work message structure
+ * Name:     bccoworkmsg - Cooperative work message structure
  *
- * Purpose:  To provide a structure to share the resoure assigned state .
+ * Purpose:  To provide a structure to share the resource assigned state.
  *
  * Members:  See inline comments below
  *
@@ -192,6 +195,11 @@ struct __packed bcboottoappmsg
  *              Otherwise, the structure's contents are undefined.
  *           2. The total size of this structure is small and must reside in
  *              RAM that is never initialized by boot loader at startup.
+ *           3. New fields should be added at the end of the used structure,
+ *              replacing one of the reserved spaces, to preserve compatibility
+ *              between different versions of apps and modem images.
+ *           4. This definition should be kept in sync with the definition in
+ *              bcidefs.h in mpss
  *
  *************/
 struct __packed bccoworkmsg
@@ -200,13 +208,13 @@ struct __packed bccoworkmsg
   uint16_t bcgpioflag;       /* external gpio owner flag. */
   uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
   uint8_t  bcriowner;        /* RI owner */
-  uint8_t  bcsleepind;       /* Sleep inidcation function */
+  uint8_t  bcsleepind;       /* Sleep indication function */
   uint8_t  bcresettype;      /* reset type */
   uint32_t bcgpioflag_ext;   /* Extension of External GPIO owner flags (bits 16-47) */
-  uint8_t  bcpwmflags;       /* Most significant 4 bits indicate if pin is PWM */
-                             /* Least significant 4 bits indicate if PWM is enabled */
   uint32_t bchsicfun;        /* HSIC function */
   uint32_t bcdiagipaddr[3];  /* DIAG IP ADDRESS */
+  uint8_t  bcpwmflags;       /* Most significant 4 bits indicate if pin is PWM */
+                             /* Least significant 4 bits indicate if PWM is enabled */
   uint32_t bcpwmperiod[NUM_PWM];   /* PWM period */
   uint32_t bcpwmduty[NUM_PWM];     /* PWM duty cycle */
   uint32_t bcreserved[3];    /* The unused memory */
