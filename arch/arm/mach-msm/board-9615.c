@@ -901,7 +901,9 @@ static struct wm8944_pdata wm8944_platform_data = {
 	.line_vroi = 0,
 	.spk_vroi = 0,
 	.micbias_lvl = 0,
+#ifdef SIERRA_CODEC_IRQ
 	.irq_base = WM8944_INTERRUPT_BASE,
+#endif /* SIERRA_CODEC_IRQ */
 	.vmid_mode = WM8944_VMID_SLOW,
 };
 
@@ -909,7 +911,9 @@ static struct i2c_board_info wm8944_device_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("wm8944", WM8944_I2C_SLAVE_ADDR),
 		.platform_data = &wm8944_platform_data,
+#ifdef SIERRA_CODEC_IRQ
 		.irq = MSM_GPIO_TO_INT(86),
+#endif /* SIERRA_CODEC_IRQ */
 	},
 };
 

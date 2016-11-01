@@ -2570,6 +2570,13 @@ config SIERRA_INTERNAL_CODEC
 	help
 	  Use Sierra internal/on-board codec. If unsure, say Y here.
 
+config SIERRA_CODEC_IRQ
+	depends on (ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES) && (SIERRA_INTERNAL_CODEC || SIERRA_EXTERNAL_CODEC)
+	bool "Enable codec interrupts"
+	default n
+	help
+	  Enable interrupts on Sierra internal/external codec. If unsure, say N here
+
 config SIERRA_DR
 	depends on ARCH_MSM9615 && SIERRA_PLATFORM_FEATURES
 	bool "Use dead reckoning"
