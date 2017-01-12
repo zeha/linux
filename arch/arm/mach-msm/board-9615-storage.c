@@ -190,8 +190,7 @@ static struct mmc_platform_data sdc1_data = {
 /* SWISTOP */
 #endif
 	.xpc_cap	= 1,
-	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
-			   MMC_CAP_MAX_CURRENT_400),
+	.uhs_caps	= MMC_CAP_MAX_CURRENT_400,
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
