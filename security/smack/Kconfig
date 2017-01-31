@@ -40,3 +40,15 @@ config SECURITY_SMACK_NETFILTER
 	  This enables security marking of network packets using
 	  Smack labels.
 	  If you are unsure how to answer this question, answer N.
+
+config SECURITY_SMACK_LABEL_ALLOW_DELIMITERS
+    bool "Enable \"'\" delimiter as part of smackfsdef mount option"
+    depends on SECURITY_SMACK
+    default y
+    help
+      In the earlier days of SMACK, label "'" delimiters were
+      allowed. In order to make SMACK framework changes transparent
+      (delimiters are not allowed any more), this option will enable
+      the code which will strip delimiters and make kernel code
+      unaware of them.
+      If you are unsure how to answer this question, answer Y.

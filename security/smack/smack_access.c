@@ -61,6 +61,103 @@ static u32 smack_next_secid = 10;
 int log_policy = SMACK_AUDIT_DENIED;
 
 /**
+ * smk_strip_delimiters - checks and strip label delimiters
+ * @string: a pointer to a string containing label w or w/o
+ *  	  delimiters.
+ * @len: the length of the string.
+ *
+ * This function checks if label have proper delimiters (if
+ * any). If everything is OK, pointer to the start of the label
+ * is returned, NULL otherwise.
+ *
+ * Note:
+ *
+ *   '\'' character could be used to delimit smack label. This
+     was broken in the following commit (we want to be backwards
+     compatible):
+
+	commit e774ad683f425a51f87711164ea166d9dcc41477
+	Author: Lukasz Pawelczyk <l.pawelczyk@samsung.com>
+	Date:   Mon Apr 20 17:12:54 2015 +0200
+
+    smack: pass error code through pointers
+
+    This patch makes the following functions to use ERR_PTR() and related
+    macros to pass the appropriate error code through returned pointers:
+
+    smk_parse_smack()
+    smk_import_entry()
+    smk_fetch()
+
+    It also makes all the other functions that use them to handle the
+    error cases properly. This ways correct error codes from places
+    where they happened can be propagated to the user space if necessary.
+
+    Doing this it fixes a bug in onlycap and unconfined files
+    handling. Previously their content was cleared on any error from
+    smk_import_entry/smk_parse_smack, be it EINVAL (as originally intended)
+    or ENOMEM. Right now it only reacts on EINVAL passing other codes
+    properly to userspace.
+
+    Comments have been updated accordingly.
+
+    Signed-off-by: Lukasz Pawelczyk <l.pawelczyk@samsung.com>
+ *
+ */
+#ifdef CONFIG_SECURITY_SMACK_LABEL_ALLOW_DELIMITERS
+static char *smk_strip_delimiters(const char *string, int *len_in)
+{
+	int i;
+	int cnt;
+	char *retp = (char *)string;
+	int len = *len_in;
+
+	/* If '\'' character is the first one, skip over it, because it represents
+	   delimiter. The last '\'' character must exist as well. If not, this
+	   would be malformed label, and we need to indicate an error. */
+
+	/* Try to find start delimiter. */
+	cnt = 0;
+	for (i = 0; i < len; i++) {
+		if( *(retp + i) == '\'' ) {
+			/* Found it, point to label start character. */
+			retp++;
+			cnt++;
+			break;
+		}
+	}
+
+	/* Find end delimiter if start delimiter existed. */
+	if(cnt != 0)
+		for (i = 0; i < len; i++) {
+			if( *(retp + i) == '\'' ) {
+				/* Found end delimiter. */
+				cnt++;
+				*(retp + i) = '\0';
+				*len_in = i + 1; 	/* NULL termination counts as well. */
+				break;
+			}
+		}
+
+	/* Indicate an error, if necessary. */
+	if (cnt != 0 && cnt != 2) {
+		/* Make sure cleanup is performed. */
+		*len_in = len;
+		retp = NULL;
+	}
+
+	return retp;
+}
+
+#else
+
+static char *smk_strip_delimiters(const char *string, int *len_in)
+{
+	return string;
+}
+#endif
+
+/**
  * smk_access_entry - look up matching access rule
  * @subject_label: a pointer to the subject's Smack label
  * @object_label: a pointer to the object's Smack label
@@ -457,6 +554,11 @@ char *smk_parse_smack(const char *string, int len)
 
 	if (len <= 0)
 		len = strlen(string) + 1;
+
+	if( (string = smk_strip_delimiters(string, &len)) == NULL ) {
+		/* Malformed label string, get out. */
+		return ERR_PTR(-EINVAL);
+	}
 
 	/*
 	 * Reserve a leading '-' as an indicator that
