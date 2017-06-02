@@ -362,7 +362,6 @@ enum mci_timer_tick_e
 enum mci_mcu_power_mode_e
 {
   MCI_MCU_POWER_MODE_RUN  = 0,       /* Normal Run mode*/
-  MCI_MCU_POWER_MODE_WAIT,           /* Core clock is gated off */
 
   MCI_MCU_POWER_MODE_STOP = 5,       /* Core clock gated off; system and bus clock gated off */
   MCI_MCU_POWER_MODE_STOP_1,         /* Partial Stop with both system and bus clocks disabled */
@@ -517,13 +516,13 @@ struct mci_wakeup_source_config_s
 */
 struct mci_pm_profile_config_s
 {
-  enum mci_protocol_power_mode_e active_power_mode;	/* power mode of MCU while running */
-  enum mci_protocol_power_mode_e standby_power_mode;	/* power mode of MCU in standby */
-  enum mci_protocol_mdm_state_e  standby_mdm_state;	/* MDM on/off in low power mode */
-  uint16_t                       standby_wakeup_sources; /* conditions to wake from low power */
+  enum mci_protocol_power_mode_e active_power_mode;	  /* power mode of MCU while running */
+  enum mci_protocol_power_mode_e standby_power_mode;	  /* power mode of MCU in standby */
+  enum mci_protocol_mdm_state_e  standby_mdm_state;	  /* MDM on/off in low power mode */
+  uint16_t                       standby_wakeup_sources;  /* conditions to wake from low power */
   uint16_t                       mdm_on_conds_bitset_any; /* reserved */
   uint16_t                       mdm_on_conds_bitset_all; /* reserved */
-  uint16_t                       active_idle_time; 	/* time before MCU drops to standby */
+  uint16_t                       active_idle_time; 	  /* time before MCU drops to standby */
 };
 
 /************
@@ -672,6 +671,14 @@ extern enum mci_protocol_status_code_e swimcu_event_query(
                                 struct swimcu *swimcu,
                                 struct mci_event_s *eventp,
                                 int                *countp);
+
+extern enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
+                                struct swimcu *swimcu,
+				uint32_t wait_sync_time,
+				uint32_t wait_pwr_off_time);
+
+extern enum mci_protocol_status_code_e swimcu_pm_pwr_off(
+                                struct swimcu *swimcu);
 
 /*
  * MCU GPIO set/get IRQ trigger value.

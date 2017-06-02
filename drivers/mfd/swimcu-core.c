@@ -24,6 +24,7 @@
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
+#include <linux/reboot.h>
 
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
@@ -37,6 +38,8 @@
 #ifdef SWIMCU_DEBUG
 int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 #endif
+
+extern int pm_reboot_call(struct notifier_block *this, unsigned long code, void* cmd);
 
 #define MCI_ADC_SCALE_12_BIT    ((1 << 12) - 1)
 #define MCI_ADC_SCALE_10_BIT    ((1 << 10) - 1)
@@ -657,6 +660,16 @@ int swimcu_device_init(struct swimcu *swimcu)
 				swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_GPIO;
 			}
 		}
+	}
+
+	if(!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_REBOOT)) {
+		swimcu->reboot_nb.notifier_call = pm_reboot_call;
+		ret = register_reboot_notifier(&(swimcu->reboot_nb));
+		if (ret) {
+			pr_err("%s: Failed to register reboot notifier\n", __func__);
+			goto exit;
+		}
+		swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_REBOOT;
 	}
 
 	if(pdata->func_flags & SWIMCU_FUNC_FLAG_EVENT) {

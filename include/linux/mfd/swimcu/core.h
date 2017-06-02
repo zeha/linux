@@ -71,6 +71,7 @@ enum swimcu_adc_compare_mode
 #define SWIMCU_DRIVER_INIT_FW        (1 << 3)
 #define SWIMCU_DRIVER_INIT_PM        (1 << 4)
 #define SWIMCU_DRIVER_INIT_GPIO      (1 << 5)
+#define SWIMCU_DRIVER_INIT_REBOOT    (1 << 6)
 
 #define SWIMCU_DEBUG
 
@@ -153,6 +154,8 @@ struct swimcu {
 	/* Client devices */
 	struct swimcu_gpio gpio;
 	struct swimcu_hwmon hwmon;
+
+	struct notifier_block reboot_nb;
 };
 
 /**
