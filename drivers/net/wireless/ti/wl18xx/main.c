@@ -47,6 +47,8 @@
 #define WL18XX_RX_CHECKSUM_MASK      0x40
 
 static char *ht_mode_param = NULL;
+static int rx_mask_param[IEEE80211_HT_MCS_MASK_LEN];
+static int rx_mask_param_argc;
 static char *board_type_param = NULL;
 static bool checksum_param = false;
 static int num_rx_desc_param = -1;
@@ -378,6 +380,7 @@ static struct wlcore_conf wl18xx_conf = {
 		.keep_alive_interval         = 55000,
 		.max_listen_interval         = 20,
 		.sta_sleep_auth              = WL1271_PSM_ILLEGAL,
+		.suspend_rx_ba_activity      = 0,
 	},
 	.itrim = {
 		.enable = false,
@@ -567,6 +570,12 @@ static struct wl18xx_priv_conf wl18xx_default_priv_conf = {
 		.high_power_val_2nd		= 0xff,
 		.tx_rf_margin			= 1,
 	},
+	.ap_sleep = {               /* disabled by default */
+		.idle_duty_cycle        = 0,
+		.connected_duty_cycle   = 0,
+		.max_stations_thresh    = 0,
+		.idle_conn_thresh       = 0,
+	},
 };
 
 static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
@@ -648,7 +657,7 @@ static const struct wl18xx_clk_cfg wl18xx_clk_table[NUM_CLOCK_CONFIGS] = {
 };
 
 /* TODO: maybe move to a new header file? */
-#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw-2.bin"
+#define WL18XX_FW_NAME "ti-connectivity/wl18xx-fw-4.bin"
 
 static int wl18xx_identify_chip(struct wl1271 *wl)
 {
@@ -983,6 +992,7 @@ static int wl18xx_boot(struct wl1271 *wl)
 
 	wl->event_mask = BSS_LOSS_EVENT_ID |
 		SCAN_COMPLETE_EVENT_ID |
+		RADAR_DETECTED_EVENT_ID |
 		RSSI_SNR_TRIGGER_0_EVENT_ID |
 		PERIODIC_SCAN_COMPLETE_EVENT_ID |
 		PERIODIC_SCAN_REPORT_EVENT_ID |
@@ -992,7 +1002,10 @@ static int wl18xx_boot(struct wl1271 *wl)
 		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
 		INACTIVE_STA_EVENT_ID |
 		CHANNEL_SWITCH_COMPLETE_EVENT_ID |
-		DFS_CHANNELS_CONFIG_COMPLETE_EVENT;
+		DFS_CHANNELS_CONFIG_COMPLETE_EVENT |
+		RX_BA_WIN_SIZE_CHANGE_EVENT_ID |
+		SMART_CONFIG_SYNC_EVENT_ID |
+		SMART_CONFIG_DECODE_EVENT_ID;
 
 	wl->ap_event_mask = MAX_TX_FAILURE_EVENT_ID;
 
@@ -1133,6 +1146,39 @@ static int wl18xx_hw_init(struct wl1271 *wl)
 	return ret;
 }
 
+static void wl18xx_convert_fw_status(struct wl1271 *wl, void *raw_fw_status,
+				     struct wl_fw_status *fw_status)
+{
+	struct wl18xx_fw_status *int_fw_status = raw_fw_status;
+
+	fw_status->intr = le32_to_cpu(int_fw_status->intr);
+	fw_status->fw_rx_counter = int_fw_status->fw_rx_counter;
+	fw_status->drv_rx_counter = int_fw_status->drv_rx_counter;
+	fw_status->tx_results_counter = int_fw_status->tx_results_counter;
+	fw_status->rx_pkt_descs = int_fw_status->rx_pkt_descs;
+
+	fw_status->fw_localtime = le32_to_cpu(int_fw_status->fw_localtime);
+	fw_status->link_ps_bitmap = le32_to_cpu(int_fw_status->link_ps_bitmap);
+	fw_status->link_fast_bitmap =
+			le32_to_cpu(int_fw_status->link_fast_bitmap);
+	fw_status->total_released_blks =
+			le32_to_cpu(int_fw_status->total_released_blks);
+	fw_status->tx_total = le32_to_cpu(int_fw_status->tx_total);
+
+	fw_status->counters.tx_released_pkts =
+			int_fw_status->counters.tx_released_pkts;
+	fw_status->counters.tx_lnk_free_pkts =
+			int_fw_status->counters.tx_lnk_free_pkts;
+	fw_status->counters.tx_voice_released_blks =
+			int_fw_status->counters.tx_voice_released_blks;
+	fw_status->counters.tx_last_rate =
+			int_fw_status->counters.tx_last_rate;
+
+	fw_status->log_start_addr = le32_to_cpu(int_fw_status->log_start_addr);
+
+	fw_status->priv = &int_fw_status->priv;
+}
+
 static void wl18xx_set_tx_desc_csum(struct wl1271 *wl,
 				    struct wl1271_tx_hw_descr *desc,
 				    struct sk_buff *skb)
@@ -1215,8 +1261,9 @@ static u32 wl18xx_ap_get_mimo_wide_rate_mask(struct wl1271 *wl,
 		wl1271_debug(DEBUG_ACX, "using wide channel rate mask");
 
 		/* sanity check - we don't support this */
-		if (WARN_ON(wlvif->band != IEEE80211_BAND_5GHZ))
-			return 0;
+		if (wlvif->band != IEEE80211_BAND_5GHZ)
+			wl1271_error("using 40Mhz AP in 2.4Ghz band -"
+				     "not officially supported");
 
 		return CONF_TX_RATE_USE_WIDE_CHAN;
 	} else if (wl18xx_is_mimo_supported(wl) &&
@@ -1523,26 +1570,19 @@ static u32 wl18xx_pre_pkt_send(struct wl1271 *wl,
 }
 
 static void wl18xx_sta_rc_update(struct wl1271 *wl,
-				 struct wl12xx_vif *wlvif,
-				 struct ieee80211_sta *sta,
-				 u32 changed)
+				 struct wl12xx_vif *wlvif)
 {
-	bool wide = sta->bandwidth >= IEEE80211_STA_RX_BW_40;
+	bool wide = wlvif->rc_update_bw >= IEEE80211_STA_RX_BW_40;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 sta_rc_update wide %d", wide);
 
-	if (!(changed & IEEE80211_RC_BW_CHANGED))
-		return;
-
-	mutex_lock(&wl->mutex);
-
 	/* sanity */
 	if (WARN_ON(wlvif->bss_type != BSS_TYPE_STA_BSS))
-		goto out;
+		return;
 
 	/* ignore the change before association */
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-		goto out;
+		return;
 
 	/*
 	 * If we started out as wide, we can change the operation mode. If we
@@ -1553,9 +1593,6 @@ static void wl18xx_sta_rc_update(struct wl1271 *wl,
 		wl18xx_acx_peer_ht_operation_mode(wl, wlvif->sta.hlid, wide);
 	else
 		ieee80211_connection_loss(wl12xx_wlvif_to_vif(wlvif));
-
-out:
-	mutex_unlock(&wl->mutex);
 }
 
 static int wl18xx_set_peer_cap(struct wl1271 *wl,
@@ -1572,16 +1609,21 @@ static bool wl18xx_lnk_high_prio(struct wl1271 *wl, u8 hlid,
 {
 	u8 thold;
 	struct wl18xx_fw_status_priv *status_priv =
-		(struct wl18xx_fw_status_priv *)wl->fw_status_2->priv;
-	u32 suspend_bitmap = le32_to_cpu(status_priv->link_suspend_bitmap);
+		(struct wl18xx_fw_status_priv *)wl->fw_status->priv;
+	unsigned long suspend_bitmap;
+
+	/* if we don't have the link map yet, assume they all low prio */
+	if (!status_priv)
+		return false;
 
 	/* suspended links are never high priority */
-	if (test_bit(hlid, (unsigned long *)&suspend_bitmap))
+	suspend_bitmap = le32_to_cpu(status_priv->link_suspend_bitmap);
+	if (test_bit(hlid, &suspend_bitmap))
 		return false;
 
 	/* the priority thresholds are taken from FW */
-	if (test_bit(hlid, (unsigned long *)&wl->fw_fast_lnk_map) &&
-	    !test_bit(hlid, (unsigned long *)&wl->ap_fw_ps_map))
+	if (test_bit(hlid, &wl->fw_fast_lnk_map) &&
+	    !test_bit(hlid, &wl->ap_fw_ps_map))
 		thold = status_priv->tx_fast_link_prio_threshold;
 	else
 		thold = status_priv->tx_slow_link_prio_threshold;
@@ -1594,13 +1636,18 @@ static bool wl18xx_lnk_low_prio(struct wl1271 *wl, u8 hlid,
 {
 	u8 thold;
 	struct wl18xx_fw_status_priv *status_priv =
-		(struct wl18xx_fw_status_priv *)wl->fw_status_2->priv;
-	u32 suspend_bitmap = le32_to_cpu(status_priv->link_suspend_bitmap);
+		(struct wl18xx_fw_status_priv *)wl->fw_status->priv;
+	unsigned long suspend_bitmap;
 
-	if (test_bit(hlid, (unsigned long *)&suspend_bitmap))
+	/* if we don't have the link map yet, assume they all low prio */
+	if (!status_priv)
+		return true;
+
+	suspend_bitmap = le32_to_cpu(status_priv->link_suspend_bitmap);
+	if (test_bit(hlid, &suspend_bitmap))
 		thold = status_priv->tx_suspend_threshold;
-	else if (test_bit(hlid, (unsigned long *)&wl->fw_fast_lnk_map) &&
-		 !test_bit(hlid, (unsigned long *)&wl->ap_fw_ps_map))
+	else if (test_bit(hlid, &wl->fw_fast_lnk_map) &&
+		 !test_bit(hlid, &wl->ap_fw_ps_map))
 		thold = status_priv->tx_fast_stop_threshold;
 	else
 		thold = status_priv->tx_slow_stop_threshold;
@@ -1632,6 +1679,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.tx_immediate_compl = wl18xx_tx_immediate_completion,
 	.tx_delayed_compl = NULL,
 	.hw_init	= wl18xx_hw_init,
+	.convert_fw_status = wl18xx_convert_fw_status,
 	.set_tx_desc_csum = wl18xx_set_tx_desc_csum,
 	.get_pg_ver	= wl18xx_get_pg_ver,
 	.set_rx_csum = wl18xx_set_rx_csum,
@@ -1653,6 +1701,12 @@ static struct wlcore_ops wl18xx_ops = {
 	.convert_hwaddr = wl18xx_convert_hwaddr,
 	.lnk_high_prio	= wl18xx_lnk_high_prio,
 	.lnk_low_prio	= wl18xx_lnk_low_prio,
+	.interrupt_notify = wl18xx_acx_interrupt_notify_config,
+	.rx_ba_filter	= wl18xx_acx_rx_ba_filter,
+	.ap_sleep	= wl18xx_acx_ap_sleep,
+	.smart_config_start = wl18xx_cmd_smart_config_start,
+	.smart_config_stop  = wl18xx_cmd_smart_config_stop,
+	.smart_config_set_group_key = wl18xx_cmd_smart_config_set_group_key,
 };
 
 /* HT cap appropriate for wide channels in 2Ghz */
@@ -1713,19 +1767,117 @@ static struct ieee80211_sta_ht_cap wl18xx_mimo_ht_cap_2ghz = {
 		},
 };
 
+static const struct ieee80211_iface_limit wl18xx_iface_limits[] = {
+	{
+		.max = 3,
+		.types = BIT(NL80211_IFTYPE_STATION),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_AP) |
+			 BIT(NL80211_IFTYPE_P2P_GO) |
+			 BIT(NL80211_IFTYPE_P2P_CLIENT),
+	},
+};
+
+static const struct ieee80211_iface_limit wl18xx_iface_ap_limits[] = {
+	{
+		.max = 2,
+		.types = BIT(NL80211_IFTYPE_AP),
+	},
+};
+
+static const struct ieee80211_iface_limit wl18xx_iface_ap_cl_limits[] = {
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_STATION),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_AP),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_P2P_CLIENT),
+	},
+};
+
+static const struct ieee80211_iface_limit wl18xx_iface_ap_go_limits[] = {
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_STATION),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_AP),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_P2P_GO),
+	},
+};
+
+static const struct ieee80211_iface_combination
+wl18xx_iface_combinations[] = {
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_limits),
+		.num_different_channels = 2,
+		.radar_detect_widths =	BIT(NL80211_CHAN_NO_HT) |
+					BIT(NL80211_CHAN_HT20) |
+					BIT(NL80211_CHAN_HT40MINUS) |
+					BIT(NL80211_CHAN_HT40PLUS),
+	},
+	{
+		.max_interfaces = 2,
+		.limits = wl18xx_iface_ap_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_limits),
+		.num_different_channels = 1,
+		.radar_detect_widths =	BIT(NL80211_CHAN_NO_HT) |
+					BIT(NL80211_CHAN_HT20) |
+					BIT(NL80211_CHAN_HT40MINUS) |
+					BIT(NL80211_CHAN_HT40PLUS),
+	},
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_ap_cl_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_cl_limits),
+		.num_different_channels = 2,
+		.radar_detect_widths =  BIT(NL80211_CHAN_NO_HT) |
+					BIT(NL80211_CHAN_HT20) |
+					BIT(NL80211_CHAN_HT40MINUS) |
+					BIT(NL80211_CHAN_HT40PLUS),
+	},
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_ap_go_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_go_limits),
+		.num_different_channels = 1,
+	}
+};
+
 static int wl18xx_setup(struct wl1271 *wl)
 {
 	struct wl18xx_priv *priv = wl->priv;
 	int ret;
+	int i;
+
+	BUILD_BUG_ON(WL18XX_MAX_LINKS > WLCORE_MAX_LINKS);
+	BUILD_BUG_ON(WL18XX_MAX_AP_STATIONS > WL18XX_MAX_LINKS);
 
 	wl->rtable = wl18xx_rtable;
 	wl->num_tx_desc = WL18XX_NUM_TX_DESCRIPTORS;
 	wl->num_rx_desc = WL18XX_NUM_RX_DESCRIPTORS;
-	wl->num_channels = 2;
+	wl->num_links = WL18XX_MAX_LINKS;
+	wl->max_ap_stations = WL18XX_MAX_AP_STATIONS;
+	wl->iface_combinations = wl18xx_iface_combinations;
+	wl->n_iface_combinations = ARRAY_SIZE(wl18xx_iface_combinations);
 	wl->num_mac_addr = WL18XX_NUM_MAC_ADDRESSES;
 	wl->band_rate_to_idx = wl18xx_band_rate_to_idx;
 	wl->hw_tx_rate_tbl_size = WL18XX_CONF_HW_RXTX_RATE_MAX;
 	wl->hw_min_ht_rate = WL18XX_CONF_HW_RXTX_RATE_MCS0;
+	wl->fw_status_len = sizeof(struct wl18xx_fw_status);
 	wl->fw_status_priv_len = sizeof(struct wl18xx_fw_status_priv);
 	wl->stats.fw_stats_len = sizeof(struct wl18xx_acx_statistics);
 	wl->static_data_priv_len = sizeof(struct wl18xx_static_data_priv);
@@ -1822,6 +1974,14 @@ static int wl18xx_setup(struct wl1271 *wl)
 				  &wl18xx_siso20_ht_cap);
 	}
 
+	/* modify supported MCS rates in case the rx_mask param is used */
+	for (i = 0; i < rx_mask_param_argc; i++) {
+		wl->ht_cap[IEEE80211_BAND_2GHZ].mcs.rx_mask[i] =
+						rx_mask_param[i] & 0xff;
+		wl->ht_cap[IEEE80211_BAND_5GHZ].mcs.rx_mask[i] =
+						rx_mask_param[i] & 0xff;
+	}
+
 	if (!checksum_param) {
 		wl18xx_ops.set_rx_csum = NULL;
 		wl18xx_ops.init_vif = NULL;
@@ -1841,7 +2001,8 @@ static int wl18xx_probe(struct platform_device *pdev)
 
 	hw = wlcore_alloc_hw(sizeof(struct wl18xx_priv),
 			     WL18XX_AGGR_BUFFER_SIZE,
-			     sizeof(struct wl18xx_event_mailbox));
+			     sizeof(struct wl18xx_event_mailbox),
+			     WL18XX_NUM_TX_DESCRIPTORS);
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
 		ret = PTR_ERR(hw);
@@ -1882,6 +2043,11 @@ static struct platform_driver wl18xx_driver = {
 module_platform_driver(wl18xx_driver);
 module_param_named(ht_mode, ht_mode_param, charp, S_IRUSR);
 MODULE_PARM_DESC(ht_mode, "Force HT mode: wide or siso20");
+
+module_param_array_named(rx_mask, rx_mask_param, int, &rx_mask_param_argc,
+			 S_IRUSR);
+MODULE_PARM_DESC(rx_mask, "Allow modifying the mcs supported rates. "
+			  "For example: rx_mask=0xff,0xff,0,0,0,0,0,0,0,0");
 
 module_param_named(board_type, board_type_param, charp, S_IRUSR);
 MODULE_PARM_DESC(board_type, "Board type: fpga, hdk (default), evb, com8 or "

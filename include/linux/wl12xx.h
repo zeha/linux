@@ -55,8 +55,14 @@ struct wl12xx_platform_data {
 	bool use_eeprom;
 	int board_ref_clock;
 	int board_tcxo_clock;
-	unsigned long platform_quirks;
+	u32 platform_quirks;
 	bool pwr_in_suspend;
+
+	/*
+	 * Note: this might not exist in older kernels.
+	 * avoid reading/writing it if not sure.
+	 */
+	int gpio;
 };
 
 /* Platform does not support level trigger interrupts */

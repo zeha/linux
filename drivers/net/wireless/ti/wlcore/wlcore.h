@@ -73,6 +73,8 @@ struct wlcore_ops {
 	void (*tx_immediate_compl)(struct wl1271 *wl);
 	int (*hw_init)(struct wl1271 *wl);
 	int (*init_vif)(struct wl1271 *wl, struct wl12xx_vif *wlvif);
+	void (*convert_fw_status)(struct wl1271 *wl, void *raw_fw_status,
+				  struct wl_fw_status *fw_status);
 	u32 (*sta_get_ap_rate_mask)(struct wl1271 *wl,
 				    struct wl12xx_vif *wlvif);
 	int (*get_pg_ver)(struct wl1271 *wl, s8 *ver);
@@ -104,8 +106,7 @@ struct wlcore_ops {
 			      struct wl12xx_vif *wlvif,
 			      struct ieee80211_channel_switch *ch_switch);
 	u32 (*pre_pkt_send)(struct wl1271 *wl, u32 buf_offset, u32 last_len);
-	void (*sta_rc_update)(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			      struct ieee80211_sta *sta, u32 changed);
+	void (*sta_rc_update)(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 	int (*set_peer_cap)(struct wl1271 *wl,
 			    struct ieee80211_sta_ht_cap *ht_cap,
 			    bool allow_ht_operation,
@@ -115,6 +116,13 @@ struct wlcore_ops {
 			      struct wl1271_link *lnk);
 	bool (*lnk_low_prio)(struct wl1271 *wl, u8 hlid,
 			     struct wl1271_link *lnk);
+	int (*interrupt_notify)(struct wl1271 *wl, bool action);
+	int (*rx_ba_filter)(struct wl1271 *wl, bool action);
+	int (*ap_sleep)(struct wl1271 *wl);
+	int (*smart_config_start)(struct wl1271 *wl, u32 group_bitmap);
+	int (*smart_config_stop)(struct wl1271 *wl);
+	int (*smart_config_set_group_key)(struct wl1271 *wl, u16 group_id,
+					  u8 key_len, u8 *key);
 };
 
 enum wlcore_partitions {
@@ -172,6 +180,14 @@ struct wl1271_stats {
 	unsigned int excessive_retries;
 };
 
+struct wlcore_aggr_reason {
+	u32 total;
+	u32 buffer_full;
+	u32 fw_buffer_full;
+	u32 other;
+	u32 no_data;
+};
+
 struct wl1271 {
 	bool initialized;
 	struct ieee80211_hw *hw;
@@ -220,7 +236,7 @@ struct wl1271 {
 	int channel;
 	u8 system_hlid;
 
-	unsigned long links_map[BITS_TO_LONGS(WL12XX_MAX_LINKS)];
+	unsigned long links_map[BITS_TO_LONGS(WLCORE_MAX_LINKS)];
 	unsigned long roles_map[BITS_TO_LONGS(WL12XX_MAX_ROLES)];
 	unsigned long roc_map[BITS_TO_LONGS(WL12XX_MAX_ROLES)];
 	unsigned long rate_policies_map[
@@ -228,7 +244,7 @@ struct wl1271 {
 	unsigned long klv_templates_map[
 			BITS_TO_LONGS(WLCORE_MAX_KLV_TEMPLATES)];
 
-	u8 session_ids[WL12XX_MAX_LINKS];
+	u8 session_ids[WLCORE_MAX_LINKS];
 
 	struct list_head wlvif_list;
 
@@ -327,6 +343,7 @@ struct wl1271 {
 	struct delayed_work scan_complete_work;
 
 	struct ieee80211_vif *roc_vif;
+	unsigned long roc_cookie;
 	struct delayed_work roc_complete_work;
 
 	struct wl12xx_vif *sched_vif;
@@ -340,14 +357,19 @@ struct wl1271 {
 	/* in dBm */
 	int power_level;
 
+#ifdef CONFIG_HAS_WAKELOCK
+	struct wake_lock wake_lock;
+	struct wake_lock rx_wake;
+	struct wake_lock recovery_wake;
+#endif
 	struct wl1271_stats stats;
 
 	__le32 *buffer_32;
 	u32 buffer_cmd;
 	u32 buffer_busyword[WL1271_BUSY_WORD_CNT];
 
-	struct wl_fw_status_1 *fw_status_1;
-	struct wl_fw_status_2 *fw_status_2;
+	void *raw_fw_status;
+	struct wl_fw_status *fw_status;
 	struct wl1271_tx_hw_res_if *tx_res_if;
 
 	/* Current chipset configuration */
@@ -376,16 +398,16 @@ struct wl1271 {
 	 * AP-mode - links indexed by HLID. The global and broadcast links
 	 * are always active.
 	 */
-	struct wl1271_link links[WL12XX_MAX_LINKS];
+	struct wl1271_link links[WLCORE_MAX_LINKS];
 
 	/* number of currently active links */
 	int active_link_count;
 
 	/* Fast/slow links bitmap according to FW */
-	u32 fw_fast_lnk_map;
+	unsigned long fw_fast_lnk_map;
 
 	/* AP-mode - a bitmap of links currently in PS mode according to FW */
-	u32 ap_fw_ps_map;
+	unsigned long ap_fw_ps_map;
 
 	/* AP-mode - a bitmap of links currently in PS mode in mac80211 */
 	unsigned long ap_ps_map;
@@ -404,6 +426,9 @@ struct wl1271 {
 
 	/* AP-mode - number of currently connected stations */
 	int active_sta_count;
+
+	/* Flag determining whether AP should broadcast OFDM-only rates */
+	bool ofdm_only_ap;
 
 	/* last wlvif we transmitted from */
 	struct wl12xx_vif *last_wlvif;
@@ -434,6 +459,10 @@ struct wl1271 {
 	u32 num_tx_desc;
 	/* number of RX descriptors the HW supports. */
 	u32 num_rx_desc;
+	/* number of links the HW supports */
+	u8 num_links;
+	/* max stations a single AP can support */
+	u8 max_ap_stations;
 
 	/* translate HW Tx rates to standard rate-indices */
 	const u8 **band_rate_to_idx;
@@ -448,10 +477,11 @@ struct wl1271 {
 	struct ieee80211_sta_ht_cap ht_cap[WLCORE_NUM_BANDS];
 
 	/* size of the private FW status data */
+	size_t fw_status_len;
 	size_t fw_status_priv_len;
 
 	/* RX Data filter rule state - enabled/disabled */
-	bool rx_filter_enabled[WL1271_MAX_RX_FILTERS];
+	unsigned long rx_filter_enabled[BITS_TO_LONGS(WL1271_MAX_RX_FILTERS)];
 
 	/* size of the private static data */
 	size_t static_data_priv_len;
@@ -476,14 +506,28 @@ struct wl1271 {
 
 	struct completion nvs_loading_complete;
 
-	/* number of concurrent channels the HW supports */
-	u32 num_channels;
+	/* interface combinations supported by the hw */
+	const struct ieee80211_iface_combination *iface_combinations;
+	u8 n_iface_combinations;
+
+	struct wlcore_aggr_reason *aggr_pkts_reason;
+	u32 aggr_pkts_reason_num;
+
+	u32 tx_completions[32];
+	u32 rx_completions[32];
+
+	u32 irq_count;
+	u32 irq_loop_count;
+
+	/* the current dfs region */
+	enum nl80211_dfs_regions dfs_region;
+	bool radar_debug_mode;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
 int wlcore_remove(struct platform_device *pdev);
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
-				     u32 mbox_size);
+				     u32 mbox_size, u32 num_tx_desc);
 int wlcore_free_hw(struct wl1271 *wl);
 int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		   struct ieee80211_vif *vif,

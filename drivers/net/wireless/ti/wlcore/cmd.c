@@ -60,8 +60,8 @@ static int __wlcore_cmd_send(struct wl1271 *wl, u16 id, void *buf,
 	u16 status;
 	u16 poll_count = 0;
 
-	if (WARN_ON(wl->state == WLCORE_STATE_RESTARTING &&
-		    id != CMD_STOP_FWLOGGER))
+	if (unlikely(wl->state == WLCORE_STATE_RESTARTING &&
+		     id != CMD_STOP_FWLOGGER))
 		return -EIO;
 
 	cmd = buf;
@@ -312,8 +312,8 @@ static int wlcore_get_new_session_id(struct wl1271 *wl, u8 hlid)
 int wl12xx_allocate_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 {
 	unsigned long flags;
-	u8 link = find_first_zero_bit(wl->links_map, WL12XX_MAX_LINKS);
-	if (link >= WL12XX_MAX_LINKS)
+	u8 link = find_first_zero_bit(wl->links_map, wl->num_links);
+	if (link >= wl->num_links)
 		return -EBUSY;
 
 	wl->session_ids[link] = wlcore_get_new_session_id(wl, link);
@@ -324,9 +324,14 @@ int wl12xx_allocate_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 	__set_bit(link, wlvif->links_map);
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
-	/* take the last "freed packets" value from the current FW status */
-	wl->links[link].prev_freed_pkts =
-			wl->fw_status_2->counters.tx_lnk_free_pkts[link];
+	/*
+	 * take the last "freed packets" value from the current FW status.
+	 * on recovery, we might not have fw_status yet, and
+	 * tx_lnk_free_pkts will be NULL. check for it.
+	 */
+	if (wl->fw_status->counters.tx_lnk_free_pkts)
+		wl->links[link].prev_freed_pkts =
+			wl->fw_status->counters.tx_lnk_free_pkts[link];
 	wl->links[link].wlvif = wlvif;
 
 	/*
@@ -367,9 +372,9 @@ void wl12xx_free_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 	wl1271_tx_reset_link_queues(wl, *hlid);
 	wl->links[*hlid].wlvif = NULL;
 
-	if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
-	    (wlvif->bss_type == BSS_TYPE_AP_BSS &&
-	     *hlid == wlvif->ap.bcast_hlid)) {
+	if (wlvif->bss_type == BSS_TYPE_AP_BSS &&
+	    *hlid == wlvif->ap.bcast_hlid) {
+		u32 sqn_padding = WL1271_TX_SQN_POST_RECOVERY_PADDING;
 		/*
 		 * save the total freed packets in the wlvif, in case this is
 		 * recovery or suspend
@@ -380,9 +385,11 @@ void wl12xx_free_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 		 * increment the initial seq number on recovery to account for
 		 * transmitted packets that we haven't yet got in the FW status
 		 */
+		if (wlvif->encryption_type == KEY_GEM)
+			sqn_padding = WL1271_TX_SQN_POST_RECOVERY_PADDING_GEM;
+
 		if (test_bit(WL1271_FLAG_RECOVERY_IN_PROGRESS, &wl->flags))
-			wlvif->total_freed_pkts +=
-					WL1271_TX_SQN_POST_RECOVERY_PADDING;
+			wlvif->total_freed_pkts += sqn_padding;
 	}
 
 	wl->links[*hlid].total_freed_pkts = 0;
@@ -1527,6 +1534,7 @@ int wl12xx_cmd_add_peer(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 	cmd->sp_len = sta->max_sp;
 	cmd->wmm = sta->wme ? 1 : 0;
 	cmd->session_id = wl->session_ids[hlid];
+	cmd->role_id = wlvif->role_id;
 
 	for (i = 0; i < NUM_ACCESS_CATEGORIES_COPY; i++)
 		if (sta->wme && (sta->uapsd_queues & BIT(i)))
@@ -1563,7 +1571,8 @@ out:
 	return ret;
 }
 
-int wl12xx_cmd_remove_peer(struct wl1271 *wl, u8 hlid)
+int wl12xx_cmd_remove_peer(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			   u8 hlid)
 {
 	struct wl12xx_cmd_remove_peer *cmd;
 	int ret;
@@ -1581,6 +1590,7 @@ int wl12xx_cmd_remove_peer(struct wl1271 *wl, u8 hlid)
 	/* We never send a deauth, mac80211 is in charge of this */
 	cmd->reason_opcode = 0;
 	cmd->send_deauth_flag = 0;
+	cmd->role_id = wlvif->role_id;
 
 	ret = wl1271_cmd_send(wl, CMD_REMOVE_PEER, cmd, sizeof(*cmd), 0);
 	if (ret < 0) {
@@ -1686,9 +1696,15 @@ int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl)
 			channel = &band->channels[i];
 			ch = channel->hw_value;
 
-			if (channel->flags & (IEEE80211_CHAN_DISABLED |
-					      IEEE80211_CHAN_RADAR |
-					      IEEE80211_CHAN_NO_IR))
+			if (channel->flags & IEEE80211_CHAN_DISABLED)
+				continue;
+
+			if ((channel->flags & IEEE80211_CHAN_NO_IR) &&
+			    !(channel->flags & IEEE80211_CHAN_RADAR))
+				continue;
+
+			if ((channel->flags & IEEE80211_CHAN_RADAR) &&
+			    channel->dfs_state != NL80211_DFS_AVAILABLE)
 				continue;
 
 			ch_bit_idx = wlcore_get_reg_conf_ch_idx(b, ch);
@@ -1713,6 +1729,7 @@ int wlcore_cmd_regdomain_config_locked(struct wl1271 *wl)
 
 	cmd->ch_bit_map1 = cpu_to_le32(tmp_ch_bitmap[0]);
 	cmd->ch_bit_map2 = cpu_to_le32(tmp_ch_bitmap[1]);
+	cmd->dfs_region = wl->dfs_region;
 
 	wl1271_debug(DEBUG_CMD,
 		     "cmd reg domain bitmap1: 0x%08x, bitmap2: 0x%08x",
@@ -2035,3 +2052,114 @@ int wl12xx_stop_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 out:
 	return ret;
 }
+
+int wlcore_set_cac(struct wl1271 *wl, struct wl12xx_vif *wlvif, bool start)
+{
+	struct wlcore_cmd_cac_start *cmd;
+	int ret = 0;
+
+	wl1271_debug(DEBUG_CMD, "cmd cac (channel %d) %s",
+		     wlvif->channel, start ? "start" : "stop");
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->role_id = wlvif->role_id;
+	cmd->channel = wlvif->channel;
+	if (wlvif->band == IEEE80211_BAND_5GHZ)
+		cmd->band = WLCORE_BAND_5GHZ;
+	/* TODO: bandwidth == channel_type? */
+	cmd->bandwidth = wlcore_get_native_channel_type(wlvif->channel_type);
+
+	ret = wl1271_cmd_send(wl, start ? CMD_CAC_START : CMD_CAC_STOP,
+			      cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to send cac command");
+		goto out_free;
+	}
+out_free:
+	kfree(cmd);
+	return ret;
+}
+
+int wlcore_radar_detection_debug(struct wl1271 *wl, u8 channel)
+{
+	struct wlcore_cmd_dfs_radar_detection_cmd *cmd;
+	int ret = 0;
+
+	wl1271_debug(DEBUG_CMD, "cmd radar detection debug (chan %d)",
+		     channel);
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->channel = channel;
+
+	ret = wl1271_cmd_send(wl, CMD_DFS_RADAR_DETECTION_DEBUG,
+			      cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to send radar detection debug command");
+		goto out_free;
+	}
+out_free:
+	kfree(cmd);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wlcore_radar_detection_debug);
+
+int wlcore_cmd_dfs_master_restart(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	struct wlcore_cmd_dfs_master_restart *cmd;
+	int ret = 0;
+
+	wl1271_debug(DEBUG_CMD, "cmd dfs master restart (role %d)",
+		     wlvif->role_id);
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->role_id = wlvif->role_id;
+
+	ret = wl1271_cmd_send(wl, CMD_DFS_MASTER_RESTART,
+			      cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to send dfs master restart command");
+		goto out_free;
+	}
+out_free:
+	kfree(cmd);
+	return ret;
+}
+
+int wlcore_cmd_generic_cfg(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+			   u8 feature, u8 enable, u8 value)
+{
+	struct wlcore_cmd_generic_cfg *cmd;
+	int ret;
+
+	wl1271_debug(DEBUG_CMD,
+		     "cmd generic cfg (role %d feature %d enable %d value %d)",
+		     wlvif->role_id, feature, enable, value);
+
+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	cmd->role_id = wlvif->role_id;
+	cmd->feature = feature;
+	cmd->enable = enable;
+	cmd->value = value;
+
+	ret = wl1271_cmd_send(wl, CMD_GENERIC_CFG, cmd, sizeof(*cmd), 0);
+	if (ret < 0) {
+		wl1271_error("failed to send generic cfg command");
+		goto out_free;
+	}
+out_free:
+	kfree(cmd);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(wlcore_cmd_generic_cfg);

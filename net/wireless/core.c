@@ -385,10 +385,14 @@ static int wiphy_verify_combinations(struct wiphy *wiphy)
 				CFG80211_MAX_NUM_DIFFERENT_CHANNELS))
 			return -EINVAL;
 
+//LXSWIREF-68
+#if 0
 		/* DFS only works on one channel. */
 		if (WARN_ON(c->radar_detect_widths &&
 			    (c->num_different_channels > 1)))
 			return -EINVAL;
+#endif
+//LXSWIREF-68
 
 		if (WARN_ON(!c->n_limits))
 			return -EINVAL;
