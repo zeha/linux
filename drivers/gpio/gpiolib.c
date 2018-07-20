@@ -800,6 +800,7 @@ static int gpio_setup_irq(struct gpio_desc *desc, struct device *dev,
 	}
 
 	desc->flags |= gpio_flags;
+	irq_set_irq_wake(irq, 1);
 	return 0;
 
 free_id:
